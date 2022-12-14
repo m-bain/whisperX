@@ -1,13 +1,13 @@
 <h1 align="center">WhisperX</h1>
 
-<p align="center">Whisper Automatic Speech Recognition with improved timestamp accuracy using forced alignment.
+<p align="center">Whisper-Based Automatic Speech Recognition with improved timestamp accuracy using forced alignment.
 
 </p>
 
 
 <h2 align="center">What is it</h2>
 
-This repository refines the timestamps of openAI's Whisper model via forced aligment with phoneme-level ASR models (e.g. wav2vec2) 
+This repository refines the timestamps of openAI's Whisper model via forced aligment with phoneme-based ASR models (e.g. wav2vec2.0) 
 
 
 **Whisper** is an Automatic Speech Recognition model [developed by OpenAI](https://github.com/openai/whisper), trained on a large dataset of diverse audio. Whilst it does produces highly accurate transcriptions, the corresponding timestamps are at the utterance-level, not per word, and can be inaccurate by several seconds.
