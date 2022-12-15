@@ -1,5 +1,6 @@
 numpy
 torch
+torchaudio
 tqdm
 more-itertools
 transformers>=4.19.0
