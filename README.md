@@ -1,11 +1,11 @@
 <h1 align="center">WhisperX</h1>
 
-<p align="center">Whisper-Based Automatic Speech Recognition with improved timestamp accuracy using forced alignment.
+<p align="left">Whisper-Based Automatic Speech Recognition with improved timestamp accuracy using forced alignment.
 
 </p>
 
 
-<h2 align="center">What is it</h2>
+<h2 align="left">What is it</h2>
 
 This repository refines the timestamps of openAI's Whisper model via forced aligment with phoneme-based ASR models (e.g. wav2vec2.0) 
 
@@ -14,14 +14,14 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 **Forced Alignment** refers to the process by which orthographic transcriptions are aligned to audio recordings to automatically generate phone level segmentation.
 
-<h2 align="center">Setup</h2>
+<h2 align="left">Setup</h2>
 Install this package using
 
 `pip install git+https://github.com/m-bain/whisperx.git`
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
-<h2 align="center">Example</h2>
+<h2 align="left">Example</h2>
 
 Run whisper on example segment (using default params)
 
@@ -29,7 +29,24 @@ Run whisper on example segment (using default params)
 
 Outputs both word-level, and phrase level.
 
-<h2 align="center">Limitations</h2>
+Expected outputs:
+
+Example:
+Using normal whisper out of the box, many transcriptions are out of sync:
+
+https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
+
+Now, using *WhisperX* with forced alignment to wav2vec2.0:
+(a) refining segment timestamps
+
+https://user-images.githubusercontent.com/36994049/207744049-5c0ec593-5c68-44de-805b-b1701d6cc968.mov
+
+(b) word-level timestamps
+
+https://user-images.githubusercontent.com/36994049/207744104-ff4faca1-1bb8-41c9-84fe-033f877e5276.mov
+
+
+<h2 align="left">Limitations</h2>
 
 - Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
 - Currently only working and tested for ENGLISH language.
