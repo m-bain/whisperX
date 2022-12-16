@@ -346,7 +346,7 @@ def cli():
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
     # alignment params
-    parser.add_argument("--align_model", default="WAV2VEC2_ASR_LARGE_LV60K_960H", choices=available_models(), help="Name of phoneme-level ASR model to do alignment")
+    parser.add_argument("--align_model", default="WAV2VEC2_ASR_LARGE_LV60K_960H", help="Name of phoneme-level ASR model to do alignment")
     parser.add_argument("--align_extend", default=1, type=float, help="Seconds before and after to extend the whisper segments for alignment")
     parser.add_argument("--align_from_prev", default=True, type=bool, help="Whether to clip the alignment start time of current segment to the end time of the last aligned word of the previous segment")
 
