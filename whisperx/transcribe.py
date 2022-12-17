@@ -284,11 +284,8 @@ def align(
 
         transcription = segment['text'].strip()
         t_words = transcription.split(' ')
-<<<<<<< HEAD
         t_words_clean = [''.join([w for w in word if w.upper() in model_dictionary.keys()]) for word in t_words]
-=======
         t_words_clean = [''.join([w for w in word if w in model_dictionary.keys()]) for word in t_words]
->>>>>>> b47bb769a071de8344f46e47c80f1ad11fa1ed4c
         t_words_nonempty = [x for x in t_words_clean if x != ""]
         t_words_nonempty_idx = [x for x in range(len(t_words_clean)) if t_words_clean[x] != ""]
         segment['word-level'] = []
