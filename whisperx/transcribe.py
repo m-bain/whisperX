@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torchaudio
 import tqdm
-import re
 from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, pad_or_trim, log_mel_spectrogram, load_audio
 from .alignment import get_trellis, backtrack, merge_repeats, merge_words
 from .decoding import DecodingOptions, DecodingResult
@@ -256,7 +255,6 @@ def align(
     device: str,
     extend_duration: float = 0.0,
     start_from_previous: bool = True,
-    resolution: str = "phrase",
 ):
     print("Performing alignment...")
     if not torch.is_tensor(audio):
@@ -286,7 +284,11 @@ def align(
 
         transcription = segment['text'].strip()
         t_words = transcription.split(' ')
+<<<<<<< HEAD
         t_words_clean = [''.join([w for w in word if w.upper() in model_dictionary.keys()]) for word in t_words]
+=======
+        t_words_clean = [''.join([w for w in word if w in model_dictionary.keys()]) for word in t_words]
+>>>>>>> b47bb769a071de8344f46e47c80f1ad11fa1ed4c
         t_words_nonempty = [x for x in t_words_clean if x != ""]
         t_words_nonempty_idx = [x for x in range(len(t_words_clean)) if t_words_clean[x] != ""]
         segment['word-level'] = []
