@@ -95,46 +95,46 @@ In a bedroom, Peter unpacks her suitcase.
 The middle-aged woman opens her green case.
 
 25
-00:00:38,095 --> 00:00:39,297
+00:00:38,135 --> 00:00:39,296
 Do you want your PJs?
 
 26
-00:00:39,862 --> 00:00:40,185
+00:00:39,879 --> 00:00:40,181
 Yeah.
 
 27
-00:00:42,394 --> 00:00:42,474
-Yeah.
+00:00:42,388 --> 00:00:43,773
+Lifting a bundle of pajamas,
 
 28
-00:00:42,474 --> 00:00:45,418
-Lifting a bundle of pajamas, Peter finds a sheet of paper
+00:00:44,073 --> 00:00:45,876
+Peter finds a sheet of paper labeled
 
 29
-00:00:45,538 --> 00:00:49,251
-labeled Lancaster North Hospital discharge sheet.
+00:00:46,338 --> 00:00:49,249
+Lancaster North Hospital discharge sheet.
 
 30
-00:00:50,293 --> 00:00:52,858
+00:00:50,291 --> 00:00:52,856
 He closes the suitcase and brings Gloria the pajamas.
 
 31
-00:00:54,187 --> 00:00:54,832
+00:00:54,186 --> 00:00:54,831
 There you go.
 
 32
-00:00:55,655 --> 00:00:55,896
+00:00:55,654 --> 00:00:55,895
 Thank you.
 
 33
-00:00:55,916 --> 00:00:56,742
+00:00:55,895 --> 00:00:56,742
 He picks up the locket.
 
 34
 00:00:57,124 --> 00:00:57,627
-He kept it.
+You kept it.
 
 35
-00:00:58,874 --> 00:00:59,899
-Oh, cool.
+00:00:58,874 --> 00:00:59,960
+Oh, of course.
 

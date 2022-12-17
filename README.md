@@ -29,11 +29,12 @@ Run whisper on example segment (using default params)
 
 `whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --align_extend 2`
 
-Outputs both word-level, and phrase level.
+If the speech is non-english, select an alternative ASR phoneme model from this list https://pytorch.org/audio/stable/pipelines.html#id14
 
-Expected outputs:
 
-Example:
+
+### Qualitative Results:
+
 Using normal whisper out of the box, many transcriptions are out of sync:
 
 https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
@@ -51,10 +52,10 @@ https://user-images.githubusercontent.com/36994049/207744104-ff4faca1-1bb8-41c9-
 
 <h2 align="left">Limitations ⚠️</h2>
 
-- Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
-- Currently only working and tested for ENGLISH language.
+- Currently only tested for ENGLISH language. Check 
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
 - Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
+- Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
 
 <h2 align="left">Coming Soon 🗓</h2>
 
