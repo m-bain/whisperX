@@ -1,4 +1,5 @@
 <h1 align="center">WhisperX</h1>
+<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com/">https://www.maxbain.com/</a></h6>
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
 
@@ -29,7 +30,7 @@ Run whisper on example segment (using default params)
 
 `whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --align_extend 2`
 
-If the speech is non-english, select an alternative ASR phoneme model from this list https://pytorch.org/audio/stable/pipelines.html#id14
+If the speech is non-english, select model from this [list](https://pytorch.org/audio/stable/pipelines.html#id14) that has been trained on desired language.
 
 
 
@@ -41,23 +42,21 @@ https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-
 
 Now, using *WhisperX* with forced alignment to wav2vec2.0:
 
-(a) refining segment timestamps
-
-https://user-images.githubusercontent.com/36994049/207744049-5c0ec593-5c68-44de-805b-b1701d6cc968.mov
-
-(b) word-level timestamps
-
-https://user-images.githubusercontent.com/36994049/207744104-ff4faca1-1bb8-41c9-84fe-033f877e5276.mov
+https://user-images.githubusercontent.com/36994049/208253969-7e35fe2a-7541-434a-ae91-8e919540555d.mp4
 
 
 <h2 align="left">Limitations ⚠️</h2>
 
-- Currently only tested for ENGLISH language. Check 
+- Currently only tested for _english_ language, results may vary with different languages.
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
 - Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
 - Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
 
 <h2 align="left">Coming Soon 🗓</h2>
+
+[x] Multilingual init
+
+[x] Subtitle .ass output
 
 [ ] Incorporating word-level speaker diarization
 
@@ -65,7 +64,7 @@ https://user-images.githubusercontent.com/36994049/207744104-ff4faca1-1bb8-41c9-
 
 <h2 align="left">Contact</h2>
 
-Contact maxbain[at]robots.ox.ac.uk non-bug related queries.
+Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk if using this for commerical purposes.
 
 <h2 align="left">Acknowledgements 🙏</h2>
 
