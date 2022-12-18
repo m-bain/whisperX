@@ -24,17 +24,14 @@ Install this package using
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
-<h2 align="left">Example</h2>
+<h2 align="left">Examples💬</h2>
 
+### English
 Run whisper on example segment (using default params)
 
 `whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --align_extend 2`
 
-If the speech is non-english, select model from this [list](https://pytorch.org/audio/stable/pipelines.html#id14) that has been trained on desired language.
-
-
-
-### Qualitative Results:
+If low gpu memory is required, use a smaller align model e.g. `WAV2VEC2_ASR_BASE_LV60K_960H`
 
 Using normal whisper out of the box, many transcriptions are out of sync:
 
@@ -43,6 +40,21 @@ https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-
 Now, using *WhisperX* with forced alignment to wav2vec2.0:
 
 https://user-images.githubusercontent.com/36994049/208253969-7e35fe2a-7541-434a-ae91-8e919540555d.mp4
+
+
+## Other Languages
+
+For non-english ASR, it is best to use the `large` whisper model.
+
+### French
+`whisperx --model large --language fr examples/sample_fr_01.wav --align_model VOXPOPULI_ASR_BASE_10K_FR --output_dir examples/whisperx/ --align_extend 2`
+
+
+### German
+`whisperx --model large --language de examples/sample_de_01.wav --align_model VOXPOPULI_ASR_BASE_10K_DE --output_dir examples/whisperx/ --align_extend 2`
+
+### Italian
+`whisperx --model large --language it examples/sample_it_01.wav --align_model VOXPOPULI_ASR_BASE_10K_IT --output_dir examples/whisperx/ --align_extend 2`
 
 
 <h2 align="left">Limitations ⚠️</h2>
@@ -57,6 +69,10 @@ https://user-images.githubusercontent.com/36994049/208253969-7e35fe2a-7541-434a-
 [x] Multilingual init
 
 [x] Subtitle .ass output
+
+[ ] Automatic align model selection based on language detection
+
+[ ] Reduce GPU (clear cache etc.)
 
 [ ] Incorporating word-level speaker diarization
 

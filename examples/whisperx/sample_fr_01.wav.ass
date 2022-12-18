@@ -1,0 +1,206 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 384
+PlayResY: 288
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,24,&Hffffff,&Hffffff,&H0,&H0,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,0
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+
+Dialogue: 0,0:00:0.77,0:00:1.07,Default,,0,0,0,,{\1c&HFF00&\u1}Lâchez,{\r} c'est bon.
+Dialogue: 0,0:00:1.07,0:00:1.11,Default,,0,0,0,,Lâchez, c'est bon.
+Dialogue: 0,0:00:1.11,0:00:1.21,Default,,0,0,0,,Lâchez, {\1c&HFF00&\u1}c'est{\r} bon.
+Dialogue: 0,0:00:1.21,0:00:1.23,Default,,0,0,0,,Lâchez, c'est bon.
+Dialogue: 0,0:00:1.23,0:00:1.31,Default,,0,0,0,,Lâchez, c'est {\1c&HFF00&\u1}bon.{\r}
+Dialogue: 0,0:00:1.31,0:00:1.83,Default,,0,0,0,,{\1c&HFF00&\u1}Ça{\r} va?
+Dialogue: 0,0:00:1.83,0:00:1.87,Default,,0,0,0,,Ça va?
+Dialogue: 0,0:00:1.87,0:00:1.93,Default,,0,0,0,,Ça {\1c&HFF00&\u1}va?{\r}
+Dialogue: 0,0:00:1.97,0:00:2.03,Default,,0,0,0,,{\1c&HFF00&\u1}Oui.{\r}
+Dialogue: 0,0:00:2.96,0:00:3.29,Default,,0,0,0,,{\1c&HFF00&\u1}Merci{\r} beaucoup.
+Dialogue: 0,0:00:3.29,0:00:3.31,Default,,0,0,0,,Merci beaucoup.
+Dialogue: 0,0:00:3.31,0:00:3.51,Default,,0,0,0,,Merci {\1c&HFF00&\u1}beaucoup.{\r}
+Dialogue: 0,0:00:4.35,0:00:4.53,Default,,0,0,0,,{\1c&HFF00&\u1}Chèque{\r} ou espèce?
+Dialogue: 0,0:00:4.53,0:00:4.63,Default,,0,0,0,,Chèque ou espèce?
+Dialogue: 0,0:00:4.63,0:00:4.71,Default,,0,0,0,,Chèque {\1c&HFF00&\u1}ou{\r} espèce?
+Dialogue: 0,0:00:4.71,0:00:4.77,Default,,0,0,0,,Chèque ou espèce?
+Dialogue: 0,0:00:4.77,0:00:5.03,Default,,0,0,0,,Chèque ou {\1c&HFF00&\u1}espèce?{\r}
+Dialogue: 0,0:00:6.54,0:00:7.00,Default,,0,0,0,,{\1c&HFF00&\u1}J'ai{\r} un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.00,0:00:7.02,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.02,0:00:7.08,Default,,0,0,0,,J'ai {\1c&HFF00&\u1}un{\r} chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.08,0:00:7.12,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.12,0:00:7.34,Default,,0,0,0,,J'ai un {\1c&HFF00&\u1}chèque{\r} sur la commode, il est signé.
+Dialogue: 0,0:00:7.34,0:00:7.36,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.36,0:00:7.48,Default,,0,0,0,,J'ai un chèque {\1c&HFF00&\u1}sur{\r} la commode, il est signé.
+Dialogue: 0,0:00:7.48,0:00:7.52,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.52,0:00:7.58,Default,,0,0,0,,J'ai un chèque sur {\1c&HFF00&\u1}la{\r} commode, il est signé.
+Dialogue: 0,0:00:7.58,0:00:7.62,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.62,0:00:7.90,Default,,0,0,0,,J'ai un chèque sur la {\1c&HFF00&\u1}commode,{\r} il est signé.
+Dialogue: 0,0:00:7.90,0:00:7.98,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:7.98,0:00:8.04,Default,,0,0,0,,J'ai un chèque sur la commode, {\1c&HFF00&\u1}il{\r} est signé.
+Dialogue: 0,0:00:8.04,0:00:8.08,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:8.08,0:00:8.18,Default,,0,0,0,,J'ai un chèque sur la commode, il {\1c&HFF00&\u1}est{\r} signé.
+Dialogue: 0,0:00:8.18,0:00:8.22,Default,,0,0,0,,J'ai un chèque sur la commode, il est signé.
+Dialogue: 0,0:00:8.22,0:00:8.38,Default,,0,0,0,,J'ai un chèque sur la commode, il est {\1c&HFF00&\u1}signé.{\r}
+Dialogue: 0,0:00:8.38,0:00:8.50,Default,,0,0,0,,{\1c&HFF00&\u1}Je{\r} vais le repirer.
+Dialogue: 0,0:00:8.50,0:00:8.52,Default,,0,0,0,,Je vais le repirer.
+Dialogue: 0,0:00:8.52,0:00:8.82,Default,,0,0,0,,Je {\1c&HFF00&\u1}vais{\r} le repirer.
+Dialogue: 0,0:00:8.82,0:00:8.84,Default,,0,0,0,,Je vais le repirer.
+Dialogue: 0,0:00:8.84,0:00:8.92,Default,,0,0,0,,Je vais {\1c&HFF00&\u1}le{\r} repirer.
+Dialogue: 0,0:00:8.92,0:00:8.96,Default,,0,0,0,,Je vais le repirer.
+Dialogue: 0,0:00:8.96,0:00:9.19,Default,,0,0,0,,Je vais le {\1c&HFF00&\u1}repirer.{\r}
+Dialogue: 0,0:00:9.21,0:00:9.25,Default,,0,0,0,,{\1c&HFF00&\u1}Ok.{\r}
+Dialogue: 0,0:00:9.66,0:00:9.72,Default,,0,0,0,,{\1c&HFF00&\u1}Ouh{\r} là!
+Dialogue: 0,0:00:9.72,0:00:9.74,Default,,0,0,0,,Ouh là!
+Dialogue: 0,0:00:9.74,0:00:9.78,Default,,0,0,0,,Ouh {\1c&HFF00&\u1}là!{\r}
+Dialogue: 0,0:00:10.64,0:00:10.76,Default,,0,0,0,,{\1c&HFF00&\u1}Venez.{\r}
+Dialogue: 0,0:00:11.96,0:00:12.45,Default,,0,0,0,,{\1c&HFF00&\u1}Merci.{\r}
+Dialogue: 0,0:00:12.66,0:00:13.95,Default,,0,0,0,,{\1c&HFF00&\u1}Ah!{\r} C'est qui?
+Dialogue: 0,0:00:13.95,0:00:13.97,Default,,0,0,0,,Ah! C'est qui?
+Dialogue: 0,0:00:13.97,0:00:14.09,Default,,0,0,0,,Ah! {\1c&HFF00&\u1}C'est{\r} qui?
+Dialogue: 0,0:00:14.09,0:00:14.11,Default,,0,0,0,,Ah! C'est qui?
+Dialogue: 0,0:00:14.11,0:00:14.19,Default,,0,0,0,,Ah! C'est {\1c&HFF00&\u1}qui?{\r}
+Dialogue: 0,0:00:14.19,0:00:14.59,Default,,0,0,0,,{\1c&HFF00&\u1}C'est{\r} pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:14.59,0:00:14.61,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:14.61,0:00:16.29,Default,,0,0,0,,C'est {\1c&HFF00&\u1}pas{\r} vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:16.29,0:00:16.33,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:16.33,0:00:16.49,Default,,0,0,0,,C'est pas {\1c&HFF00&\u1}vrai,{\r} qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:16.49,0:00:16.51,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:16.51,0:00:20.92,Default,,0,0,0,,C'est pas vrai, {\1c&HFF00&\u1}qu'est-ce{\r} qu'il fout ici, ce con?
+Dialogue: 0,0:00:20.92,0:00:20.94,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:20.94,0:00:21.10,Default,,0,0,0,,C'est pas vrai, qu'est-ce {\1c&HFF00&\u1}qu'il{\r} fout ici, ce con?
+Dialogue: 0,0:00:21.10,0:00:21.14,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:21.14,0:00:21.36,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il {\1c&HFF00&\u1}fout{\r} ici, ce con?
+Dialogue: 0,0:00:21.36,0:00:21.68,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:21.68,0:00:22.30,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout {\1c&HFF00&\u1}ici,{\r} ce con?
+Dialogue: 0,0:00:22.30,0:00:22.32,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:22.32,0:00:22.42,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, {\1c&HFF00&\u1}ce{\r} con?
+Dialogue: 0,0:00:22.42,0:00:22.44,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce con?
+Dialogue: 0,0:00:22.44,0:00:22.50,Default,,0,0,0,,C'est pas vrai, qu'est-ce qu'il fout ici, ce {\1c&HFF00&\u1}con?{\r}
+Dialogue: 0,0:00:22.90,0:00:23.50,Default,,0,0,0,,{\1c&HFF00&\u1}Excusez-moi,{\r} mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:23.50,0:00:23.52,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:23.52,0:00:25.05,Default,,0,0,0,,Excusez-moi, {\1c&HFF00&\u1}mais{\r} je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.05,0:00:25.07,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.07,0:00:25.13,Default,,0,0,0,,Excusez-moi, mais {\1c&HFF00&\u1}je{\r} crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.13,0:00:25.15,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.15,0:00:25.27,Default,,0,0,0,,Excusez-moi, mais je {\1c&HFF00&\u1}crois{\r} que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.27,0:00:25.29,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.29,0:00:25.35,Default,,0,0,0,,Excusez-moi, mais je crois {\1c&HFF00&\u1}que{\r} j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.35,0:00:25.37,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.37,0:00:25.43,Default,,0,0,0,,Excusez-moi, mais je crois que {\1c&HFF00&\u1}j'ai{\r} oublié mon sac chez vous.
+Dialogue: 0,0:00:25.43,0:00:25.45,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.45,0:00:25.59,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai {\1c&HFF00&\u1}oublié{\r} mon sac chez vous.
+Dialogue: 0,0:00:25.59,0:00:25.61,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.61,0:00:25.77,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié {\1c&HFF00&\u1}mon{\r} sac chez vous.
+Dialogue: 0,0:00:25.77,0:00:25.79,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.79,0:00:25.95,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon {\1c&HFF00&\u1}sac{\r} chez vous.
+Dialogue: 0,0:00:25.95,0:00:25.97,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:25.97,0:00:26.05,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac {\1c&HFF00&\u1}chez{\r} vous.
+Dialogue: 0,0:00:26.05,0:00:26.07,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez vous.
+Dialogue: 0,0:00:26.07,0:00:26.19,Default,,0,0,0,,Excusez-moi, mais je crois que j'ai oublié mon sac chez {\1c&HFF00&\u1}vous.{\r}
+Dialogue: 0,0:00:26.19,0:00:26.33,Default,,0,0,0,,{\1c&HFF00&\u1}Ça{\r} va?
+Dialogue: 0,0:00:26.33,0:00:26.41,Default,,0,0,0,,Ça va?
+Dialogue: 0,0:00:26.41,0:00:26.45,Default,,0,0,0,,Ça {\1c&HFF00&\u1}va?{\r}
+Dialogue: 0,0:00:27.55,0:00:27.67,Default,,0,0,0,,{\1c&HFF00&\u1}Ça{\r} va?
+Dialogue: 0,0:00:27.67,0:00:27.69,Default,,0,0,0,,Ça va?
+Dialogue: 0,0:00:27.69,0:00:27.73,Default,,0,0,0,,Ça {\1c&HFF00&\u1}va?{\r}
+Dialogue: 0,0:00:33.68,0:00:33.84,Default,,0,0,0,,{\1c&HFF00&\u1}Attendez.{\r}
+Dialogue: 0,0:00:36.80,0:00:36.97,Default,,0,0,0,,{\1c&HFF00&\u1}Tout{\r} à l'heure, là, c'était vous.
+Dialogue: 0,0:00:36.97,0:00:37.01,Default,,0,0,0,,Tout à l'heure, là, c'était vous.
+Dialogue: 0,0:00:37.01,0:00:37.05,Default,,0,0,0,,Tout {\1c&HFF00&\u1}à{\r} l'heure, là, c'était vous.
+Dialogue: 0,0:00:37.05,0:00:37.09,Default,,0,0,0,,Tout à l'heure, là, c'était vous.
+Dialogue: 0,0:00:37.09,0:00:37.35,Default,,0,0,0,,Tout à {\1c&HFF00&\u1}l'heure,{\r} là, c'était vous.
+Dialogue: 0,0:00:37.35,0:00:37.39,Default,,0,0,0,,Tout à l'heure, là, c'était vous.
+Dialogue: 0,0:00:37.39,0:00:37.97,Default,,0,0,0,,Tout à l'heure, {\1c&HFF00&\u1}là,{\r} c'était vous.
+Dialogue: 0,0:00:37.97,0:00:38.01,Default,,0,0,0,,Tout à l'heure, là, c'était vous.
+Dialogue: 0,0:00:38.01,0:00:39.07,Default,,0,0,0,,Tout à l'heure, là, {\1c&HFF00&\u1}c'était{\r} vous.
+Dialogue: 0,0:00:39.07,0:00:39.11,Default,,0,0,0,,Tout à l'heure, là, c'était vous.
+Dialogue: 0,0:00:39.11,0:00:39.21,Default,,0,0,0,,Tout à l'heure, là, c'était {\1c&HFF00&\u1}vous.{\r}
+Dialogue: 0,0:00:40.95,0:00:41.03,Default,,0,0,0,,{\1c&HFF00&\u1}Vous,{\r} pas... pas lui. Vous...
+Dialogue: 0,0:00:41.03,0:00:41.07,Default,,0,0,0,,Vous, pas... pas lui. Vous...
+Dialogue: 0,0:00:41.07,0:00:41.15,Default,,0,0,0,,Vous, {\1c&HFF00&\u1}pas...{\r} pas lui. Vous...
+Dialogue: 0,0:00:41.15,0:00:41.17,Default,,0,0,0,,Vous, pas... pas lui. Vous...
+Dialogue: 0,0:00:41.17,0:00:41.27,Default,,0,0,0,,Vous, pas... {\1c&HFF00&\u1}pas{\r} lui. Vous...
+Dialogue: 0,0:00:41.27,0:00:41.29,Default,,0,0,0,,Vous, pas... pas lui. Vous...
+Dialogue: 0,0:00:41.29,0:00:41.39,Default,,0,0,0,,Vous, pas... pas {\1c&HFF00&\u1}lui.{\r} Vous...
+Dialogue: 0,0:00:41.39,0:00:41.43,Default,,0,0,0,,Vous, pas... pas lui. Vous...
+Dialogue: 0,0:00:41.43,0:00:41.51,Default,,0,0,0,,Vous, pas... pas lui. {\1c&HFF00&\u1}Vous...{\r}
+Dialogue: 0,0:00:44.19,0:00:44.35,Default,,0,0,0,,{\1c&HFF00&\u1}Vous{\r} avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.35,0:00:44.39,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.39,0:00:44.59,Default,,0,0,0,,Vous {\1c&HFF00&\u1}avez{\r} tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.59,0:00:44.63,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.63,0:00:44.79,Default,,0,0,0,,Vous avez {\1c&HFF00&\u1}tout{\r} à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.79,0:00:44.81,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.81,0:00:44.83,Default,,0,0,0,,Vous avez tout {\1c&HFF00&\u1}à{\r} faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.83,0:00:44.87,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:44.87,0:00:45.03,Default,,0,0,0,,Vous avez tout à {\1c&HFF00&\u1}faire{\r} raison, M. Xanaquis.
+Dialogue: 0,0:00:45.03,0:00:45.05,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:45.05,0:00:45.37,Default,,0,0,0,,Vous avez tout à faire {\1c&HFF00&\u1}raison,{\r} M. Xanaquis.
+Dialogue: 0,0:00:45.37,0:00:45.39,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:45.39,0:00:45.61,Default,,0,0,0,,Vous avez tout à faire raison, {\1c&HFF00&\u1}M.{\r} Xanaquis.
+Dialogue: 0,0:00:45.61,0:00:45.66,Default,,0,0,0,,Vous avez tout à faire raison, M. Xanaquis.
+Dialogue: 0,0:00:45.66,0:00:46.12,Default,,0,0,0,,Vous avez tout à faire raison, M. {\1c&HFF00&\u1}Xanaquis.{\r}
+Dialogue: 0,0:00:46.14,0:00:46.50,Default,,0,0,0,,{\1c&HFF00&\u1}Ah{\r} oui?
+Dialogue: 0,0:00:46.50,0:00:46.54,Default,,0,0,0,,Ah oui?
+Dialogue: 0,0:00:46.54,0:00:46.60,Default,,0,0,0,,Ah {\1c&HFF00&\u1}oui?{\r}
+Dialogue: 0,0:00:46.81,0:00:47.13,Default,,0,0,0,,{\1c&HFF00&\u1}Malek{\r} est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.13,0:00:47.15,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.15,0:00:47.27,Default,,0,0,0,,Malek {\1c&HFF00&\u1}est{\r} à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.27,0:00:47.31,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.31,0:00:47.37,Default,,0,0,0,,Malek est {\1c&HFF00&\u1}à{\r} l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.37,0:00:47.39,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.39,0:00:47.75,Default,,0,0,0,,Malek est à {\1c&HFF00&\u1}l'interne{\r} brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.75,0:00:47.79,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:47.79,0:00:48.07,Default,,0,0,0,,Malek est à l'interne {\1c&HFF00&\u1}brillant,{\r} qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.07,0:00:48.09,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.09,0:00:48.19,Default,,0,0,0,,Malek est à l'interne brillant, {\1c&HFF00&\u1}qui{\r} apprend le métier avec moi.
+Dialogue: 0,0:00:48.19,0:00:48.23,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.23,0:00:48.41,Default,,0,0,0,,Malek est à l'interne brillant, qui {\1c&HFF00&\u1}apprend{\r} le métier avec moi.
+Dialogue: 0,0:00:48.41,0:00:48.45,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.45,0:00:48.49,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend {\1c&HFF00&\u1}le{\r} métier avec moi.
+Dialogue: 0,0:00:48.49,0:00:48.53,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.53,0:00:48.75,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le {\1c&HFF00&\u1}métier{\r} avec moi.
+Dialogue: 0,0:00:48.75,0:00:48.77,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:48.77,0:00:48.97,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier {\1c&HFF00&\u1}avec{\r} moi.
+Dialogue: 0,0:00:48.97,0:00:49.01,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec moi.
+Dialogue: 0,0:00:49.01,0:00:49.09,Default,,0,0,0,,Malek est à l'interne brillant, qui apprend le métier avec {\1c&HFF00&\u1}moi.{\r}
+Dialogue: 0,0:00:49.13,0:00:49.19,Default,,0,0,0,,{\1c&HFF00&\u1}Ah!{\r}
+Dialogue: 0,0:00:50.64,0:00:50.76,Default,,0,0,0,,{\1c&HFF00&\u1}Bien.{\r}
+Dialogue: 0,0:00:52.93,0:00:53.33,Default,,0,0,0,,{\1c&HFF00&\u1}Justement,{\r} y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.33,0:00:53.35,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.35,0:00:53.37,Default,,0,0,0,,Justement, {\1c&HFF00&\u1}y{\r} a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.37,0:00:53.39,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.39,0:00:53.41,Default,,0,0,0,,Justement, y {\1c&HFF00&\u1}a{\r} la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.41,0:00:53.43,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.43,0:00:53.49,Default,,0,0,0,,Justement, y a {\1c&HFF00&\u1}la{\r} famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.49,0:00:53.53,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.53,0:00:53.85,Default,,0,0,0,,Justement, y a la {\1c&HFF00&\u1}famille{\r} Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.85,0:00:53.89,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:53.89,0:00:54.15,Default,,0,0,0,,Justement, y a la famille {\1c&HFF00&\u1}Boboune{\r} qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.15,0:00:54.17,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.17,0:00:54.27,Default,,0,0,0,,Justement, y a la famille Boboune {\1c&HFF00&\u1}qui{\r} m'attend pour une consultation.
+Dialogue: 0,0:00:54.27,0:00:54.29,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.29,0:00:54.51,Default,,0,0,0,,Justement, y a la famille Boboune qui {\1c&HFF00&\u1}m'attend{\r} pour une consultation.
+Dialogue: 0,0:00:54.51,0:00:54.53,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.53,0:00:54.65,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend {\1c&HFF00&\u1}pour{\r} une consultation.
+Dialogue: 0,0:00:54.65,0:00:54.67,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.67,0:00:54.89,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour {\1c&HFF00&\u1}une{\r} consultation.
+Dialogue: 0,0:00:54.89,0:00:54.93,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une consultation.
+Dialogue: 0,0:00:54.93,0:00:55.33,Default,,0,0,0,,Justement, y a la famille Boboune qui m'attend pour une {\1c&HFF00&\u1}consultation.{\r}
+Dialogue: 0,0:00:55.58,0:00:55.64,Default,,0,0,0,,{\1c&HFF00&\u1}Qui?{\r}
+Dialogue: 0,0:00:56.02,0:00:56.48,Default,,0,0,0,,{\1c&HFF00&\u1}Ne{\r} faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:56.48,0:00:56.52,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:56.52,0:00:56.78,Default,,0,0,0,,Ne {\1c&HFF00&\u1}faisons{\r} pas attendre les baubounes, allez!
+Dialogue: 0,0:00:56.78,0:00:56.82,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:56.82,0:00:56.90,Default,,0,0,0,,Ne faisons {\1c&HFF00&\u1}pas{\r} attendre les baubounes, allez!
+Dialogue: 0,0:00:56.90,0:00:56.92,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:56.92,0:00:57.17,Default,,0,0,0,,Ne faisons pas {\1c&HFF00&\u1}attendre{\r} les baubounes, allez!
+Dialogue: 0,0:00:57.17,0:00:57.19,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:57.19,0:00:57.25,Default,,0,0,0,,Ne faisons pas attendre {\1c&HFF00&\u1}les{\r} baubounes, allez!
+Dialogue: 0,0:00:57.25,0:00:57.27,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:57.27,0:00:57.59,Default,,0,0,0,,Ne faisons pas attendre les {\1c&HFF00&\u1}baubounes,{\r} allez!
+Dialogue: 0,0:00:57.59,0:00:57.61,Default,,0,0,0,,Ne faisons pas attendre les baubounes, allez!
+Dialogue: 0,0:00:57.61,0:00:57.77,Default,,0,0,0,,Ne faisons pas attendre les baubounes, {\1c&HFF00&\u1}allez!{\r}
