@@ -75,7 +75,7 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
 
 <h2 align="left">Limitations ⚠️</h2>
 
-- Currently only tested for _english_ language, results may vary with different languages.
+- Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know its results on your data
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
 - Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
 - Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
