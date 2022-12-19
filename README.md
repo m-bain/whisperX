@@ -34,7 +34,7 @@ Run whisper on example segment (using default params)
 
 `whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --align_extend 2`
 
-If low gpu memory is required, use a smaller align model e.g. `WAV2VEC2_ASR_BASE_LV60K_960H`
+If low gpu memory is required, use a smaller align model e.g. `WAV2VEC2_ASR_BASE_960H`
 
 Using normal whisper out of the box, many transcriptions are out of sync:
 
