@@ -1,5 +1,24 @@
 <h1 align="center">WhisperX</h1>
-<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com/">https://www.maxbain.com/</a></h6>
+<p align="center">
+  <a href="https://github.com/m-bain/whisperX/stargazers">
+    <img src="https://img.shields.io/github/stars/m-bain/whisperX.svg?colorA=orange&colorB=orange&logo=github"
+         alt="GitHub stars">
+  </a>
+  <a href="https://github.com/hanxiao/bert-as-service/issues">
+        <img src="https://img.shields.io/github/issues/hanxiao/bert-as-service.svg"
+             alt="GitHub issues">
+  </a>
+  <a href="https://github.com/m-bain/whisperX/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/m-bain/whisperX.svg"
+             alt="GitHub license">
+  </a>
+  <a href="https://twitter.com/intent/tweet?text=&url=https%3A%2F%2Fgithub.com%2Fm-bain%2FwhisperX">
+  <img src="https://img.shields.io/twitter/url/https/github.com/m-bain/whisperX.svg?style=social" alt="Twitter">
+  </a>      
+</p>
+
+
+<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
 
@@ -28,22 +47,22 @@ Install this package using
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
 <h2 align="left">Examples💬</h2>
-
 ### English
 Run whisper on example segment (using default params)
 
-`whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --align_extend 2`
+`whisperx examples/sample01.wav --model medium.en --output examples/whisperx --align_model WAV2VEC2_ASR_BASE_960H --align_extend 2`
 
-If low gpu memory is required, use a smaller align model e.g. `WAV2VEC2_ASR_BASE_LV60K_960H`
+For increased timestamp accuracy, at the cost of higher gpu mem, use a bigger alignment model e.g.
 
-Using normal whisper out of the box, many transcriptions are out of sync:
+`WAV2VEC2_ASR_LARGE_LV60K_960H` or `HUBERT_ASR_XLARGE`
 
-https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
-
-Now, using *WhisperX* with forced alignment to wav2vec2.0:
+Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
 https://user-images.githubusercontent.com/36994049/208253969-7e35fe2a-7541-434a-ae91-8e919540555d.mp4
 
+Compare this to original whisper out the box, where many transcriptions are out of sync:
+
+https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
 
 ## Other Languages
 
@@ -78,7 +97,7 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
 
 <h2 align="left">Limitations ⚠️</h2>
 
-- Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know its results on your data
+- Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know the results on your data
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
 - Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
 - Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
@@ -91,7 +110,7 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
 
 [ ] Automatic align model selection based on language detection
 
-[ ] Reduce GPU (clear cache etc.)
+[ ] Option to minimise gpu load (chunk wav2vec)
 
 [ ] Incorporating word-level speaker diarization
 
@@ -99,7 +118,7 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
 
 <h2 align="left">Contact</h2>
 
-Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk if using this for commerical purposes.
+Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk if using this commerically.
 
 
 <h2 align="left">Acknowledgements 🙏</h2>
