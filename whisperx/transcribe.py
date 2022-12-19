@@ -26,7 +26,7 @@ def transcribe(
     compression_ratio_threshold: Optional[float] = 2.4,
     logprob_threshold: Optional[float] = -1.0,
     no_speech_threshold: Optional[float] = 0.6,
-    condition_on_previous_text: bool = True,
+    condition_on_previous_text: bool = False, # turn off by default due to errors it causes
     **decode_options,
 ):
     """
