@@ -1,21 +1,18 @@
 import argparse
 import os
 import warnings
-from typing import TYPE_CHECKING, Iterator, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
 
 import numpy as np
 import torch
 import torchaudio
-import tqdm
 from transformers import AutoProcessor, Wav2Vec2ForCTC
-
-from .alignment import backtrack, get_trellis, merge_repeats, merge_words
-from .audio import (HOP_LENGTH, N_FRAMES, SAMPLE_RATE, load_audio,
-                    log_mel_spectrogram, pad_or_trim)
+import tqdm
+from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, pad_or_trim, log_mel_spectrogram, load_audio
+from .alignment import get_trellis, backtrack, merge_repeats, merge_words
 from .decoding import DecodingOptions, DecodingResult
 from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
-from .utils import (exact_div, format_timestamp, optional_float, optional_int,
-                    str2bool, write_ass, write_srt, write_txt, write_vtt)
+from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, write_txt, write_vtt, write_srt, write_ass
 
 if TYPE_CHECKING:
     from .model import Whisper
