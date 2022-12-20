@@ -122,8 +122,7 @@ https://user-images.githubusercontent.com/19920981/208731743-311f2360-b73b-4c60-
 
 [x] Subtitle .ass output
 
-[ ] Automatic align model selection based on language detection
-
+[x] Automatic align model selection based on language detection
 
 [ ] Incorporating word-level speaker diarization
 
