@@ -78,6 +78,11 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
 `whisperx --model large --language ja examples/sample_ja_01.mp3  --align_model wav2vec2-large-xlsr-53-japanese--output_dir examples/whisperx --align_extend 2`
 
 
+
+
+https://user-images.githubusercontent.com/19920981/208448405-60f80c0e-2715-42d8-9437-e19e6362b638.mov
+
+
 <h2 align="left">Limitations ⚠️</h2>
 
 - Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know its results on your data
