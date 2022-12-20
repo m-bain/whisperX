@@ -105,7 +105,9 @@ https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-
     whisperx --model large --language ja examples/sample_ja_01.wav  --align_model jonatasgrosman/wav2vec2-large-xlsr-53-japanese --output_dir examples/whisperx --align_extend 2
 
 
-https://user-images.githubusercontent.com/19920981/208448405-60f80c0e-2715-42d8-9437-e19e6362b638.mov
+
+https://user-images.githubusercontent.com/19920981/208731743-311f2360-b73b-4c60-809d-aaf3cd7e06f4.mov
+
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
