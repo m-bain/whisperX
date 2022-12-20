@@ -75,7 +75,12 @@ https://user-images.githubusercontent.com/36994049/208298811-e36002ba-3698-4731-
 https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-b8e1-90855794efc7.mov
 
 ### Japanese
-`whisperx --model large --language ja examples/sample_ja_01.mp3  --align_model wav2vec2-large-xlsr-53-japanese--output_dir examples/whisperx --align_extend 2`
+`whisperx --model large --language ja examples/sample_ja_01.mp3  --align_model wav2vec2-large-xlsr-53-japanese --output_dir examples/whisperx --align_extend 2`
+
+
+
+
+https://user-images.githubusercontent.com/19920981/208448405-60f80c0e-2715-42d8-9437-e19e6362b638.mov
 
 
 
