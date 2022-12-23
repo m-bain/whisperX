@@ -1,4 +1,5 @@
 <h1 align="center">WhisperX</h1>
+
 <p align="center">
   <a href="https://github.com/m-bain/whisperX/stargazers">
     <img src="https://img.shields.io/github/stars/m-bain/whisperX.svg?colorA=orange&colorB=orange&logo=github"
@@ -20,14 +21,18 @@
 <p align="center">
   <a href="#what-is-it">What is it</a> •
   <a href="#setup">Setup</a> •
-  <a href="#example">Example usage</a>
+  <a href="#example">Usage</a> •
+  <a href="#other-languages">Multilingual</a> •
+  <a href="#python-usage">Python</a> •
+  <a href="#contribute">Contribute</a> •
+  <a href="EXAMPLES.md">More examples</a>
 </p>
+
+<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
 <img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/208313881-903ab3ea-4932-45fd-b3dc-70876cddaaa2.png">
 
 
-
-<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
 
@@ -52,7 +57,7 @@ Install this package using
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
-<h2 align="left" id="example">Example usage💬</h2>
+<h2 align="left" id="example">Usage 💬 (command line)</h2>
 
 ### English
 
@@ -61,9 +66,9 @@ Run whisper on example segment (using default params)
     whisperx examples/sample01.wav
 
 
-For increased timestamp accuracy, at the cost of higher gpu mem, use a bigger alignment model e.g.
+For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models e.g.
 
-    whisperx examples/sample01.wav --model medium.en --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --output_dir examples/whisperx
+    whisperx examples/sample01.wav --model large.en --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
@@ -73,41 +78,42 @@ Compare this to original whisper out the box, where many transcriptions are out 
 
 https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
 
-## Other Languages
+### Other languages
 
-For non-english ASR, it is best to use the `large` whisper model.
+The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
+Just pass in the `--language` code, and use the whisper `--model large`.
 
-### French
-    whisperx examples/sample_fr_01.wav --model large --language fr --align_model VOXPOPULI_ASR_BASE_10K_FR --output_dir examples/whisperx
-
-
-https://user-images.githubusercontent.com/36994049/208298804-31c49d6f-6787-444e-a53f-e93c52706752.mov
+Currently default models provided for `{en, fr, de, es, it, ja, zh, nl}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
 
 
-
-### German
-    whisperx examples/sample_de_01.wav --model large --language de --align_model VOXPOPULI_ASR_BASE_10K_DE --output_dir examples/whisperx
-
+#### E.g. German
+    whisperx --model large --language de examples/sample_de_01.wav
 
 https://user-images.githubusercontent.com/36994049/208298811-e36002ba-3698-4731-97d4-0aebd07e0eb3.mov
 
+## Python usage 🐍
 
+```python
+import whisperx
 
+device = "cuda" 
+audio_file = "audio.mp3"
 
-### Italian
-    whisperx examples/sample_it_01.wav --model large --language it --align_model VOXPOPULI_ASR_BASE_10K_IT --output_dir examples/whisperx
+# transcribe with original whisper
+model = whisperx.load_model("large", device)
+result = model.transcribe(audio_file)
 
+# load alignment model and metadata
+model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
 
+# align whisper output
+result_aligned = whisperx.align(result["segments"], model_a, metadata, audio_file, device)
 
-https://user-images.githubusercontent.com/36994049/208298819-6f462b2c-8cae-4c54-b8e1-90855794efc7.mov
+print(result["segments"]) # before alignment
 
-### Japanese
-    whisperx --model large --language ja examples/sample_ja_01.wav  --align_model jonatasgrosman/wav2vec2-large-xlsr-53-japanese --output_dir examples/whisperx --align_extend 2
-
-
-
-https://user-images.githubusercontent.com/19920981/208731743-311f2360-b73b-4c60-809d-aaf3cd7e06f4.mov
-
+print(result_aligned["segments"]) # after alignment
+print(result_aligned["word_segments"]) # after alignment
+```
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
@@ -116,22 +122,30 @@ https://user-images.githubusercontent.com/19920981/208731743-311f2360-b73b-4c60-
 - Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
 - Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
 
+
+<h2 align="left" id="contribute">Contribute 🧑‍🏫</h2>
+
+If you are multilingual, a major way you can contribute to this project is to find phoneme models on huggingface (or train your own) and test them on speech for the target language. If the results look good send a merge request and some examples showing its success.
+
+The next major upgrade we are working on is whisper with speaker diarization, so if you have any experience on this please share.
+
 <h2 align="left" id="coming-soon">Coming Soon 🗓</h2>
 
-[x] Multilingual init
+[x] ~~Multilingual init~~ done
 
-[x] Subtitle .ass output
+[x] ~~Subtitle .ass output~~ done
 
-[x] Automatic align model selection based on language detection
+[x] ~~Automatic align model selection based on language detection~~ done
+
+[x] ~~Python usage~~ done
 
 [ ] Incorporating word-level speaker diarization
 
 [ ] Inference speedup with batch processing
 
-<h2 align="left" id="contact">Contact</h2>
+<h2 align="left" id="contact">Contact 📇</h2>
 
-Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk if using this commerically.
-
+Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk for business things.
 
 <h2 align="left" id="acks">Acknowledgements 🙏</h2>
 
