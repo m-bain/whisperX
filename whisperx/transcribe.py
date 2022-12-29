@@ -292,6 +292,10 @@ def align(
     prev_t2 = 0
     word_segments_list = []
     for idx, segment in enumerate(transcript):
+        if int(segment['start'] * SAMPLE_RATE) >= audio.shape[1]:
+            # original whisper error, transcript is outside of duration of audio, not possible. Skip to next (finish).
+            continue
+        
         t1 = max(segment['start'] - extend_duration, 0)
         t2 = min(segment['end'] + extend_duration, MAX_DURATION)
         if start_from_previous and t1 < prev_t2:
