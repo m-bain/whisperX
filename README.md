@@ -80,10 +80,10 @@ https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-
 
 ### Other languages
 
-The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
+The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or Hugging Face](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
 Just pass in the `--language` code, and use the whisper `--model large`.
 
-Currently default models provided for `{en, fr, de, es, it, ja, zh, nl}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
+Currently default models provided for `{en, fr, de, es, it, ja, zh, nl}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [Hugging Face model hub](https://huggingface.co/models) and test it on your data.
 
 
 #### E.g. German
@@ -125,7 +125,7 @@ print(result_aligned["word_segments"]) # after alignment
 
 <h2 align="left" id="contribute">Contribute 🧑‍🏫</h2>
 
-If you are multilingual, a major way you can contribute to this project is to find phoneme models on huggingface (or train your own) and test them on speech for the target language. If the results look good send a merge request and some examples showing its success.
+If you are multilingual, a major way you can contribute to this project is to find phoneme models on Hugging Face (or train your own) and test them on speech for the target language. If the results look good send a merge request and some examples showing its success.
 
 The next major upgrade we are working on is whisper with speaker diarization, so if you have any experience on this please share.
 
