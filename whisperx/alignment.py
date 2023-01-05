@@ -64,7 +64,8 @@ def backtrack(trellis, emission, tokens, blank_id=0):
             if j == 0:
                 break
     else:
-        raise ValueError("Failed to align")
+        # failed
+        return None
     return path[::-1]
 
 # Merge the labels

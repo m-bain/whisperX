@@ -293,9 +293,13 @@ def align(
     word_segments_list = []
     for idx, segment in enumerate(transcript):
         if int(segment['start'] * SAMPLE_RATE) >= audio.shape[1]:
-            # original whisper error, transcript is outside of duration of audio, not possible. Skip to next (finish).
+            print("Failed to align segment: original start time longer than audio duration, skipping...")
             continue
         
+        if int(segment['start']) >= int(segment['end']):
+            print("Failed to align segment: original end time is not after start time, skipping...")
+            continue
+
         t1 = max(segment['start'] - extend_duration, 0)
         t2 = min(segment['end'] + extend_duration, MAX_DURATION)
         if start_from_previous and t1 < prev_t2:
@@ -325,53 +329,61 @@ def align(
         t_words_nonempty_idx = [x for x in range(len(t_words_clean)) if t_words_clean[x] != ""]
         segment['word-level'] = []
 
+        fail_fallback = False
         if len(t_words_nonempty) > 0:
             transcription_cleaned = "|".join(t_words_nonempty).lower()
             tokens = [model_dictionary[c] for c in transcription_cleaned]
             trellis = get_trellis(emission, tokens)
             path = backtrack(trellis, emission, tokens)
-            segments = merge_repeats(path, transcription_cleaned)
-            word_segments = merge_words(segments)
-            ratio = waveform_segment.size(0) / (trellis.size(0) - 1)
+            if path is None:
+                print("Failed to align segment: backtrack failed, resorting to original...")
+                fail_fallback = True
+            else:
+                segments = merge_repeats(path, transcription_cleaned)
+                word_segments = merge_words(segments)
+                ratio = waveform_segment.size(0) / (trellis.size(0) - 1)
 
-            duration = t2 - t1
-            local = []
-            t_local = [None] * len(t_words)
-            for wdx, word in enumerate(word_segments):
-                t1_ = ratio * word.start
-                t2_ = ratio * word.end
-                local.append((t1_, t2_))
-                t_local[t_words_nonempty_idx[wdx]] = (t1_ * duration + t1, t2_ * duration + t1)
-            t1_actual = t1 + local[0][0] * duration
-            t2_actual = t1 + local[-1][1] * duration
+                duration = t2 - t1
+                local = []
+                t_local = [None] * len(t_words)
+                for wdx, word in enumerate(word_segments):
+                    t1_ = ratio * word.start
+                    t2_ = ratio * word.end
+                    local.append((t1_, t2_))
+                    t_local[t_words_nonempty_idx[wdx]] = (t1_ * duration + t1, t2_ * duration + t1)
+                t1_actual = t1 + local[0][0] * duration
+                t2_actual = t1 + local[-1][1] * duration
 
-            segment['start'] = t1_actual
-            segment['end'] = t2_actual
-            prev_t2 = segment['end']
+                segment['start'] = t1_actual
+                segment['end'] = t2_actual
+                prev_t2 = segment['end']
 
-            # for the .ass output
-            for x in range(len(t_local)):
-                curr_word = t_words[x]
-                curr_timestamp = t_local[x]
-                if curr_timestamp is not None:
-                    segment['word-level'].append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
-                else:
-                    segment['word-level'].append({"text": curr_word, "start": None, "end": None})
-
-            # for per-word .srt ouput
-            # merge missing words to previous, or merge with next word ahead if idx == 0
-            for x in range(len(t_local)):
-                curr_word = t_words[x]
-                curr_timestamp = t_local[x]
-                if curr_timestamp is not None:
-                    word_segments_list.append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
-                elif not drop_non_aligned_words:
-                    # then we merge
-                    if x == 0:
-                        t_words[x+1] = " ".join([curr_word, t_words[x+1]])
+                # for the .ass output
+                for x in range(len(t_local)):
+                    curr_word = t_words[x]
+                    curr_timestamp = t_local[x]
+                    if curr_timestamp is not None:
+                        segment['word-level'].append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
                     else:
-                        word_segments_list[-1]['text'] += ' ' + curr_word
+                        segment['word-level'].append({"text": curr_word, "start": None, "end": None})
+
+                # for per-word .srt ouput
+                # merge missing words to previous, or merge with next word ahead if idx == 0
+                for x in range(len(t_local)):
+                    curr_word = t_words[x]
+                    curr_timestamp = t_local[x]
+                    if curr_timestamp is not None:
+                        word_segments_list.append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
+                    elif not drop_non_aligned_words:
+                        # then we merge
+                        if x == 0:
+                            t_words[x+1] = " ".join([curr_word, t_words[x+1]])
+                        else:
+                            word_segments_list[-1]['text'] += ' ' + curr_word
         else:
+            fail_fallback = True
+
+        if fail_fallback:
             # then we resort back to original whisper timestamps
             # segment['start] and segment['end'] are unchanged
             prev_t2 = 0

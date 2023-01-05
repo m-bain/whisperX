@@ -23,7 +23,6 @@
   <a href="#setup">Setup</a> •
   <a href="#example">Usage</a> •
   <a href="#other-languages">Multilingual</a> •
-  <a href="#python-usage">Python</a> •
   <a href="#contribute">Contribute</a> •
   <a href="EXAMPLES.md">More examples</a>
 </p>
@@ -31,7 +30,6 @@
 <h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
 <img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/208313881-903ab3ea-4932-45fd-b3dc-70876cddaaa2.png">
-
 
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
@@ -54,6 +52,20 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 Install this package using
 
 `pip install git+https://github.com/m-bain/whisperx.git`
+
+If already installed, update package to most recent commit
+
+`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
+
+If wishing to modify this package, clone and install in editable mode:
+```
+$ git clone https://github.com/m-bain/whisperX.git
+$ cd whisperX
+$ pip install -e .
+```
+
+
+`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
@@ -91,7 +103,7 @@ Currently default models provided for `{en, fr, de, es, it, ja, zh, nl}`. If the
 
 https://user-images.githubusercontent.com/36994049/208298811-e36002ba-3698-4731-97d4-0aebd07e0eb3.mov
 
-## Python usage 🐍
+## Python usage  🐍
 
 ```python
 import whisperx
