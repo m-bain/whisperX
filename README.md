@@ -64,9 +64,6 @@ $ cd whisperX
 $ pip install -e .
 ```
 
-
-`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
-
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
