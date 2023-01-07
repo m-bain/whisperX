@@ -8,11 +8,28 @@ import torch
 import torchaudio
 from transformers import AutoProcessor, Wav2Vec2ForCTC
 import tqdm
-from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, pad_or_trim, log_mel_spectrogram, load_audio
+from .audio import (
+    SAMPLE_RATE,
+    N_FRAMES,
+    HOP_LENGTH,
+    pad_or_trim,
+    log_mel_spectrogram,
+    load_audio,
+)
 from .alignment import get_trellis, backtrack, merge_repeats, merge_words
 from .decoding import DecodingOptions, DecodingResult
 from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
-from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, write_txt, write_vtt, write_srt, write_ass
+from .utils import (
+    exact_div,
+    format_timestamp,
+    optional_int,
+    optional_float,
+    str2bool,
+    write_txt,
+    write_vtt,
+    write_srt,
+    write_ass,
+)
 
 if TYPE_CHECKING:
     from .model import Whisper
@@ -44,7 +61,7 @@ def transcribe(
     compression_ratio_threshold: Optional[float] = 2.4,
     logprob_threshold: Optional[float] = -1.0,
     no_speech_threshold: Optional[float] = 0.6,
-    condition_on_previous_text: bool = False, # turn off by default due to errors it causes
+    condition_on_previous_text: bool = False,  # turn off by default due to errors it causes
     **decode_options,
 ):
     """
@@ -107,19 +124,25 @@ def transcribe(
             decode_options["language"] = "en"
         else:
             if verbose:
-                print("Detecting language using up to the first 30 seconds. Use `--language` to specify the language")
+                print(
+                    "Detecting language using up to the first 30 seconds. Use `--language` to specify the language"
+                )
             segment = pad_or_trim(mel, N_FRAMES).to(model.device).to(dtype)
             _, probs = model.detect_language(segment)
             decode_options["language"] = max(probs, key=probs.get)
             if verbose is not None:
-                print(f"Detected language: {LANGUAGES[decode_options['language']].title()}")
+                print(
+                    f"Detected language: {LANGUAGES[decode_options['language']].title()}"
+                )
 
     language = decode_options["language"]
     task = decode_options.get("task", "transcribe")
     tokenizer = get_tokenizer(model.is_multilingual, language=language, task=task)
 
     def decode_with_fallback(segment: torch.Tensor) -> DecodingResult:
-        temperatures = [temperature] if isinstance(temperature, (int, float)) else temperature
+        temperatures = (
+            [temperature] if isinstance(temperature, (int, float)) else temperature
+        )
         decode_result = None
 
         for t in temperatures:
@@ -136,9 +159,15 @@ def transcribe(
             decode_result = model.decode(segment, options)
 
             needs_fallback = False
-            if compression_ratio_threshold is not None and decode_result.compression_ratio > compression_ratio_threshold:
+            if (
+                compression_ratio_threshold is not None
+                and decode_result.compression_ratio > compression_ratio_threshold
+            ):
                 needs_fallback = True  # too repetitive
-            if logprob_threshold is not None and decode_result.avg_logprob < logprob_threshold:
+            if (
+                logprob_threshold is not None
+                and decode_result.avg_logprob < logprob_threshold
+            ):
                 needs_fallback = True  # average log probability is too low
 
             if not needs_fallback:
@@ -165,7 +194,9 @@ def transcribe(
     def add_segment(
         *, start: float, end: float, text_tokens: torch.Tensor, result: DecodingResult
     ):
-        text = tokenizer.decode([token for token in text_tokens if token < tokenizer.eot])
+        text = tokenizer.decode(
+            [token for token in text_tokens if token < tokenizer.eot]
+        )
         if len(text.strip()) == 0:  # skip empty text output
             return
 
@@ -190,7 +221,9 @@ def transcribe(
     num_frames = mel.shape[-1]
     previous_seek_value = seek
 
-    with tqdm.tqdm(total=num_frames, unit='frames', disable=verbose is not False) as pbar:
+    with tqdm.tqdm(
+        total=num_frames, unit="frames", disable=verbose is not False
+    ) as pbar:
         while seek < num_frames:
             timestamp_offset = float(seek * HOP_LENGTH / SAMPLE_RATE)
             segment = pad_or_trim(mel[:, seek:], N_FRAMES).to(model.device).to(dtype)
@@ -203,17 +236,26 @@ def transcribe(
             if no_speech_threshold is not None:
                 # no voice activity check
                 should_skip = result.no_speech_prob > no_speech_threshold
-                if logprob_threshold is not None and result.avg_logprob > logprob_threshold:
+                if (
+                    logprob_threshold is not None
+                    and result.avg_logprob > logprob_threshold
+                ):
                     # don't skip if the logprob is high enough, despite the no_speech_prob
                     should_skip = False
 
                 if should_skip:
-                    seek += segment.shape[-1]  # fast-forward to the next segment boundary
+                    seek += segment.shape[
+                        -1
+                    ]  # fast-forward to the next segment boundary
                     continue
 
             timestamp_tokens: torch.Tensor = tokens.ge(tokenizer.timestamp_begin)
-            consecutive = torch.where(timestamp_tokens[:-1] & timestamp_tokens[1:])[0].add_(1)
-            if len(consecutive) > 0:  # if the output contains two consecutive timestamp tokens
+            consecutive = torch.where(timestamp_tokens[:-1] & timestamp_tokens[1:])[
+                0
+            ].add_(1)
+            if (
+                len(consecutive) > 0
+            ):  # if the output contains two consecutive timestamp tokens
                 last_slice = 0
                 for current_slice in consecutive:
                     sliced_tokens = tokens[last_slice:current_slice]
@@ -224,7 +266,8 @@ def transcribe(
                         sliced_tokens[-1].item() - tokenizer.timestamp_begin
                     )
                     add_segment(
-                        start=timestamp_offset + start_timestamp_position * time_precision,
+                        start=timestamp_offset
+                        + start_timestamp_position * time_precision,
                         end=timestamp_offset + end_timestamp_position * time_precision,
                         text_tokens=sliced_tokens[1:-1],
                         result=result,
@@ -238,10 +281,15 @@ def transcribe(
             else:
                 duration = segment_duration
                 timestamps = tokens[timestamp_tokens.nonzero().flatten()]
-                if len(timestamps) > 0 and timestamps[-1].item() != tokenizer.timestamp_begin:
+                if (
+                    len(timestamps) > 0
+                    and timestamps[-1].item() != tokenizer.timestamp_begin
+                ):
                     # no consecutive timestamps but it has a timestamp; use the last one.
                     # single timestamp at the end means no speech after the last timestamp.
-                    last_timestamp_position = timestamps[-1].item() - tokenizer.timestamp_begin
+                    last_timestamp_position = (
+                        timestamps[-1].item() - tokenizer.timestamp_begin
+                    )
                     duration = last_timestamp_position * time_precision
 
                 add_segment(
@@ -262,7 +310,11 @@ def transcribe(
             pbar.update(min(num_frames, seek) - previous_seek_value)
             previous_seek_value = seek
 
-    return dict(text=tokenizer.decode(all_tokens[len(initial_prompt):]), segments=all_segments, language=language)
+    return dict(
+        text=tokenizer.decode(all_tokens[len(initial_prompt) :]),
+        segments=all_segments,
+        language=language,
+    )
 
 
 def align(
@@ -285,23 +337,28 @@ def align(
 
     MAX_DURATION = audio.shape[1] / SAMPLE_RATE
 
-    model_dictionary = align_model_metadata['dictionary']
-    model_lang = align_model_metadata['language']
-    model_type = align_model_metadata['type']
+    model_dictionary = align_model_metadata["dictionary"]
+    model_lang = align_model_metadata["language"]
+    model_type = align_model_metadata["type"]
 
     prev_t2 = 0
     word_segments_list = []
+    letter_segments_list = []
     for idx, segment in enumerate(transcript):
-        if int(segment['start'] * SAMPLE_RATE) >= audio.shape[1]:
-            print("Failed to align segment: original start time longer than audio duration, skipping...")
-            continue
-        
-        if int(segment['start']) >= int(segment['end']):
-            print("Failed to align segment: original end time is not after start time, skipping...")
+        if int(segment["start"] * SAMPLE_RATE) >= audio.shape[1]:
+            print(
+                "Failed to align segment: original start time longer than audio duration, skipping..."
+            )
             continue
 
-        t1 = max(segment['start'] - extend_duration, 0)
-        t2 = min(segment['end'] + extend_duration, MAX_DURATION)
+        if int(segment["start"]) >= int(segment["end"]):
+            print(
+                "Failed to align segment: original end time is not after start time, skipping..."
+            )
+            continue
+
+        t1 = max(segment["start"] - extend_duration, 0)
+        t2 = min(segment["end"] + extend_duration, MAX_DURATION)
         if start_from_previous and t1 < prev_t2:
             t1 = prev_t2
 
@@ -315,19 +372,27 @@ def align(
             elif model_type == "huggingface":
                 emissions = model(waveform_segment.to(device)).logits
             else:
-                raise NotImplementedError(f"Align model of type {model_type} not supported.")
+                raise NotImplementedError(
+                    f"Align model of type {model_type} not supported."
+                )
             emissions = torch.log_softmax(emissions, dim=-1)
         emission = emissions[0].cpu().detach()
-        transcription = segment['text'].strip()
+        transcription = segment["text"].strip()
         if model_lang not in LANGUAGES_WITHOUT_SPACES:
-            t_words = transcription.split(' ')
+            t_words = transcription.split(" ")
         else:
             t_words = [c for c in transcription]
 
-        t_words_clean = [''.join([w for w in word if w.lower() in model_dictionary.keys()]) for word in t_words]
+        t_words_clean = [
+            "".join([w for w in word if w.lower() in model_dictionary.keys()])
+            for word in t_words
+        ]
         t_words_nonempty = [x for x in t_words_clean if x != ""]
-        t_words_nonempty_idx = [x for x in range(len(t_words_clean)) if t_words_clean[x] != ""]
-        segment['word-level'] = []
+        t_words_nonempty_idx = [
+            x for x in range(len(t_words_clean)) if t_words_clean[x] != ""
+        ]
+        segment["word-level"] = []
+        segment["letter-level"] = []
 
         fail_fallback = False
         if len(t_words_nonempty) > 0:
@@ -336,7 +401,9 @@ def align(
             trellis = get_trellis(emission, tokens)
             path = backtrack(trellis, emission, tokens)
             if path is None:
-                print("Failed to align segment: backtrack failed, resorting to original...")
+                print(
+                    "Failed to align segment: backtrack failed, resorting to original..."
+                )
                 fail_fallback = True
             else:
                 segments = merge_repeats(path, transcription_cleaned)
@@ -345,27 +412,61 @@ def align(
 
                 duration = t2 - t1
                 local = []
+                letter_local = []
                 t_local = [None] * len(t_words)
+                all_segment_letters = [s.label for s in segments]
+                letter_t_local = [None] * len(segments)
                 for wdx, word in enumerate(word_segments):
                     t1_ = ratio * word.start
                     t2_ = ratio * word.end
                     local.append((t1_, t2_))
-                    t_local[t_words_nonempty_idx[wdx]] = (t1_ * duration + t1, t2_ * duration + t1)
+                    t_local[t_words_nonempty_idx[wdx]] = (
+                        t1_ * duration + t1,
+                        t2_ * duration + t1,
+                    )
+                for ldx, letter in enumerate(segments):
+                    t1_ = ratio * letter.start
+                    t2_ = ratio * letter.end
+                    letter_local.append((t1_, t2_))
+                    letter_t_local[ldx] = (t1_ * duration + t1, t2_ * duration + t1)
                 t1_actual = t1 + local[0][0] * duration
                 t2_actual = t1 + local[-1][1] * duration
 
-                segment['start'] = t1_actual
-                segment['end'] = t2_actual
-                prev_t2 = segment['end']
+                segment["start"] = t1_actual
+                segment["end"] = t2_actual
+                prev_t2 = segment["end"]
 
                 # for the .ass output
                 for x in range(len(t_local)):
                     curr_word = t_words[x]
                     curr_timestamp = t_local[x]
                     if curr_timestamp is not None:
-                        segment['word-level'].append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
+                        segment["word-level"].append(
+                            {
+                                "text": curr_word,
+                                "start": curr_timestamp[0],
+                                "end": curr_timestamp[1],
+                            }
+                        )
                     else:
-                        segment['word-level'].append({"text": curr_word, "start": None, "end": None})
+                        segment["word-level"].append(
+                            {"text": curr_word, "start": None, "end": None}
+                        )
+
+                # For letter timestamps
+                for x in range(len(letter_t_local)):
+                    curr_letter = all_segment_letters[x]
+                    if curr_letter == "|":
+                        curr_letter = " "
+                    curr_timestamp = letter_t_local[x]
+                    if curr_timestamp is not None:
+                        letter_segments_list.append(
+                            {
+                                "text": curr_letter,
+                                "start": curr_timestamp[0],
+                                "end": curr_timestamp[1],
+                            }
+                        )
 
                 # for per-word .srt ouput
                 # merge missing words to previous, or merge with next word ahead if idx == 0
@@ -373,13 +474,19 @@ def align(
                     curr_word = t_words[x]
                     curr_timestamp = t_local[x]
                     if curr_timestamp is not None:
-                        word_segments_list.append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
+                        word_segments_list.append(
+                            {
+                                "text": curr_word,
+                                "start": curr_timestamp[0],
+                                "end": curr_timestamp[1],
+                            }
+                        )
                     elif not drop_non_aligned_words:
                         # then we merge
                         if x == 0:
-                            t_words[x+1] = " ".join([curr_word, t_words[x+1]])
+                            t_words[x + 1] = " ".join([curr_word, t_words[x + 1]])
                         else:
-                            word_segments_list[-1]['text'] += ' ' + curr_word
+                            word_segments_list[-1]["text"] += " " + curr_word
         else:
             fail_fallback = True
 
@@ -387,12 +494,31 @@ def align(
             # then we resort back to original whisper timestamps
             # segment['start] and segment['end'] are unchanged
             prev_t2 = 0
-            segment['word-level'].append({"text": segment['text'], "start": segment['start'], "end":segment['end']})
-            word_segments_list.append({"text": segment['text'], "start": segment['start'], "end":segment['end']})
+            segment["word-level"].append(
+                {
+                    "text": segment["text"],
+                    "start": segment["start"],
+                    "end": segment["end"],
+                }
+            )
+            word_segments_list.append(
+                {
+                    "text": segment["text"],
+                    "start": segment["start"],
+                    "end": segment["end"],
+                }
+            )
 
-        print(f"[{format_timestamp(segment['start'])} --> {format_timestamp(segment['end'])}] {segment['text']}")
+        print(
+            f"[{format_timestamp(segment['start'])} --> {format_timestamp(segment['end'])}] {segment['text']}"
+        )
 
-    return {"segments": transcript, "word_segments": word_segments_list}
+    return {
+        "segments": transcript,
+        "word_segments": word_segments_list,
+        "letter_segments": letter_segments_list,
+    }
+
 
 def load_align_model(language_code, device, model_name=None):
     if model_name is None:
@@ -402,8 +528,10 @@ def load_align_model(language_code, device, model_name=None):
         elif language_code in DEFAULT_ALIGN_MODELS_HF:
             model_name = DEFAULT_ALIGN_MODELS_HF[language_code]
         else:
-            print(f"There is no default alignment model set for this language ({language_code}).\
-                Please find a wav2vec2.0 model finetuned on this language in https://huggingface.co/models, then pass the model name in --align_model [MODEL_NAME]")
+            print(
+                f"There is no default alignment model set for this language ({language_code}).\
+                Please find a wav2vec2.0 model finetuned on this language in https://huggingface.co/models, then pass the model name in --align_model [MODEL_NAME]"
+            )
             raise ValueError(f"No default align-model for language: {language_code}")
 
     if model_name in torchaudio.pipelines.__all__:
@@ -418,55 +546,198 @@ def load_align_model(language_code, device, model_name=None):
             align_model = Wav2Vec2ForCTC.from_pretrained(model_name)
         except Exception as e:
             print(e)
-            print(f"Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models")
-            raise ValueError(f'The chosen align_model "{model_name}" could not be found in huggingface (https://huggingface.co/models) or torchaudio (https://pytorch.org/audio/stable/pipelines.html#id14)')
+            print(
+                f"Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models"
+            )
+            raise ValueError(
+                f'The chosen align_model "{model_name}" could not be found in huggingface (https://huggingface.co/models) or torchaudio (https://pytorch.org/audio/stable/pipelines.html#id14)'
+            )
         pipeline_type = "huggingface"
         align_model = align_model.to(device)
         labels = processor.tokenizer.get_vocab()
-        align_dictionary = {char.lower(): code for char,code in processor.tokenizer.get_vocab().items()}
+        align_dictionary = {
+            char.lower(): code for char, code in processor.tokenizer.get_vocab().items()
+        }
 
-    align_metadata = {"language": language_code, "dictionary": align_dictionary, "type": pipeline_type}
+    align_metadata = {
+        "language": language_code,
+        "dictionary": align_dictionary,
+        "type": pipeline_type,
+    }
 
     return align_model, align_metadata
+
 
 def cli():
     from . import available_models
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
-    parser.add_argument("--model", default="small", choices=available_models(), help="name of the Whisper model to use")
-    parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "audio", nargs="+", type=str, help="audio file(s) to transcribe"
+    )
+    parser.add_argument(
+        "--model",
+        default="small",
+        choices=available_models(),
+        help="name of the Whisper model to use",
+    )
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        default=None,
+        help="the path to save model files; uses ~/.cache/whisper by default",
+    )
+    parser.add_argument(
+        "--device",
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        help="device to use for PyTorch inference",
+    )
     # alignment params
-    parser.add_argument("--align_model", default=None, help="Name of phoneme-level ASR model to do alignment")
-    parser.add_argument("--align_extend", default=2, type=float, help="Seconds before and after to extend the whisper segments for alignment")
-    parser.add_argument("--align_from_prev", default=True, type=bool, help="Whether to clip the alignment start time of current segment to the end time of the last aligned word of the previous segment")
-    parser.add_argument("--drop_non_aligned", action="store_true", help="For word .srt, whether to drop non aliged words, or merge them into neighbouring.")
+    parser.add_argument(
+        "--align_model",
+        default=None,
+        help="Name of phoneme-level ASR model to do alignment",
+    )
+    parser.add_argument(
+        "--align_extend",
+        default=2,
+        type=float,
+        help="Seconds before and after to extend the whisper segments for alignment",
+    )
+    parser.add_argument(
+        "--align_from_prev",
+        default=True,
+        type=bool,
+        help="Whether to clip the alignment start time of current segment to the end time of the last aligned word of the previous segment",
+    )
+    parser.add_argument(
+        "--drop_non_aligned",
+        action="store_true",
+        help="For word .srt, whether to drop non aliged words, or merge them into neighbouring.",
+    )
 
-    parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
-    parser.add_argument("--output_type", default="srt", choices=['all', 'srt', 'vtt', 'txt'], help="File type for desired output save")
+    parser.add_argument(
+        "--output_dir",
+        "-o",
+        type=str,
+        default=".",
+        help="directory to save the outputs",
+    )
+    parser.add_argument(
+        "--output_type",
+        default="srt",
+        choices=["all", "srt", "vtt", "txt"],
+        help="File type for desired output save",
+    )
 
-    parser.add_argument("--verbose", type=str2bool, default=True, help="whether to print out the progress and debug messages")
+    parser.add_argument(
+        "--verbose",
+        type=str2bool,
+        default=True,
+        help="whether to print out the progress and debug messages",
+    )
 
-    parser.add_argument("--task", type=str, default="transcribe", choices=["transcribe", "translate"], help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')")
-    parser.add_argument("--language", type=str, default=None, choices=sorted(LANGUAGES.keys()) + sorted([k.title() for k in TO_LANGUAGE_CODE.keys()]), help="language spoken in the audio, specify None to perform language detection")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default="transcribe",
+        choices=["transcribe", "translate"],
+        help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')",
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        choices=sorted(LANGUAGES.keys())
+        + sorted([k.title() for k in TO_LANGUAGE_CODE.keys()]),
+        help="language spoken in the audio, specify None to perform language detection",
+    )
 
-    parser.add_argument("--temperature", type=float, default=0, help="temperature to use for sampling")
-    parser.add_argument("--best_of", type=optional_int, default=5, help="number of candidates when sampling with non-zero temperature")
-    parser.add_argument("--beam_size", type=optional_int, default=5, help="number of beams in beam search, only applicable when temperature is zero")
-    parser.add_argument("--patience", type=float, default=None, help="optional patience value to use in beam decoding, as in https://arxiv.org/abs/2204.05424, the default (1.0) is equivalent to conventional beam search")
-    parser.add_argument("--length_penalty", type=float, default=None, help="optional token length penalty coefficient (alpha) as in https://arxiv.org/abs/1609.08144, uses simple length normalization by default")
+    parser.add_argument(
+        "--temperature", type=float, default=0, help="temperature to use for sampling"
+    )
+    parser.add_argument(
+        "--best_of",
+        type=optional_int,
+        default=5,
+        help="number of candidates when sampling with non-zero temperature",
+    )
+    parser.add_argument(
+        "--beam_size",
+        type=optional_int,
+        default=5,
+        help="number of beams in beam search, only applicable when temperature is zero",
+    )
+    parser.add_argument(
+        "--patience",
+        type=float,
+        default=None,
+        help="optional patience value to use in beam decoding, as in https://arxiv.org/abs/2204.05424, the default (1.0) is equivalent to conventional beam search",
+    )
+    parser.add_argument(
+        "--length_penalty",
+        type=float,
+        default=None,
+        help="optional token length penalty coefficient (alpha) as in https://arxiv.org/abs/1609.08144, uses simple length normalization by default",
+    )
 
-    parser.add_argument("--suppress_tokens", type=str, default="-1", help="comma-separated list of token ids to suppress during sampling; '-1' will suppress most special characters except common punctuations")
-    parser.add_argument("--initial_prompt", type=str, default=None, help="optional text to provide as a prompt for the first window.")
-    parser.add_argument("--condition_on_previous_text", type=str2bool, default=False, help="if True, provide the previous output of the model as a prompt for the next window; disabling may make the text inconsistent across windows, but the model becomes less prone to getting stuck in a failure loop")
-    parser.add_argument("--fp16", type=str2bool, default=True, help="whether to perform inference in fp16; True by default")
+    parser.add_argument(
+        "--suppress_tokens",
+        type=str,
+        default="-1",
+        help="comma-separated list of token ids to suppress during sampling; '-1' will suppress most special characters except common punctuations",
+    )
+    parser.add_argument(
+        "--initial_prompt",
+        type=str,
+        default=None,
+        help="optional text to provide as a prompt for the first window.",
+    )
+    parser.add_argument(
+        "--condition_on_previous_text",
+        type=str2bool,
+        default=False,
+        help="if True, provide the previous output of the model as a prompt for the next window; disabling may make the text inconsistent across windows, but the model becomes less prone to getting stuck in a failure loop",
+    )
+    parser.add_argument(
+        "--fp16",
+        type=str2bool,
+        default=True,
+        help="whether to perform inference in fp16; True by default",
+    )
 
-    parser.add_argument("--temperature_increment_on_fallback", type=optional_float, default=0.2, help="temperature to increase when falling back when the decoding fails to meet either of the thresholds below")
-    parser.add_argument("--compression_ratio_threshold", type=optional_float, default=2.4, help="if the gzip compression ratio is higher than this value, treat the decoding as failed")
-    parser.add_argument("--logprob_threshold", type=optional_float, default=-1.0, help="if the average log probability is lower than this value, treat the decoding as failed")
-    parser.add_argument("--no_speech_threshold", type=optional_float, default=0.6, help="if the probability of the <|nospeech|> token is higher than this value AND the decoding has failed due to `logprob_threshold`, consider the segment as silence")
-    parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
+    parser.add_argument(
+        "--temperature_increment_on_fallback",
+        type=optional_float,
+        default=0.2,
+        help="temperature to increase when falling back when the decoding fails to meet either of the thresholds below",
+    )
+    parser.add_argument(
+        "--compression_ratio_threshold",
+        type=optional_float,
+        default=2.4,
+        help="if the gzip compression ratio is higher than this value, treat the decoding as failed",
+    )
+    parser.add_argument(
+        "--logprob_threshold",
+        type=optional_float,
+        default=-1.0,
+        help="if the average log probability is lower than this value, treat the decoding as failed",
+    )
+    parser.add_argument(
+        "--no_speech_threshold",
+        type=optional_float,
+        default=0.6,
+        help="if the probability of the <|nospeech|> token is higher than this value AND the decoding has failed due to `logprob_threshold`, consider the segment as silence",
+    )
+    parser.add_argument(
+        "--threads",
+        type=optional_int,
+        default=0,
+        help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS",
+    )
 
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
@@ -484,13 +755,17 @@ def cli():
 
     if model_name.endswith(".en") and args["language"] not in {"en", "English"}:
         if args["language"] is not None:
-            warnings.warn(f"{model_name} is an English-only model but receipted '{args['language']}'; using English instead.")
+            warnings.warn(
+                f"{model_name} is an English-only model but receipted '{args['language']}'; using English instead."
+            )
         args["language"] = "en"
 
     temperature = args.pop("temperature")
     temperature_increment_on_fallback = args.pop("temperature_increment_on_fallback")
     if temperature_increment_on_fallback is not None:
-        temperature = tuple(np.arange(temperature, 1.0 + 1e-6, temperature_increment_on_fallback))
+        temperature = tuple(
+            np.arange(temperature, 1.0 + 1e-6, temperature_increment_on_fallback)
+        )
     else:
         temperature = [temperature]
 
@@ -499,46 +774,73 @@ def cli():
         torch.set_num_threads(threads)
 
     from . import load_model
+
     model = load_model(model_name, device=device, download_root=model_dir)
 
-    align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
-    align_model, align_metadata = load_align_model(align_language, device, model_name=align_model)
+    align_language = (
+        args["language"] if args["language"] is not None else "en"
+    )  # default to loading english if not specified
+    align_model, align_metadata = load_align_model(
+        align_language, device, model_name=align_model
+    )
 
     for audio_path in args.pop("audio"):
         result = transcribe(model, audio_path, temperature=temperature, **args)
 
         if result["language"] != align_metadata["language"]:
             # load new language
-            print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
+            print(
+                f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
+            )
             align_model, align_metadata = load_align_model(result["language"], device)
 
-        result_aligned = align(result["segments"], align_model, align_metadata, audio_path, device,
-                                extend_duration=align_extend, start_from_previous=align_from_prev, drop_non_aligned_words=drop_non_aligned)
+        result_aligned = align(
+            result["segments"],
+            align_model,
+            align_metadata,
+            audio_path,
+            device,
+            extend_duration=align_extend,
+            start_from_previous=align_from_prev,
+            drop_non_aligned_words=drop_non_aligned,
+        )
         audio_basename = os.path.basename(audio_path)
 
         # save TXT
         if output_type in ["txt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".txt"), "w", encoding="utf-8") as txt:
+            with open(
+                os.path.join(output_dir, audio_basename + ".txt"), "w", encoding="utf-8"
+            ) as txt:
                 write_txt(result_aligned["segments"], file=txt)
 
         # save VTT
         if output_type in ["vtt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".vtt"), "w", encoding="utf-8") as vtt:
+            with open(
+                os.path.join(output_dir, audio_basename + ".vtt"), "w", encoding="utf-8"
+            ) as vtt:
                 write_vtt(result_aligned["segments"], file=vtt)
 
         # save SRT
         if output_type in ["srt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".srt"), "w", encoding="utf-8") as srt:
+            with open(
+                os.path.join(output_dir, audio_basename + ".srt"), "w", encoding="utf-8"
+            ) as srt:
                 write_srt(result_aligned["segments"], file=srt)
 
         # save per-word SRT
-        with open(os.path.join(output_dir, audio_basename + ".word.srt"), "w", encoding="utf-8") as srt:
+        with open(
+            os.path.join(output_dir, audio_basename + ".word.srt"),
+            "w",
+            encoding="utf-8",
+        ) as srt:
             write_srt(result_aligned["word_segments"], file=srt)
 
         # save ASS
-        with open(os.path.join(output_dir, audio_basename + ".ass"), "w", encoding="utf-8") as ass:
+        with open(
+            os.path.join(output_dir, audio_basename + ".ass"), "w", encoding="utf-8"
+        ) as ass:
             write_ass(result_aligned["segments"], file=ass)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
