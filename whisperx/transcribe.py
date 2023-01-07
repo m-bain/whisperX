@@ -369,14 +369,16 @@ def align(
 
                 # for per-word .srt ouput
                 # merge missing words to previous, or merge with next word ahead if idx == 0
+                found_first_ts = False
                 for x in range(len(t_local)):
                     curr_word = t_words[x]
                     curr_timestamp = t_local[x]
                     if curr_timestamp is not None:
                         word_segments_list.append({"text": curr_word, "start": curr_timestamp[0], "end": curr_timestamp[1]})
+                        found_first_ts = True
                     elif not drop_non_aligned_words:
                         # then we merge
-                        if x == 0:
+                        if not found_first_ts:
                             t_words[x+1] = " ".join([curr_word, t_words[x+1]])
                         else:
                             word_segments_list[-1]['text'] += ' ' + curr_word
