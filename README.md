@@ -29,7 +29,7 @@
 
 <h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
-<img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/208313881-903ab3ea-4932-45fd-b3dc-70876cddaaa2.png">
+<img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/211200186-8b779e26-0bfd-4127-aee2-5a9238b95e1f.png">
 
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
@@ -63,6 +63,7 @@ $ git clone https://github.com/m-bain/whisperX.git
 $ cd whisperX
 $ pip install -e .
 ```
+
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
@@ -101,7 +102,7 @@ Currently default models provided for `{en, fr, de, es, it, ja, zh, nl, uk}`. If
 https://user-images.githubusercontent.com/36994049/208298811-e36002ba-3698-4731-97d4-0aebd07e0eb3.mov
 
 
-See more exac
+See more examples in other languages [here](EXAMPLES.md).
 
 ## Python usage  🐍
 
@@ -126,6 +127,16 @@ print(result["segments"]) # before alignment
 print(result_aligned["segments"]) # after alignment
 print(result_aligned["word_segments"]) # after alignment
 ```
+
+
+<h2 align="left" id="whisper-mod">Whisper Modifications</h2>
+
+In addition to forced alignment, the following two modifications have been made to the whisper transcription method:
+
+1. `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
+
+2. Clamping segment `end_time` to be at least 0.02s (one time precision) later than `start_time` (prevents segments with negative duration)
+
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
