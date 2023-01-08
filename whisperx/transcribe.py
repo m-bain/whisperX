@@ -548,8 +548,8 @@ def cli():
             write_srt(result_aligned["word_segments"], file=srt)
 
         # save ASS
-        # with open(os.path.join(output_dir, audio_basename + ".ass"), "w", encoding="utf-8") as ass:
-            # write_ass(result_aligned["segments"], file=ass)
+        with open(os.path.join(output_dir, audio_basename + ".ass"), "w", encoding="utf-8") as ass:
+            write_ass(result_aligned["segments"], file=ass)
 
 
 if __name__ == '__main__':
