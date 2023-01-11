@@ -93,7 +93,7 @@ https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-
 The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
 Just pass in the `--language` code, and use the whisper `--model large`.
 
-Currently default models provided for `{en, fr, de, es, it, ja, zh, nl, uk}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
+Currently default models provided for `{en, fr, de, es, it, ja, zh, nl, uk, pt}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
 
 
 #### E.g. German
