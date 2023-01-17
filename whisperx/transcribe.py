@@ -1,6 +1,7 @@
 import argparse
 import os
 import warnings
+import mimetypes
 from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
 
 import numpy as np
@@ -16,6 +17,8 @@ from .utils import exact_div, format_timestamp, optional_int, optional_float, st
 
 if TYPE_CHECKING:
     from .model import Whisper
+
+mimetypes.init()
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -440,6 +443,10 @@ def load_align_model(language_code, device, model_name=None):
 
     return align_model, align_metadata
 
+def is_media_file(filename):
+    mime = mimetypes.guess_type(filename)[0] # Can return none if it can't guess the file type
+    return mime and (mime.startswith("audio/") or mime.startswith("video/"))
+
 def cli():
     from . import available_models
 
@@ -515,8 +522,25 @@ def cli():
     align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
     align_model, align_metadata = load_align_model(align_language, device, model_name=align_model)
 
+    files_dict = []
+
     for audio_path in args.pop("audio"):
-        print("Performing transcription...")
+        if os.path.isfile(audio_path) and is_media_file(audio_path):
+            files_dict.append({"folderName": "", "fileName": audio_path})
+        else:
+            for root, dirs, files in os.walk(audio_path):
+                if root == audio_path:
+                    root = ""
+                for file in files:
+                    if is_media_file(file):
+                        files_dict.append({"folderName": os.path.basename(root), "filePath": os.path.join(root, file)})
+
+    for file in files_dict:
+        audio_path = file["filePath"]
+        root_folder = file["folderName"]
+        audio_basename = os.path.basename(audio_path)
+
+        print(f"Performing transcription on \"{audio_path}\"...")
         result = transcribe(model, audio_path, temperature=temperature, **args)
 
         if result["language"] != align_metadata["language"]:
@@ -524,32 +548,33 @@ def cli():
             print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
             align_model, align_metadata = load_align_model(result["language"], device)
 
-        print("Performing alignment...")
+        print(f"Performing alignment on \"{audio_path}\"...")
         result_aligned = align(result["segments"], align_model, align_metadata, audio_path, device,
                                 extend_duration=align_extend, start_from_previous=align_from_prev, drop_non_aligned_words=drop_non_aligned)
-        audio_basename = os.path.basename(audio_path)
+
+        os.makedirs(os.path.join(output_dir, root_folder), exist_ok=True)
 
         # save TXT
         if output_type in ["txt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".txt"), "w", encoding="utf-8") as txt:
+            with open(os.path.join(output_dir, root_folder, audio_basename + ".txt"), "w", encoding="utf-8") as txt:
                 write_txt(result_aligned["segments"], file=txt)
 
         # save VTT
         if output_type in ["vtt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".vtt"), "w", encoding="utf-8") as vtt:
+            with open(os.path.join(output_dir, root_folder, audio_basename + ".vtt"), "w", encoding="utf-8") as vtt:
                 write_vtt(result_aligned["segments"], file=vtt)
 
         # save SRT
         if output_type in ["srt", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".srt"), "w", encoding="utf-8") as srt:
+            with open(os.path.join(output_dir, root_folder, audio_basename + ".srt"), "w", encoding="utf-8") as srt:
                 write_srt(result_aligned["segments"], file=srt)
 
         # save per-word SRT
-        with open(os.path.join(output_dir, audio_basename + ".word.srt"), "w", encoding="utf-8") as srt:
+        with open(os.path.join(output_dir, root_folder, audio_basename + ".word.srt"), "w", encoding="utf-8") as srt:
             write_srt(result_aligned["word_segments"], file=srt)
 
         # save ASS
-        with open(os.path.join(output_dir, audio_basename + ".ass"), "w", encoding="utf-8") as ass:
+        with open(os.path.join(output_dir, root_folder, audio_basename + ".ass"), "w", encoding="utf-8") as ass:
             write_ass(result_aligned["segments"], file=ass)
 
 
