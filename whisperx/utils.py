@@ -193,7 +193,7 @@ def write_ass(transcript: Iterator[dict], file: TextIO,
         curr_words = [wrd['text'] for wrd in segment['word-level']]
         prev = segment['word-level'][0]['start']
         if prev is None:
-            prev = 0
+            prev = segment['start']
         for wdx, word in enumerate(segment['word-level']):
             if word['start'] is not None:
                 # fill gap between previous word
