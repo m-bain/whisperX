@@ -33,6 +33,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "zh": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
     "nl": "jonatasgrosman/wav2vec2-large-xlsr-53-dutch",
     "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
+    "pt": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
 }
 
 
@@ -919,7 +920,6 @@ def cli():
         if output_type in ["ass-char", "all"]:
             with open(os.path.join(output_dir, audio_basename + ".char.ass"), "w", encoding="utf-8") as ass:
                 write_ass(result_aligned["segments"], file=ass, resolution="char")
-
 
 if __name__ == "__main__":
     cli()
