@@ -330,8 +330,8 @@ def align(
     aligned_segments = []
 
     prev_t2 = 0
-    sdx = 0
     for segment in transcript:
+        aligned_subsegments = []
         while True:
             segment_align_success = False
 
@@ -505,7 +505,7 @@ def align(
                     else:
                         word_level = None
 
-                    aligned_segments.append(
+                    aligned_subsegments.append(
                         {
                             "text": segment["seg-text"][sub_seg_idx],
                             "start": seg_start_actual,
@@ -515,10 +515,7 @@ def align(
                         }
                     )
                     if "language" in segment:
-                        aligned_segments[-1]["language"] = segment["language"]
-
-                    print(f"[{format_timestamp(aligned_segments[-1]['start'])} --> {format_timestamp(aligned_segments[-1]['end'])}] {aligned_segments[-1]['text']}")
-
+                        aligned_subsegments[-1]["language"] = segment["language"]
 
                     char_level = {
                         "start": [],
@@ -555,12 +552,14 @@ def align(
         # reset prev_t2 due to drifting issues
         if not segment_align_success:
             prev_t2 = 0
+        
+        start = interpolate_nans(pd.DataFrame(aligned_subsegments)["start"], method=interpolate_method) 
+        end = interpolate_nans(pd.DataFrame(aligned_subsegments)["end"], method=interpolate_method)
+        for idx, seg in enumerate(aligned_subsegments):
+            seg['start'] = start.iloc[idx]
+            seg['end'] = end.iloc[idx]
 
-        # shift segment index by amount of sub-segments
-        if "seg-text" in segment:
-            sdx += len(segment["seg-text"])
-        else:
-            sdx += 1
+        aligned_segments += aligned_subsegments
 
     # create word level segments for .srt
     word_seg = []

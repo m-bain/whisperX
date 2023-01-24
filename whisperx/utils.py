@@ -4,7 +4,7 @@ from typing import Callable, TextIO, Iterator, Tuple
 import pandas as pd
 
 def exact_div(x, y):
-    ***ert x % y == 0
+    assert x % y == 0
     return x // y
 
 
@@ -30,7 +30,7 @@ def compression_ratio(text) -> float:
 
 
 def format_timestamp(seconds: float, always_include_hours: bool = False, decimal_marker: str = '.'):
-    ***ert seconds >= 0, "non-negative timestamp expected"
+    assert seconds >= 0, "non-negative timestamp expected"
     milliseconds = round(seconds * 1000.0)
 
     hours = milliseconds // 3_600_000
@@ -105,11 +105,11 @@ def write_ass(transcript: Iterator[dict],
             strip=True, **kwargs):
     """
     Credit: https://github.com/jianfch/stable-ts/blob/ff79549bd01f764427879f07ecd626c46a9a430a/stable_whisper/text_output.py
-        Generate Advanced SubStation Alpha (***) file from results to
+        Generate Advanced SubStation Alpha (ass) file from results to
     display both phrase-level & word-level timestamp simultaneously by:
      -using segment-level timestamps display phrases as usual
      -using word-level timestamps change formats (e.g. color/underline) of the word in the displayed segment
-    Note: *** file is used in the same way as srt, vtt, etc.
+    Note: ass file is used in the same way as srt, vtt, etc.
     Parameters
     ----------
     transcript: dict
@@ -125,14 +125,14 @@ def write_ass(transcript: Iterator[dict],
         whether to underline a word at its corresponding timestamp
     prefmt: str
         used to specify format for word-level timestamps (must be use with 'suffmt' and overrides 'color'&'underline')
-        appears as such in the .*** file:
+        appears as such in the .ass file:
             Hi, {<prefmt>}how{<suffmt>} are you?
-        reference [Appendix A: Style override codes] in http://www.tcax.org/docs/***-specs.htm
+        reference [Appendix A: Style override codes] in http://www.tcax.org/docs/ass-specs.htm
     suffmt: str
         used to specify format for word-level timestamps (must be use with 'prefmt' and overrides 'color'&'underline')
-        appears as such in the .*** file:
+        appears as such in the .ass file:
             Hi, {<prefmt>}how{<suffmt>} are you?
-        reference [Appendix A: Style override codes] in http://www.tcax.org/docs/***-specs.htm
+        reference [Appendix A: Style override codes] in http://www.tcax.org/docs/ass-specs.htm
     font: str
         word font (default: Arial)
     font_size: int
@@ -165,13 +165,13 @@ def write_ass(transcript: Iterator[dict],
 
     styles = f'Style: {",".join(map(str, fmt_style_dict.values()))}'
 
-    ***_str = f'[Script Info]\nScriptType: v4.00+\nPlayResX: 384\nPlayResY: 288\nScaledBorderAndShadow: yes\n\n' \
+    ass_str = f'[Script Info]\nScriptType: v4.00+\nPlayResX: 384\nPlayResY: 288\nScaledBorderAndShadow: yes\n\n' \
             f'[V4+ Styles]\n{fmts}\n{styles}\n\n' \
             f'[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n\n'
 
     if prefmt or suffmt:
         if suffmt:
-            ***ert prefmt, 'prefmt must be used along with suffmt'
+            assert prefmt, 'prefmt must be used along with suffmt'
         else:
             suffmt = r'\r'
     else:
@@ -201,9 +201,9 @@ def write_ass(transcript: Iterator[dict],
     elif resolution == "char":
         resolution_key = "char-segments"
     else:
-        raise ValueError(".*** resolution should be 'word' or 'char', not ", resolution)
+        raise ValueError(".ass resolution should be 'word' or 'char', not ", resolution)
     
-    ***_arr = []
+    ass_arr = []
 
     for segment in transcript:
         if resolution_key in segment:
@@ -231,7 +231,7 @@ def write_ass(transcript: Iterator[dict],
                             "idx_1": -1
                         }
 
-                        ***_arr.append(filler_ts)
+                        ass_arr.append(filler_ts)
                     # highlight current word
                     f_word_ts = {
                         "chars": speaker_str + segment['text'],
@@ -240,12 +240,12 @@ def write_ass(transcript: Iterator[dict],
                         "idx_0": idx_0 + len(speaker_str),
                         "idx_1": idx_1 + len(speaker_str)
                     }
-                    ***_arr.append(f_word_ts)
+                    ass_arr.append(f_word_ts)
                     prev = crow['end']
 
-    ***_str += '\n'.join(map(lambda x: dialogue(**x), ***_arr))
+    ass_str += '\n'.join(map(lambda x: dialogue(**x), ass_arr))
 
-    file.write(***_str)
+    file.write(ass_str)
 
 def interpolate_nans(x, method='nearest'):
     if x.notnull().sum() > 1:
