@@ -48,6 +48,13 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 **Forced Alignment** refers to the process by which orthographic transcriptions are aligned to audio recordings to automatically generate phone level segmentation.
 
+<h2 align="left", id="highlights">New🚨</h2>
+
+- VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
+- Character level timestamps (see `*.char.ass` file output)
+- Diarization (still in beta, add `--diarization`)
+
+
 <h2 align="left" id="setup">Setup ⚙️</h2>
 Install this package using
 
@@ -76,9 +83,9 @@ Run whisper on example segment (using default params)
     whisperx examples/sample01.wav
 
 
-For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models e.g.
+For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models and VAD filtering e.g.
 
-    whisperx examples/sample01.wav --model large.en --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
+    whisperx examples/sample01.wav --model large.en --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
@@ -162,7 +169,11 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 [x] ~~Python usage~~ done
 
-[ ] Incorporating word-level speaker diarization
+[x] ~~Character level timestamps~~
+
+[x] ~~Incorporating  speaker diarization~~
+
+[ ] Improve diarization (word level)
 
 [ ] Inference speedup with batch processing
 
