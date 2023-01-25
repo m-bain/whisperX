@@ -85,7 +85,7 @@ Run whisper on example segment (using default params)
 
 For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models and VAD filtering e.g.
 
-    whisperx examples/sample01.wav --model large.en --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
+    whisperx examples/sample01.wav --model large-v2 --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
