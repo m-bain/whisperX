@@ -2,6 +2,7 @@ import os
 import zlib
 from typing import Callable, TextIO, Iterator, Tuple
 import pandas as pd
+import numpy as np
 
 def exact_div(x, y):
     assert x % y == 0
@@ -214,7 +215,7 @@ def write_ass(transcript: Iterator[dict],
             else:
                 speaker_str = ""
             for cdx, crow in res_segs.iterrows():
-                if crow['start'] is not None:
+                if not np.isnan(crow['start']):
                     if resolution == "char":
                         idx_0 = cdx
                         idx_1 = cdx + 1
