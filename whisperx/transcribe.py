@@ -385,7 +385,8 @@ def cli():
     parser.add_argument("--logprob_threshold", type=optional_float, default=-1.0, help="if the average log probability is lower than this value, treat the decoding as failed")
     parser.add_argument("--no_speech_threshold", type=optional_float, default=0.6, help="if the probability of the <|nospeech|> token is higher than this value AND the decoding has failed due to `logprob_threshold`, consider the segment as silence")
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
-
+    parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
+    
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
     model_dir: str = args.pop("model_dir")
@@ -397,7 +398,8 @@ def cli():
     align_extend: float = args.pop("align_extend")
     align_from_prev: bool = args.pop("align_from_prev")
     interpolate_method: bool = args.pop("interpolate_method")
-
+    
+    hf_token: str = args.pop("hf_token")
     vad_filter: bool = args.pop("vad_filter")
     vad_input: bool = args.pop("vad_input")
 
@@ -410,12 +412,14 @@ def cli():
         vad_input = pd.read_csv(vad_input, header=None, sep= " ")
     elif vad_filter:
         from pyannote.audio import Pipeline
-        vad_pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection")
+        vad_pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection",
+                                    use_auth_token=hf_token)
 
     diarize_pipeline = None
     if diarize:
         from pyannote.audio import Pipeline
-        diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1")
+        diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
+                                    use_auth_token=hf_token)
 
     os.makedirs(output_dir, exist_ok=True)
 
