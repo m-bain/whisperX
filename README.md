@@ -54,6 +54,8 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 - Character level timestamps (see `*.char.ass` file output)
 - Diarization (still in beta, add `--diarization`)
 
+To enable VAD filtering and Diarization, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
+
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 Install this package using
