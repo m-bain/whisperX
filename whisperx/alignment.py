@@ -188,9 +188,11 @@ def align(
             transcription_cleaned = "".join(clean_char)
             tokens = [model_dictionary[c] for c in transcription_cleaned]
 
-            # pad according original timestamps
-            t1 = max(segment["start"] - extend_duration, 0)
-            t2 = min(segment["end"] + extend_duration, MAX_DURATION)
+            # we only pad if not using VAD filtering
+            if "seg_text" not in segment:
+                # pad according original timestamps
+                t1 = max(segment["start"] - extend_duration, 0)
+                t2 = min(segment["end"] + extend_duration, MAX_DURATION)
 
             # use prev_t2 as current t1 if it"s later
             if start_from_previous and t1 < prev_t2:
