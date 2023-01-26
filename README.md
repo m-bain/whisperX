@@ -54,6 +54,8 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 - Character level timestamps (see `*.char.ass` file output)
 - Diarization (still in beta, add `--diarization`)
 
+To enable VAD filtering and Diarization, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
+
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 Install this package using
@@ -85,7 +87,7 @@ Run whisper on example segment (using default params)
 
 For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models and VAD filtering e.g.
 
-    whisperx examples/sample01.wav --model large.en --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
+    whisperx examples/sample01.wav --model large-v2 --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
