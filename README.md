@@ -179,9 +179,12 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 [ ] Inference speedup with batch processing
 
-<h2 align="left" id="contact">Contact 📇</h2>
+<h2 align="left" id="contact">Contact/Support 📇</h2>
 
 Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk for business things.
+
+<a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
+
 
 <h2 align="left" id="acks">Acknowledgements 🙏</h2>
 
