@@ -207,6 +207,8 @@ def write_ass(transcript: Iterator[dict],
     ass_arr = []
 
     for segment in transcript:
+        # if "12" in segment['text']:
+            # import pdb; pdb.set_trace()
         if resolution_key in segment:
             res_segs = pd.DataFrame(segment[resolution_key])
             prev = segment['start']
