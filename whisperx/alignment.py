@@ -336,12 +336,10 @@ def align(
 
         # merge words & subsegments which are missing times
         word_grp = word_segments_arr.groupby(["segment-idx", "subsegment-idx", "end"])
-        word_seg_grp = word_segments_arr.groupby(["segment-idx", "end"])
 
         word_segments_arr["segment-text-start"] = word_grp["segment-text-start"].transform(min)
         word_segments_arr["segment-text-end"] = word_grp["segment-text-end"].transform(max)
         word_segments_arr.drop_duplicates(subset=["segment-idx", "subsegment-idx", "end"], inplace=True)
-
 
         seg_grp_dup = segments_arr.groupby(["segment-idx", "start", "end"])
         segments_arr["subsegment-idx-start"] = seg_grp_dup["subsegment-idx-start"].transform(min)
@@ -350,6 +348,13 @@ def align(
     else:
         word_segments_arr.dropna(inplace=True)
         segments_arr.dropna(inplace=True)
+
+    # if some segments still have missing timestamps (usually because all numerals / symbols), then use original timestamps...
+    segments_arr['start'].fillna(pd.Series([x['start'] for x in transcript]), inplace=True)
+    segments_arr['end'].fillna(pd.Series([x['end'] for x in transcript]), inplace=True)
+    segments_arr['subsegment-idx-start'].fillna(0, inplace=True)
+    segments_arr['subsegment-idx-end'].fillna(1, inplace=True)
+
 
     aligned_segments = []
     aligned_segments_word = []
@@ -360,13 +365,21 @@ def align(
     for sdx, srow in segments_arr.iterrows():
 
         seg_idx = int(srow["segment-idx"])
-        sub_start = int(srow["subsegment-idx-start"])
+        try:
+            sub_start = int(srow["subsegment-idx-start"])
+        except:
+            import pdb; pdb.set_trace()
         sub_end = int(srow["subsegment-idx-end"])
 
         seg = transcript[seg_idx]
         text = "".join(seg["seg-text"][sub_start:sub_end])
 
-        wseg = word_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1] 
+        wseg = word_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1]
+        wseg["start"].fillna(srow["start"], inplace=True)
+        wseg["end"].fillna(srow["end"], inplace=True)
+        wseg["segment-text-start"].fillna(0, inplace=True)
+        wseg["segment-text-end"].fillna(len(text)-1, inplace=True)
+
         cseg = char_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1]
         cseg['segment-text-start'] = cseg['level_1']
         cseg['segment-text-end'] = cseg['level_1'] + 1
