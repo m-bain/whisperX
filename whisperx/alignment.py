@@ -314,7 +314,7 @@ def align(
     word_segments_arr[["segment-idx", "subsegment-idx", "word-idx"]] = per_word_grp["local-char-idx"].min().reset_index()[["segment-idx", "subsegment-idx", "word-idx"]].astype(int)
     segments_arr = {}
     segments_arr["start"] = per_subseg_grp["start"].min().reset_index()["start"]
-    segments_arr["end"] = per_subseg_grp["end"].min().reset_index()["end"]
+    segments_arr["end"] = per_subseg_grp["end"].max().reset_index()["end"]
     segments_arr = pd.DataFrame(segments_arr)
     segments_arr[["segment-idx", "subsegment-idx-start"]] = per_subseg_grp["start"].min().reset_index()[["segment-idx", "subsegment-idx"]]
     segments_arr["subsegment-idx-end"] = segments_arr["subsegment-idx-start"] + 1
