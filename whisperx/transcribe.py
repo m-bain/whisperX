@@ -499,7 +499,7 @@ def cli():
 
         # save TSV
         if output_type in ["tsv", "all"]:
-            with open(os.path.join(output_dir, audio_basename + ".srt"), "w", encoding="utf-8") as srt:
+            with open(os.path.join(output_dir, audio_basename + ".tsv"), "w", encoding="utf-8") as srt:
                 write_tsv(result_aligned["segments"], file=srt)
 
         # save SRT word-level
