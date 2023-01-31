@@ -29,7 +29,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "nl": "jonatasgrosman/wav2vec2-large-xlsr-53-dutch",
     "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
     "pt": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
-    "ar": "elgeish/wav2vec2-large-xlsr-53-arabic",
+    "ar": "jonatasgrosman/wav2vec2-large-xlsr-53-arabic",
 }
 
 
