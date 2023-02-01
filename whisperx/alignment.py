@@ -5,7 +5,7 @@ C. Max Bain
 import numpy as np
 import pandas as pd
 from typing import List, Union, Iterator, TYPE_CHECKING
-from transformers import AutoProcessor, Wav2Vec2ForCTC
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import torchaudio
 import torch
 from dataclasses import dataclass
@@ -59,7 +59,7 @@ def load_align_model(language_code, device, model_name=None):
         align_dictionary = {c.lower(): i for i, c in enumerate(labels)}
     else:
         try:
-            processor = AutoProcessor.from_pretrained(model_name)
+            processor = Wav2Vec2Processor.from_pretrained(model_name)
             align_model = Wav2Vec2ForCTC.from_pretrained(model_name)
         except Exception as e:
             print(e)
