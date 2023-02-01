@@ -50,6 +50,7 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 <h2 align="left", id="highlights">New🚨</h2>
 
+- Batch processing: Add `--vad_filter --parallel_bs [int]` for transcribing long audio file in batches (only supported with VAD filtering). Replace `[int]` with a batch size that fits your GPU memory, e.g. `--parallel_bs 16`.
 - VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
 - Character level timestamps (see `*.char.ass` file output)
 - Diarization (still in beta, add `--diarize`)
