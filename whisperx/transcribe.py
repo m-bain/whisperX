@@ -585,10 +585,9 @@ def cli():
     parser.add_argument("--interpolate_method", default="nearest", choices=["nearest", "linear", "ignore"], help="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighbouring.")
     # vad params
     parser.add_argument("--vad_filter", action="store_true", help="Whether to first perform VAD filtering to target only transcribe within VAD. Produces more accurate alignment + timestamp, requires more GPU memory & compute.")
-    parser.add_argument("--vad_input", default=None, type=str)
     parser.add_argument("--parallel_bs", default=-1, type=int, help="Enable parallel transcribing if > 1")
     # diarization params
-    parser.add_argument("--diarize", action='store_true')
+    parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
     parser.add_argument("--min_speakers", default=None, type=int)
     parser.add_argument("--max_speakers", default=None, type=int)
     # output save params
@@ -632,7 +631,6 @@ def cli():
     
     hf_token: str = args.pop("hf_token")
     vad_filter: bool = args.pop("vad_filter")
-    vad_input: bool = args.pop("vad_input")
     parallel_bs: int = args.pop("parallel_bs")
 
     diarize: bool = args.pop("diarize")
@@ -640,9 +638,9 @@ def cli():
     max_speakers: int = args.pop("max_speakers")
 
     vad_pipeline = None
-    if vad_input is not None:
-        vad_input = pd.read_csv(vad_input, header=None, sep= " ")
-    elif vad_filter:
+    if vad_filter:
+        if hf_token is None:
+            print("Warning, no huggingface token used, needs to be saved in environment variable, otherwise will throw error loading VAD model...")
         from pyannote.audio import Inference
         vad_pipeline = Inference("pyannote/segmentation",
                             pre_aggregation_hook=lambda segmentation: segmentation,
@@ -650,6 +648,8 @@ def cli():
 
     diarize_pipeline = None
     if diarize:
+        if hf_token is None:
+            print("Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error loading diarization model...")
         from pyannote.audio import Pipeline
         diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
                                     use_auth_token=hf_token)
@@ -756,7 +756,7 @@ def cli():
         # save word tsv
         if output_type in ["vad"]:
             exp_fp = os.path.join(output_dir, audio_basename + ".sad")
-            wrd_segs = pd.concat([x["word-segments"] for x in result_aligned["segments"]])
+            wrd_segs = pd.concat([x["word-segments"] for x in result_aligned["segments"]])[['start','end']]
             wrd_segs.to_csv(exp_fp, sep='\t', header=None, index=False)
 if __name__ == "__main__":
     cli()

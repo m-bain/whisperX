@@ -27,7 +27,6 @@
   <a href="EXAMPLES.md">More examples</a>
 </p>
 
-<h6 align="center">Made by Max Bain • :globe_with_meridians: <a href="https://www.maxbain.com">https://www.maxbain.com</a></h6>
 
 <img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/211200186-8b779e26-0bfd-4127-aee2-5a9238b95e1f.png">
 
@@ -55,8 +54,6 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 - Character level timestamps (see `*.char.ass` file output)
 - Diarization (still in beta, add `--diarize`)
 
-To enable VAD filtering and Diarization, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
-
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 Install this package using
@@ -74,8 +71,12 @@ $ cd whisperX
 $ pip install -e .
 ```
 
-
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
+
+
+### Voice Activity Detection Filtering & Diarization
+To **enable VAD filtering and Diarization**, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
+
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
 
@@ -152,8 +153,9 @@ In addition to forced alignment, the following two modifications have been made 
 
 - Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know the results on your data
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
-- Assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
-- Hacked this up quite quickly, there might be some errors, please raise an issue if you encounter any.
+- If not using VAD filter, whisperx assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
+- Overlapping speech is not handled particularly well by whisper nor whisperx
+- Diariazation is far from perfect.
 
 
 <h2 align="left" id="contribute">Contribute 🧑‍🏫</h2>
@@ -176,29 +178,34 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 * [x] Incorporating  speaker diarization
 
-* [ ] Improve diarization (word level)
+* [x] Inference speedup with batch processing
 
-* [ ] Inference speedup with batch processing
+* [ ] Improve diarization (word level). *Harder than first thought...*
+
 
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
-Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk for business things.
+Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk for queries
 
 <a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
 
 <h2 align="left" id="acks">Acknowledgements 🙏</h2>
 
-Of course, this is mostly just a modification to [openAI's whisper](https://github.com/openai/whisper).
-As well as accreditation to this [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and University of Oxford.
+
+
+
+Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
+And borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
 
 
 <h2 align="left" id="cite">Citation</h2>
-If you use this in your research, just cite the repo,
+If you use this in your research, for now just cite the repo,
 
 ```bibtex
 @misc{bain2022whisperx,
-  author = {Bain, Max},
+  author = {Bain, Max and Han, Tengda},
   title = {WhisperX},
   year = {2022},
   publisher = {GitHub},

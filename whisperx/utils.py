@@ -65,8 +65,8 @@ def write_vtt(transcript: Iterator[dict], file: TextIO):
 def write_tsv(transcript: Iterator[dict], file: TextIO):
     print("start", "end", "text", sep="\t", file=file)
     for segment in transcript:
-        print(round(1000 * segment['start']), file=file, end="\t")
-        print(round(1000 * segment['end']), file=file, end="\t")
+        print(segment['start'], file=file, end="\t")
+        print(segment['end'], file=file, end="\t")
         print(segment['text'].strip().replace("\t", " "), file=file, flush=True)
 
 

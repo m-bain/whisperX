@@ -137,8 +137,6 @@ class Binarize:
 
 
 def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_duration_on=0.0):
-    # because of padding, some active regions might be overlapping: merge them.
-    # also: fill same speaker gaps shorter than min_duration_off
 
     active = Annotation()
     for k, vad_t in enumerate(vad_arr):
@@ -161,16 +159,27 @@ def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_
 
 
 if __name__ == "__main__":
-    from pyannote.audio import Inference
-    hook = lambda segmentation: segmentation
-    inference = Inference("pyannote/segmentation", pre_aggregation_hook=hook)
-    audio = "/tmp/11962.wav" 
-    scores = inference(audio)
-    binarize = Binarize(max_duration=15)
-    anno = binarize(scores)
-    res = []
-    for ann in anno.get_timeline():
-        res.append((ann.start, ann.end))
+    # from pyannote.audio import Inference
+    # hook = lambda segmentation: segmentation
+    # inference = Inference("pyannote/segmentation", pre_aggregation_hook=hook)
+    # audio = "/tmp/11962.wav" 
+    # scores = inference(audio)
+    # binarize = Binarize(max_duration=15)
+    # anno = binarize(scores)
+    # res = []
+    # for ann in anno.get_timeline():
+    #     res.append((ann.start, ann.end))
 
-    res = pd.DataFrame(res)
-    res[2] = res[1] - res[0]
+    # res = pd.DataFrame(res)
+    # res[2] = res[1] - res[0]
+    import pandas as pd
+    input_fp = "tt298650_sync.wav"
+    df = pd.read_csv(f"/work/maxbain/tmp/{input_fp}.sad", sep=" ", header=None)
+    print(len(df))
+    N = 0.15
+    g = df[0].sub(df[1].shift())
+    input_base = input_fp.split('.')[0]
+    df = df.groupby(g.gt(N).cumsum()).agg({0:'min', 1:'max'})
+    df.to_csv(f"/work/maxbain/tmp/{input_base}.lab", header=None, index=False, sep=" ")
+    print(df)
+    import pdb; pdb.set_trace()
