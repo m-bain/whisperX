@@ -163,21 +163,21 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 <h2 align="left" id="coming-soon">Coming Soon 🗓</h2>
 
-[x] ~~Multilingual init~~ done
+* [x] Multilingual init
 
-[x] ~~Subtitle .ass output~~ done
+* [x] Subtitle .ass output
 
-[x] ~~Automatic align model selection based on language detection~~ done
+* [x] Automatic align model selection based on language detection
 
-[x] ~~Python usage~~ done
+* [x] Python usage
 
-[x] ~~Character level timestamps~~
+* [x] Character level timestamps
 
-[x] ~~Incorporating  speaker diarization~~
+* [x] Incorporating  speaker diarization
 
-[ ] Improve diarization (word level)
+* [ ] Improve diarization (word level)
 
-[ ] Inference speedup with batch processing
+* [ ] Inference speedup with batch processing
 
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
