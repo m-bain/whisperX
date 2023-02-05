@@ -76,7 +76,7 @@ def write_srt(transcript: Iterator[dict], file: TextIO):
 
     Example usage:
         from pathlib import Path
-        from whisper.utils import write_srt
+        from whisperx.utils import write_srt
 
         result = transcribe(model, audio_path, temperature=temperature, **args)
 
