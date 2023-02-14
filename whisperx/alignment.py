@@ -389,10 +389,11 @@ def align(
         wseg["segment-text-end"].fillna(len(text)-1, inplace=True)
 
         cseg = char_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1]
-        cseg['segment-text-start'] = cseg['level_1']
-        cseg['segment-text-end'] = cseg['level_1'] + 1
-        del cseg['level_1']
-        del cseg['level_0']
+        # fixes bug for single segment in transcript
+        cseg['segment-text-start'] = cseg['level_1'] if 'level_1' in cseg else 0
+        cseg['segment-text-end'] = cseg['level_1'] + 1 if 'level_1' in cseg else 1
+        if 'level_1' in cseg: del cseg['level_1']
+        if 'level_0' in cseg: del cseg['level_0']
         cseg.reset_index(inplace=True)
         aligned_segments.append(
             {
