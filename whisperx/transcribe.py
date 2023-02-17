@@ -262,7 +262,6 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
     TODO: Or sliding window alignment model over long segment.
     """
-    curr_start = 0
     curr_end = 0
     merged_segments = []
     seg_idxs = []
@@ -275,7 +274,10 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     for speech_turn in segments.get_timeline():
         segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
-    for sdx, seg in enumerate(segments_list):
+    # If first segment start with no voice activity start later
+    curr_start = segments_list[0].start
+
+    for seg in segments_list:
         if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
             merged_segments.append({
                 "start": curr_start,
@@ -319,7 +321,7 @@ def transcribe_with_vad(
     # merge segments to approx 30s inputs to make whisper most appropraite
     vad_segments = merge_chunks(vad_segments)
 
-    for sdx, seg_t in enumerate(vad_segments):
+    for seg_t in vad_segments:
         if verbose:
             print(f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> {format_timestamp(seg_t['end'])}) ~~")
         seg_f_start, seg_f_end = int(seg_t["start"] * SAMPLE_RATE / HOP_LENGTH), int(seg_t["end"] * SAMPLE_RATE / HOP_LENGTH)
