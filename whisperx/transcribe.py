@@ -262,7 +262,6 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
     TODO: Or sliding window alignment model over long segment.
     """
-    curr_start = 0
     curr_end = 0
     merged_segments = []
     seg_idxs = []
@@ -275,7 +274,11 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     for speech_turn in segments.get_timeline():
         segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
-    for sdx, seg in enumerate(segments_list):
+    assert segments_list, "segments_list is empty."
+    # Make sur the starting point is the start of the segment.
+    curr_start = segments_list[0].start
+
+    for seg in segments_list:
         if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
             merged_segments.append({
                 "start": curr_start,
