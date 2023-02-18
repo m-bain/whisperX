@@ -1,5 +1,6 @@
 import argparse
 import os
+import gc
 import warnings
 from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
 
@@ -616,6 +617,7 @@ def cli():
     parser.add_argument("--no_speech_threshold", type=optional_float, default=0.6, help="if the probability of the <|nospeech|> token is higher than this value AND the decoding has failed due to `logprob_threshold`, consider the segment as silence")
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
+    parser.add_argument("--gc_memory", type=bool, default=False, help="Whether to run garbage collection on no longer used models, recommended on systems with low amount of VRAM")
     
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
@@ -624,7 +626,7 @@ def cli():
     output_type: str = args.pop("output_type")
     device: str = args.pop("device")
 
-    align_model: str = args.pop("align_model")
+    align_model_name: str = args.pop("align_model")
     align_extend: float = args.pop("align_extend")
     align_from_prev: bool = args.pop("align_from_prev")
     interpolate_method: bool = args.pop("interpolate_method")
@@ -636,6 +638,8 @@ def cli():
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
+
+    gc_memory: bool = args.pop("gc_memory")
 
     vad_pipeline = None
     if vad_filter:
@@ -675,8 +679,7 @@ def cli():
     from . import load_model
     model = load_model(model_name, device=device, download_root=model_dir)
 
-    align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
-    align_model, align_metadata = load_align_model(align_language, device, model_name=align_model)
+    _align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
 
     for audio_path in args.pop("audio"):
         if vad_filter:
@@ -689,12 +692,21 @@ def cli():
         else:
             print("Performing transcription...")
             result = transcribe(model, audio_path, temperature=temperature, **args)
+        
+        if gc_memory:    
+            # Unload Whisper and VAD first
+            del model
+            del vad_pipeline
+            del vad_filter
+            gc.collect()
+            torch.cuda.empty_cache()
+            
+        align_model, align_metadata = load_align_model(result["language"], device, align_model_name)
 
         if result["language"] != align_metadata["language"]:
             # load new language
             print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
             align_model, align_metadata = load_align_model(result["language"], device)
-
 
         print("Performing alignment...")
         result_aligned = align(result["segments"], align_model, align_metadata, audio_path, device,
