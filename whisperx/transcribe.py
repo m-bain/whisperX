@@ -1,23 +1,23 @@
 import argparse
 import os
 import warnings
-from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
+from typing import Optional, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 import torch
 import tqdm
-from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, CHUNK_LENGTH, pad_or_trim, log_mel_spectrogram, load_audio
-from .alignment import load_align_model, align, get_trellis, backtrack, merge_repeats, merge_words
-from .decoding import DecodingOptions, DecodingResult
+from whisper.audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, CHUNK_LENGTH, pad_or_trim, log_mel_spectrogram
+from whisper.decoding import DecodingOptions, DecodingResult
+from whisper.tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
+
+from .alignment import load_align_model, align
 from .diarize import assign_word_speakers, Segment
-from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
-from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, interpolate_nans, write_txt, write_vtt, write_srt, write_ass, write_tsv
+from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, write_txt, write_vtt, write_srt, write_ass, write_tsv
 from .vad import Binarize
-import pandas as pd
 
 if TYPE_CHECKING:
-    from .model import Whisper
-
+    from whisper.model import Whisper
 
 
 def transcribe(
@@ -275,7 +275,7 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
         segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
     assert segments_list, "segments_list is empty."
-    # Make sur the starting point is the start of the segment.
+    # Make sure the starting point is the start of the segment.
     curr_start = segments_list[0].start
 
     for seg in segments_list:
@@ -322,7 +322,7 @@ def transcribe_with_vad(
     # merge segments to approx 30s inputs to make whisper most appropraite
     vad_segments = merge_chunks(vad_segments)
 
-    for sdx, seg_t in enumerate(vad_segments):
+    for seg_t in vad_segments:
         if verbose:
             print(f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> {format_timestamp(seg_t['end'])}) ~~")
         seg_f_start, seg_f_end = int(seg_t["start"] * SAMPLE_RATE / HOP_LENGTH), int(seg_t["end"] * SAMPLE_RATE / HOP_LENGTH)

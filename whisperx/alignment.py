@@ -4,12 +4,12 @@ C. Max Bain
 """
 import numpy as np
 import pandas as pd
-from typing import List, Union, Iterator, TYPE_CHECKING
+from typing import  Union, Iterator
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import torchaudio
 import torch
 from dataclasses import dataclass
-from .audio import SAMPLE_RATE, load_audio
+from whisper.audio import SAMPLE_RATE, load_audio
 from .utils import interpolate_nans
 
 
