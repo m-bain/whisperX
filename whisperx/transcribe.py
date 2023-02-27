@@ -1,7 +1,8 @@
 import argparse
+from collections import defaultdict
 import os
 import warnings
-from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
+from typing import Callable, List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -14,6 +15,9 @@ from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
 from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, interpolate_nans, write_txt, write_vtt, write_srt, write_ass, write_tsv
 from .vad import Binarize
 import pandas as pd
+
+from pyannote.audio import Inference
+from pyannote.core import Annotation
 
 if TYPE_CHECKING:
     from .model import Whisper
@@ -29,7 +33,7 @@ def transcribe(
     compression_ratio_threshold: Optional[float] = 2.4,
     logprob_threshold: Optional[float] = -1.0,
     no_speech_threshold: Optional[float] = 0.6,
-    condition_on_previous_text: bool = False, # turn off by default due to errors it causes
+    condition_on_previous_text: bool = True, # turn off by default due to errors it causes
     mel: np.ndarray = None,
     **decode_options,
 ):
@@ -256,47 +260,52 @@ def transcribe(
     return dict(text=tokenizer.decode(all_tokens[len(initial_prompt):]), segments=all_segments, language=language)
 
 
-def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
+def merge_chunks(segments, chunk_size: float = CHUNK_LENGTH, vad_min_duration_off: float = 0.0) -> list[dict[str, Union[float, tuple]]]:
     """
-    Merge VAD segments into larger segments of approximately size ~CHUNK_LENGTH.
+    Merge VAD segments into segments of approximately size ~CHUNK_LENGTH. If a single segment is larger than
+    CHUNK_LENGTH, it will be left as is and won't be sub-cropped.
+
+    Parameters
+    ----------
+    segments : (Annotations)
+        Results comming from the VAD pipeline model.
+    chunk_size : (float)
+        Desired size of each chunk.
+
+    Returns
+    -------
+    merged_segments : (list[dict[str, Union[float, tuple]]])
+        List of merged segments of an aproximate lenght of CHUNK_LENGTH.
+
+    *****
     TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
     TODO: Or sliding window alignment model over long segment.
     """
-    curr_end = 0
-    merged_segments = []
-    seg_idxs = []
-    speaker_idxs = []
-
     assert chunk_size > 0
-    binarize = Binarize(max_duration=chunk_size)
-    segments = binarize(segments)
-    segments_list = []
-    for speech_turn in segments.get_timeline():
-        segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
-
+    # Support collar will merge tracks with same label and separated by less than `collar` seconds. 
+    segments_list = list(segments.get_timeline().support(collar=vad_min_duration_off))
     assert segments_list, "segments_list is empty."
-    # Make sur the starting point is the start of the segment.
-    curr_start = segments_list[0].start
+    merged_segments = [{"start": None,
+                        "end": None,
+                        "segments": []
+                        }]
 
-    for seg in segments_list:
-        if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
+    for idx, seg in enumerate(segments_list, 1):
+        chunk = merged_segments[-1]
+        # Verify if it is a new chunk
+        chunk["start"] = chunk["start"] if chunk["start"] is not None else seg.start
+        chunk["end"] = seg.end
+        chunk["segments"].append((seg.start, seg.end))
+
+        # If chunk larger than chunk_size and is not the last segment
+        if chunk["end"] - chunk["start"] > chunk_size and idx != len(segments_list):
+            # Create a new chunk
             merged_segments.append({
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
+                "start": None,
+                "end": None,
+                "segments": [],
             })
-            curr_start = seg.start
-            seg_idxs = []
-            speaker_idxs = []
-        curr_end = seg.end
-        seg_idxs.append((seg.start, seg.end))
-        speaker_idxs.append(seg.speaker)
-    # add final
-    merged_segments.append({ 
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })    
+
     return merged_segments
 
 
@@ -306,31 +315,32 @@ def transcribe_with_vad(
     vad_pipeline,
     mel = None,
     verbose: Optional[bool] = None,
+    vad_min_duration_off: float = 0.0,
     **kwargs
-):
+) -> dict[str, Union[list, str]]:
     """
-    Transcribe per VAD segment
+    Transcribe with whisper's model based on the Voice Activity Detection (VAD).
+    VAD finds segments of interest by reducing the presence of silences which aims
+    at improving the results obtained by the transcription.
     """
-
     if mel is None:
         mel = log_mel_spectrogram(audio)
-    
-    prev = 0
-    output = {"segments": []}
+    # Find segments with Voice Activity Detection
+    vad_segments: Annotation = vad_pipeline(audio)
+    # Merge segments in order to feed whisper's model  with chunks of ~ 30s or more
+    vad_segments = merge_chunks(vad_segments, vad_min_duration_off=vad_min_duration_off)
+    output = defaultdict(list)
 
-    vad_segments = vad_pipeline(audio)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
-
-    for sdx, seg_t in enumerate(vad_segments):
+    for seg_t in vad_segments:
         if verbose:
             print(f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> {format_timestamp(seg_t['end'])}) ~~")
-        seg_f_start, seg_f_end = int(seg_t["start"] * SAMPLE_RATE / HOP_LENGTH), int(seg_t["end"] * SAMPLE_RATE / HOP_LENGTH)
-        local_f_start, local_f_end = seg_f_start - prev, seg_f_end - prev
-        mel = mel[:, local_f_start:] # seek forward
-        prev = seg_f_start
-        local_mel = mel[:, :local_f_end-local_f_start]
-        result = transcribe(model, audio, mel=local_mel, verbose=verbose, **kwargs)
+
+        start_ts = int(seg_t['start'] * (SAMPLE_RATE / HOP_LENGTH))
+        end_ts = int(seg_t['end'] * (SAMPLE_RATE / HOP_LENGTH))
+        # Slicing the segment of interest in the mel-spectrogram
+        rel_mel = mel[:, start_ts:end_ts]
+
+        result = transcribe(model, audio, mel=rel_mel, verbose=verbose, **kwargs)
         seg_t["text"] = result["text"]
         output["segments"].append(
             {
@@ -568,11 +578,69 @@ def post_process_results(
     return output
 
 
+def instantiate_vad_pipeline(hf_token: str,
+                             device: str,
+                             chunk_size: float,
+                             onset: Optional[float] = 0.5,
+                             offset: Optional[float] = 0.0,
+                             min_duration_on: Optional[float] = 0.0,
+                             min_duration_off: Optional[float] = 0.0,
+                             pad_onset: Optional[float] = 0.0,
+                             pad_offset: Optional[float] = 0.0,) -> Callable:
+    """
+    hf_token : (str)
+        Hugging Face Access Token to access PyAnnote gated models.
+    device : (str)
+        Device used for PyTorch inference.
+    chunk_size: (float)
+        The maximum length of an active segment, divides segment at timestamp with lowest score.
+    onset : (float, optional)
+        Onset threshold. Defaults to 0.5.
+    offset : float, optional
+        Offset threshold. Defaults to `onset`.
+    min_duration_on : float, optional
+        Remove active regions shorter than that many seconds. Defaults to 0s.
+    min_duration_off : float, optional
+        Fill inactive regions shorter than that many seconds. Defaults to 0s.
+    pad_onset : float, optional
+        Extend active regions by moving their start time by that many seconds.
+        Defaults to 0s.
+    pad_offset : float, optional
+        Extend active regions by moving their end time by that many seconds.
+        Defaults to 0s.
+    """
+    if hf_token is None:
+        raise AttributeError("Warning, no huggingface token used, needs to be saved in environment variable, otherwise will throw error loading VAD model...")
+
+    seg_inference = Inference(
+        "pyannote/segmentation",
+        pre_aggregation_hook=lambda segmentation: segmentation,
+        use_auth_token=hf_token,
+        device=torch.device(device),
+        )
+    
+    binarize = Binarize(onset=onset,
+                        offset=offset,
+                        min_duration_on=min_duration_on,
+                        min_duration_off=0.0, # Avoid breaking...,
+                        pad_onset=pad_onset,
+                        pad_offset=pad_offset,
+                        max_duration=chunk_size)
+
+    def vad_pipeline(audio) -> Annotation:
+        seg_result = seg_inference(audio)
+        binarized_vad = binarize(seg_result)
+
+        return binarized_vad
+        
+    return vad_pipeline
+
+
 def cli():
     from . import available_models
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
+    # parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
     parser.add_argument("--model", default="small", choices=available_models(), help="name of the Whisper model to use")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
@@ -583,6 +651,8 @@ def cli():
     parser.add_argument("--interpolate_method", default="nearest", choices=["nearest", "linear", "ignore"], help="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighbouring.")
     # vad params
     parser.add_argument("--vad_filter", action="store_true", help="Whether to first perform VAD filtering to target only transcribe within VAD. Produces more accurate alignment + timestamp, requires more GPU memory & compute.")
+    parser.add_argument("--vad_min_duration_off", default=0.0, type=float, help="Fill inactive regions shorter than that many seconds when performing VAD. Defaults to 0s.")
+    parser.add_argument("--vad_min_duration_on", default=0.0, type=float, help="Remove speech regions shorter than that many seconds when performing VAD. Defaults to 0s.")
     parser.add_argument("--parallel_bs", default=-1, type=int, help="Enable parallel transcribing if > 1")
     # diarization params
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
@@ -628,24 +698,22 @@ def cli():
     interpolate_method: bool = args.pop("interpolate_method")
     
     hf_token: str = args.pop("hf_token")
+    # VAD options
     vad_filter: bool = args.pop("vad_filter")
+    vad_min_duration_off: float = args.pop("vad_min_duration_off")
+    vad_min_duration_on: float = args.pop("vad_min_duration_on")
     parallel_bs: int = args.pop("parallel_bs")
 
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
-
-    vad_pipeline = None
-    if vad_filter:
-        if hf_token is None:
-            print("Warning, no huggingface token used, needs to be saved in environment variable, otherwise will throw error loading VAD model...")
-        from pyannote.audio import Inference
-        vad_pipeline = Inference(
-            "pyannote/segmentation",
-            pre_aggregation_hook=lambda segmentation: segmentation,
-            use_auth_token=hf_token,
-            device=torch.device(device),
-        )
+    
+    # Create a VAD pipeline if needed
+    vad_pipeline = instantiate_vad_pipeline(hf_token=hf_token,
+                                            device=device,
+                                            chunk_size=CHUNK_LENGTH,
+                                            min_duration_on=vad_min_duration_on,
+                                            min_duration_off=vad_min_duration_off) if vad_filter else None
 
     diarize_pipeline = None
     if diarize:
@@ -686,7 +754,12 @@ def cli():
                 result = transcribe_with_vad_parallel(model, audio_path, vad_pipeline, temperature=temperature, batch_size=parallel_bs, **args)
             else:
                 print("Performing VAD...")
-                result = transcribe_with_vad(model, audio_path, vad_pipeline, temperature=temperature, **args)
+                result = transcribe_with_vad(model,
+                                             audio_path,
+                                             vad_pipeline,
+                                             vad_min_duration_off=vad_min_duration_off,
+                                             temperature=temperature,
+                                             **args)
         else:
             print("Performing transcription...")
             result = transcribe(model, audio_path, temperature=temperature, **args)
