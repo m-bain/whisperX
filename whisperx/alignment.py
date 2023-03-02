@@ -243,9 +243,8 @@ def align(
             if "seg-text" not in segment:
                 segment["seg-text"] = [transcription]
                 
-            v = 0
             seg_lens = [0] + [len(x) for x in segment["seg-text"]]
-            seg_lens_cumsum = [v := v + n for n in seg_lens]
+            seg_lens_cumsum = list(np.cumsum(seg_lens))
             sub_seg_idx = 0
 
             wdx = 0
