@@ -24,7 +24,8 @@
   <a href="#example">Usage</a> •
   <a href="#other-languages">Multilingual</a> •
   <a href="#contribute">Contribute</a> •
-  <a href="EXAMPLES.md">More examples</a>
+  <a href="EXAMPLES.md">More examples</a> •
+  <a href="https://arxiv.org/abs/2303.00747">Paper</a>
 </p>
 
 
@@ -49,6 +50,7 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 <h2 align="left", id="highlights">New🚨</h2>
 
+- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed.* Repo will be updated soon with this efficient batch inference.
 - Batch processing: Add `--vad_filter --parallel_bs [int]` for transcribing long audio file in batches (only supported with VAD filtering). Replace `[int]` with a batch size that fits your GPU memory, e.g. `--parallel_bs 16`.
 - VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
 - Character level timestamps (see `*.char.ass` file output)
@@ -201,38 +203,14 @@ And borrows important alignment code from [PyTorch tutorial on forced alignment]
 
 
 <h2 align="left" id="cite">Citation</h2>
-If you use this in your research, for now just cite the repo,
+If you use this in your research, please cite the paper:
 
 ```bibtex
-@misc{bain2022whisperx,
-  author = {Bain, Max and Han, Tengda},
-  title = {WhisperX},
-  year = {2022},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/m-bain/whisperX}},
+@article{bain2022whisperx,
+  title={WhisperX: Time-Accurate Speech Transcription of Long-Form Audio},
+  author={Bain, Max and Huh, Jaesung and Han, Tengda and Zisserman, Andrew},
+  journal={arXiv preprint, arXiv:2303.00747},
+  year={2023}
 }
 ```
 
-as well as the whisper paper,
-
-```bibtex
-@article{radford2022robust,
-  title={Robust speech recognition via large-scale weak supervision},
-  author={Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
-  journal={arXiv preprint arXiv:2212.04356},
-  year={2022}
-}
-```
-and any alignment model used, e.g. wav2vec2.0.
-
-```bibtex
-@article{baevski2020wav2vec,
-  title={wav2vec 2.0: A framework for self-supervised learning of speech representations},
-  author={Baevski, Alexei and Zhou, Yuhao and Mohamed, Abdelrahman and Auli, Michael},
-  journal={Advances in Neural Information Processing Systems},
-  volume={33},
-  pages={12449--12460},
-  year={2020}
-}
-```
