@@ -639,9 +639,10 @@ def cli():
     if vad_filter:
         if hf_token is None:
             print("Warning, no huggingface token used, needs to be saved in environment variable, otherwise will throw error loading VAD model...")
-        from pyannote.audio import Inference
+        from pyannote.audio import Inference, Model
         vad_pipeline = Inference(
-            "pyannote/segmentation",
+            Model.from_pretrained("pyannote/segmentation",
+                                  use_auth_token=hf_token),
             pre_aggregation_hook=lambda segmentation: segmentation,
             use_auth_token=hf_token,
             device=torch.device(device),
