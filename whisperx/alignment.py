@@ -37,6 +37,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "fa": "jonatasgrosman/wav2vec2-large-xlsr-53-persian",
     "el": "jonatasgrosman/wav2vec2-large-xlsr-53-greek",
     "tr": "mpoyraz/wav2vec2-xls-r-300m-cv7-turkish",
+    "da": "saattrupdan/wav2vec2-xls-r-300m-ftspeech"
 }
 
 
