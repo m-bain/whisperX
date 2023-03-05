@@ -353,7 +353,6 @@ def transcribe_with_vad_parallel(
     model: "Whisper",
     audio: str,
     vad_pipeline,
-    mel = None,
     verbose: Optional[bool] = None,
     batch_size = -1,
     **kwargs
@@ -363,9 +362,6 @@ def transcribe_with_vad_parallel(
     """
 
     audio_wave = load_audio(audio)
-
-    if mel is None:
-        mel = log_mel_spectrogram(audio_wave)
     
     vad_segments = vad_pipeline({"waveform" : audio_wave,  "sample_rate" : SAMPLE_RATE})
     # merge segments to approx 30s inputs to make whisper most appropraite
