@@ -745,17 +745,17 @@ def cli():
                 write_ass(result_aligned["segments"], file=ass)
         
         # # save ASS character-level
-        if output_type in ["ass-char"]:
+        if output_type in ["ass-char", "all"]:
             with open(os.path.join(output_dir, audio_basename + ".char.ass"), "w", encoding="utf-8") as ass:
                 write_ass(result_aligned["segments"], file=ass, resolution="char")
 
         # save word tsv
-        if output_type in ["pickle"]:
+        if output_type in ["pickle", "all"]:
             exp_fp = os.path.join(output_dir, audio_basename + ".pkl")
             pd.DataFrame(result_aligned["segments"]).to_pickle(exp_fp)
 
         # save word tsv
-        if output_type in ["vad"]:
+        if output_type in ["vad", "all"]:
             exp_fp = os.path.join(output_dir, audio_basename + ".sad")
             wrd_segs = pd.concat([x["word-segments"] for x in result_aligned["segments"]])[['start','end']]
             wrd_segs.to_csv(exp_fp, sep='\t', header=None, index=False)
