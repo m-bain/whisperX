@@ -351,7 +351,7 @@ def transcribe_with_vad(
 
 def transcribe_with_vad_parallel(
     model: "Whisper",
-    audio: Union[str, np.ndarray, torch.Tensor],
+    audio: str,
     vad_pipeline,
     mel = None,
     verbose: Optional[bool] = None,
@@ -362,10 +362,12 @@ def transcribe_with_vad_parallel(
     Transcribe per VAD segment
     """
 
+    audio_wave = load_audio(audio)
+
     if mel is None:
-        mel = log_mel_spectrogram(audio)
+        mel = log_mel_spectrogram(audio_wave)
     
-    vad_segments = vad_pipeline(audio)
+    vad_segments = vad_pipeline({"waveform" : audio_wave,  "sample_rate" : SAMPLE_RATE})
     # merge segments to approx 30s inputs to make whisper most appropraite
     vad_segments = merge_chunks(vad_segments)
 
