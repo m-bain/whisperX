@@ -381,7 +381,7 @@ def transcribe_with_vad(
 
 def transcribe_with_vad_parallel(
     model: "Whisper",
-    audio: str,
+    audio: Union[str, np.ndarray, torch.Tensor],
     vad_pipeline,
     mel = None,
     verbose: Optional[bool] = None,
