@@ -312,7 +312,7 @@ def get_vad_segments(audio:Union[str, np.ndarray, torch.Tensor], vad_pipeline):
         List[Dict]: list of merged VAD segments
     """
     if isinstance(audio, str):
-        if audio.endswith(".mp3"):
+        if audio.endswith(".mp3") or audio.endswith(".sph"):
             wave = load_audio(audio)
             wave = torch.tensor((wave, wave))
             vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
