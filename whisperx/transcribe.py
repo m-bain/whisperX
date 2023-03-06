@@ -303,6 +303,13 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
 def get_vad_segments(audio:Union[str, np.ndarray, torch.Tensor], vad_pipeline):
     """
     Get VAD segments
+
+    Args:
+        audio (Union[str, np.ndarray, torch.Tensor]): audio file path or audio waveform
+        vad_pipeline (Pipeline): VAD pipeline
+
+    Returns:
+        List[Dict]: list of merged VAD segments
     """
     if isinstance(audio, str):
         if audio.endswith(".mp3"):
@@ -311,10 +318,15 @@ def get_vad_segments(audio:Union[str, np.ndarray, torch.Tensor], vad_pipeline):
             vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
         else:
             vad_segments = vad_pipeline(audio)
-    elif isinstance(audio, np.ndarray) or isinstance(audio, torch.Tensor):
+    elif isinstance(audio, np.ndarray):
         if audio.ndim == 1:
             wave = torch.tensor((audio, audio))
         vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
+    elif isinstance(audio, torch.Tensor):
+        if audio.ndim == 1:
+            wave = torch.stack((audio, audio))
+        vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
+    
     # merge segments to approx 30s inputs to make whisper most appropraite
     vad_segments = merge_chunks(vad_segments)
     return vad_segments
