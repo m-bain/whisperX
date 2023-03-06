@@ -363,6 +363,9 @@ def transcribe_with_vad_parallel(
 
     audio_wave = load_audio(audio)
 
+    if mel is None:
+        mel = log_mel_spectrogram(audio_wave)
+
     # We get mono channel back from load audio. Vad need 2 channels
     audio_wave = torch.tensor((audio_wave, audio_wave))
     
