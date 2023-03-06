@@ -339,8 +339,6 @@ def transcribe_with_vad(
     output = {"segments": []}
 
     vad_segments = get_vad_segments(audio, vad_pipeline)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
 
     for sdx, seg_t in enumerate(vad_segments):
         if verbose:
@@ -386,8 +384,6 @@ def transcribe_with_vad_parallel(
         mel = log_mel_spectrogram(audio)
 
     vad_segments = get_vad_segments(audio, vad_pipeline)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
 
     ################################
     ### START of parallelization ###
