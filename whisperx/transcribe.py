@@ -353,6 +353,7 @@ def transcribe_with_vad_parallel(
     model: "Whisper",
     audio: str,
     vad_pipeline,
+    mel = None,
     verbose: Optional[bool] = None,
     batch_size = -1,
     **kwargs
