@@ -362,6 +362,9 @@ def transcribe_with_vad_parallel(
     """
 
     audio_wave = load_audio(audio)
+
+    # We get mono channel back from load audio. Vad need 2 channels
+    audio_wave = torch.tensor((audio_wave, audio_wave))
     
     vad_segments = vad_pipeline({"waveform" : audio_wave,  "sample_rate" : SAMPLE_RATE})
     # merge segments to approx 30s inputs to make whisper most appropraite
