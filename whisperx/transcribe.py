@@ -1,18 +1,18 @@
 import argparse
 import os
 import warnings
-from typing import List, Optional, Tuple, Union, Iterator, TYPE_CHECKING
+from typing import Optional, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 import torch
 import tqdm
-from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, CHUNK_LENGTH, pad_or_trim, log_mel_spectrogram, load_audio
-from .alignment import load_align_model, align, get_trellis, backtrack, merge_repeats, merge_words
+from .audio import SAMPLE_RATE, N_FRAMES, HOP_LENGTH, CHUNK_LENGTH, pad_or_trim, log_mel_spectrogram
+from .alignment import load_align_model, align
 from .decoding import DecodingOptions, DecodingResult
-from .diarize import assign_word_speakers, Segment
+from .diarize import assign_word_speakers
 from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
-from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, interpolate_nans, write_txt, write_vtt, write_srt, write_ass, write_tsv
-from .vad import Binarize
+from .utils import exact_div, format_timestamp, optional_int, optional_float, str2bool, write_txt, write_vtt, write_srt, write_ass, write_tsv
+from .vad import VADSegmentPipeline
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -256,50 +256,6 @@ def transcribe(
     return dict(text=tokenizer.decode(all_tokens[len(initial_prompt):]), segments=all_segments, language=language)
 
 
-def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
-    """
-    Merge VAD segments into larger segments of approximately size ~CHUNK_LENGTH.
-    TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
-    TODO: Or sliding window alignment model over long segment.
-    """
-    curr_end = 0
-    merged_segments = []
-    seg_idxs = []
-    speaker_idxs = []
-
-    assert chunk_size > 0
-    binarize = Binarize(max_duration=chunk_size)
-    segments = binarize(segments)
-    segments_list = []
-    for speech_turn in segments.get_timeline():
-        segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
-
-    assert segments_list, "segments_list is empty."
-    # Make sur the starting point is the start of the segment.
-    curr_start = segments_list[0].start
-
-    for seg in segments_list:
-        if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
-            merged_segments.append({
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })
-            curr_start = seg.start
-            seg_idxs = []
-            speaker_idxs = []
-        curr_end = seg.end
-        seg_idxs.append((seg.start, seg.end))
-        speaker_idxs.append(seg.speaker)
-    # add final
-    merged_segments.append({ 
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })    
-    return merged_segments
-
-
 def transcribe_with_vad(
     model: "Whisper",
     audio: Union[str, np.ndarray, torch.Tensor],
@@ -318,9 +274,8 @@ def transcribe_with_vad(
     prev = 0
     output = {"segments": []}
 
-    vad_segments = vad_pipeline(audio)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
+    # merge segments to approx 30s inputs to make whisper most appropriate
+    vad_segments = vad_pipeline.get_segments(audio)
 
     for sdx, seg_t in enumerate(vad_segments):
         if verbose:
@@ -365,9 +320,8 @@ def transcribe_with_vad_parallel(
     if mel is None:
         mel = log_mel_spectrogram(audio)
     
-    vad_segments = vad_pipeline(audio)
     # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
+    vad_segments = vad_pipeline.get_segments(audio)
 
     ################################
     ### START of parallelization ###
@@ -400,7 +354,7 @@ def transcribe_with_vad_parallel(
     condition_on_previous_text = kwargs.pop("condition_on_previous_text", None)
     initial_prompt = kwargs.pop("initial_prompt", None)
     
-    t = 0  # TODO: does not upport temperature sweeping
+    t = 0  # TODO: does not support temperature sweeping
     if t > 0:
         # disable beam_size and patience when t > 0
         kwargs.pop("beam_size", None)
@@ -583,6 +537,7 @@ def cli():
     parser.add_argument("--interpolate_method", default="nearest", choices=["nearest", "linear", "ignore"], help="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighbouring.")
     # vad params
     parser.add_argument("--vad_filter", action="store_true", help="Whether to first perform VAD filtering to target only transcribe within VAD. Produces more accurate alignment + timestamp, requires more GPU memory & compute.")
+    parser.add_argument("--vad_model", default="silero", choices=['silero', 'pya'], help="name of the Whisper model to use")
     parser.add_argument("--parallel_bs", default=-1, type=int, help="Enable parallel transcribing if > 1")
     # diarization params
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
@@ -613,7 +568,7 @@ def cli():
     parser.add_argument("--logprob_threshold", type=optional_float, default=-1.0, help="if the average log probability is lower than this value, treat the decoding as failed")
     parser.add_argument("--no_speech_threshold", type=optional_float, default=0.6, help="if the probability of the <|nospeech|> token is higher than this value AND the decoding has failed due to `logprob_threshold`, consider the segment as silence")
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
-    parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
+    parser.add_argument("--hf_token", type=str, default='', help="Hugging Face Access Token to access PyAnnote gated models")
     
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
@@ -629,6 +584,7 @@ def cli():
     
     hf_token: str = args.pop("hf_token")
     vad_filter: bool = args.pop("vad_filter")
+    vad_model_name: str = args.pop("vad_model")
     parallel_bs: int = args.pop("parallel_bs")
 
     diarize: bool = args.pop("diarize")
@@ -637,15 +593,10 @@ def cli():
 
     vad_pipeline = None
     if vad_filter:
-        if hf_token is None:
-            print("Warning, no huggingface token used, needs to be saved in environment variable, otherwise will throw error loading VAD model...")
-        from pyannote.audio import Inference
-        vad_pipeline = Inference(
-            "pyannote/segmentation",
-            pre_aggregation_hook=lambda segmentation: segmentation,
-            use_auth_token=hf_token,
-            device=torch.device(device),
-        )
+        vad_pipeline = VADSegmentPipeline(model_name = vad_model_name,
+                                          device = device,
+                                          hf_token = hf_token,
+                                          chunk_length = CHUNK_LENGTH)
 
     diarize_pipeline = None
     if diarize:
