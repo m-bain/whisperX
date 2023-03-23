@@ -29,12 +29,13 @@ class VADSegmentPipeline:
                 print(
                     "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw "
                     "error loading VAD model...")
-            from pyannote.audio import Inference
+            from pyannote.audio import Inference, Model
             self.vad_pipeline = Inference(
-                    "pyannote/segmentation",
-                    pre_aggregation_hook = lambda segmentation: segmentation,
-                    use_auth_token = hf_token,
-                    device = torch.device(device),
+                Model.from_pretrained("pyannote/segmentation",
+                                    use_auth_token=hf_token),
+                pre_aggregation_hook=lambda segmentation: segmentation,
+                use_auth_token=hf_token,
+                device=torch.device(device),
             )
         pass
     
