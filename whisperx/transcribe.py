@@ -597,7 +597,6 @@ def cli():
                                           device = device,
                                           hf_token = hf_token,
                                           chunk_length = CHUNK_LENGTH)
-
     diarize_pipeline = None
     if diarize:
         if hf_token is None:
