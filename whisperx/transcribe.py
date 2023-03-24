@@ -300,6 +300,38 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     return merged_segments
 
 
+def get_vad_segments(audio:Union[str, np.ndarray, torch.Tensor], vad_pipeline):
+    """
+    Get VAD segments
+
+    Args:
+        audio (Union[str, np.ndarray, torch.Tensor]): audio file path or audio waveform
+        vad_pipeline (Pipeline): VAD pipeline
+
+    Returns:
+        List[Dict]: list of merged VAD segments
+    """
+    if isinstance(audio, str):
+        if audio.endswith(".mp3") or audio.endswith(".sph"):
+            wave = load_audio(audio)
+            wave = torch.tensor((wave, wave))
+            vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
+        else:
+            vad_segments = vad_pipeline(audio)
+    elif isinstance(audio, np.ndarray):
+        if audio.ndim == 1:
+            wave = torch.tensor((audio, audio))
+        vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
+    elif isinstance(audio, torch.Tensor):
+        if audio.ndim == 1:
+            wave = torch.stack((audio, audio))
+        vad_segments = vad_pipeline({"waveform" : wave,  "sample_rate" : SAMPLE_RATE})
+    
+    # merge segments to approx 30s inputs to make whisper most appropraite
+    vad_segments = merge_chunks(vad_segments)
+    return vad_segments
+
+
 def transcribe_with_vad(
     model: "Whisper",
     audio: Union[str, np.ndarray, torch.Tensor],
@@ -318,9 +350,7 @@ def transcribe_with_vad(
     prev = 0
     output = {"segments": []}
 
-    vad_segments = vad_pipeline(audio)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
+    vad_segments = get_vad_segments(audio, vad_pipeline)
 
     for sdx, seg_t in enumerate(vad_segments):
         if verbose:
@@ -364,10 +394,8 @@ def transcribe_with_vad_parallel(
 
     if mel is None:
         mel = log_mel_spectrogram(audio)
-    
-    vad_segments = vad_pipeline(audio)
-    # merge segments to approx 30s inputs to make whisper most appropraite
-    vad_segments = merge_chunks(vad_segments)
+
+    vad_segments = get_vad_segments(audio, vad_pipeline)
 
     ################################
     ### START of parallelization ###
