@@ -575,7 +575,10 @@ def cli():
     parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
     parser.add_argument("--model", default="small", choices=available_models(), help="name of the Whisper model to use")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
+    parser.add_argument("--faster_whisper", action="store_true", default=False, help="Use Faster-Whisper model rather than original Whisper from OpenAI")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
+    parser.add_argument("--faster_whisper_quantization", type=str, default='float16', help="Quantization to use for Faster-Whisper model. See supported list in CTranslate2.")
+
     # alignment params
     parser.add_argument("--align_model", default=None, help="Name of phoneme-level ASR model to do alignment")
     parser.add_argument("--align_extend", default=2, type=float, help="Seconds before and after to extend the whisper segments for alignment")
@@ -606,7 +609,7 @@ def cli():
     parser.add_argument("--suppress_tokens", type=str, default="-1", help="comma-separated list of token ids to suppress during sampling; '-1' will suppress most special characters except common punctuations")
     parser.add_argument("--initial_prompt", type=str, default=None, help="optional text to provide as a prompt for the first window.")
     parser.add_argument("--condition_on_previous_text", type=str2bool, default=False, help="if True, provide the previous output of the model as a prompt for the next window; disabling may make the text inconsistent across windows, but the model becomes less prone to getting stuck in a failure loop")
-    parser.add_argument("--fp16", type=str2bool, default=True, help="whether to perform inference in fp16; True by default")
+    # parser.add_argument("--fp16", type=str2bool, default=True, help="whether to perform inference in fp16; True by default")
 
     parser.add_argument("--temperature_increment_on_fallback", type=optional_float, default=0.2, help="temperature to increase when falling back when the decoding fails to meet either of the thresholds below")
     parser.add_argument("--compression_ratio_threshold", type=optional_float, default=2.4, help="if the gzip compression ratio is higher than this value, treat the decoding as failed")
@@ -618,6 +621,7 @@ def cli():
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
     model_dir: str = args.pop("model_dir")
+    faster_whisper: bool = args.pop("faster_whisper")
     output_dir: str = args.pop("output_dir")
     output_type: str = args.pop("output_type")
     device: str = args.pop("device")
@@ -634,6 +638,7 @@ def cli():
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
+    faster_whisper_quantization: str = args.pop("faster_whisper_quantization")
 
     vad_pipeline = None
     if vad_filter:
@@ -658,7 +663,7 @@ def cli():
 
     os.makedirs(output_dir, exist_ok=True)
 
-    if model_name.endswith(".en") and args["language"] not in {"en", "English"}:
+    if model_name.endswith("en") and args["language"] not in {"en", "English"}:
         if args["language"] is not None:
             warnings.warn(f'{model_name} is an English-only model but receipted "{args["language"]}"; using English instead.')
         args["language"] = "en"
@@ -674,8 +679,19 @@ def cli():
     if threads > 0:
         torch.set_num_threads(threads)
 
-    from . import load_model
-    model = load_model(model_name, device=device, download_root=model_dir)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    
+    if faster_whisper:
+        if not os.listdir(model_dir):  # if model_dir is empty
+            print("Downloading and converting model for Faster-Whisper...")
+            from whisperx import convert_whisper_to_ct2_model
+            convert_whisper_to_ct2_model(model_name, model_dir, faster_whisper_quantization)
+        from faster_whisper import WhisperModel
+        model = WhisperModel(model_dir, device=device, compute_type=faster_whisper_quantization)
+    else:
+        from . import load_model
+        model = load_model(model_name, device=device, download_root=model_dir)
 
     align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
     align_model, align_metadata = load_align_model(align_language, device, model_name=align_model)

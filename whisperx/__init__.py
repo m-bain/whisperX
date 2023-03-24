@@ -27,6 +27,30 @@ _MODELS = {
     "large": "https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt",
 }
 
+OPENAI_WHISPER_HUGGINGFACE_MODELS = [
+    "openai/whisper-tiny-en",
+    "openai/whisper-tiny",
+    "openai/whisper-base-en",
+    "openai/whisper-base",
+    "openai/whisper-small-en",
+    "openai/whisper-small",
+    "openai/whisper-medium-en",
+    "openai/whisper-medium",
+    "openai/whisper-large-v1",
+    "openai/whisper-large-v2",
+    "openai/whisper-large",
+]
+
+
+def convert_whisper_to_ct2_model(model_name: str, output_dir: str, quantization: str):
+    """Converts a HuggingFace model to a CTranslate2 model.
+    Ref: https://github.com/guillaumekln/faster-whisper/#model-conversion
+    """
+    print('Converting model to CTranslate2 model...')
+    os.system(f'ct2-transformers-converter --model {model_name} --output_dir {output_dir} \
+    --copy_files tokenizer.json --quantization {quantization}')
+    pass
+
 
 def _download(url: str, root: str, in_memory: bool) -> Union[bytes, str]:
     os.makedirs(root, exist_ok=True)
@@ -64,7 +88,7 @@ def _download(url: str, root: str, in_memory: bool) -> Union[bytes, str]:
 
 def available_models() -> List[str]:
     """Returns the names of available models"""
-    return list(_MODELS.keys())
+    return list(_MODELS.keys()) + OPENAI_WHISPER_HUGGINGFACE_MODELS
 
 
 def load_model(name: str, device: Optional[Union[str, torch.device]] = None, download_root: str = None, in_memory: bool = False) -> Whisper:
