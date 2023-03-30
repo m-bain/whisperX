@@ -45,8 +45,8 @@ def cli():
 
     # vad params
     parser.add_argument("--vad_filter", action="store_true", help="Whether to pre-segment audio with VAD, highly recommended! Produces more accurate alignment + timestamp see WhisperX paper https://arxiv.org/abs/2303.00747")
-    parser.add_argument("--vad_onset", type=float, default=0.767, help="Onset threshold for VAD (see pyannote.audio)")
-    parser.add_argument("--vad_offset", type=float, default=0.363, help="Offset threshold for VAD (see pyannote.audio).")
+    parser.add_argument("--vad_onset", type=float, default=0.500, help="Onset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected")
+    parser.add_argument("--vad_offset", type=float, default=0.363, help="Offset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected.")
 
     # diarization params
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
@@ -75,6 +75,7 @@ def cli():
 
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
     parser.add_argument("--model_flush", action="store_true", help="Flush memory from each model after use, reduces GPU requirement but slower processing >1 audio file.")
+    parser.add_argument("--tmp_dir", default=None, help="Temporary directory to write audio file if input if not .wav format (only for VAD).")
     # fmt: on
 
     args = parser.parse_args().__dict__
@@ -146,23 +147,21 @@ def cli():
 
     writer = get_writer(output_format, output_dir)
     for audio_path in args.pop("audio"):
-
+        input_audio_path = audio_path
         if vad_model is not None:
             if not audio_path.endswith(".wav"):
                 print("VAD requires .wav format, converting to wav as a tempfile...")
                 tfile = tempfile.NamedTemporaryFile(delete=True, suffix=".wav")
                 ffmpeg.input(audio_path, threads=0).output(tfile.name, ac=1, ar=SAMPLE_RATE).run(cmd=["ffmpeg"])
-                vad_audio_path = tfile.name
-            else:
-                vad_audio_path = audio_path
+                input_audio_path = tfile.name
             print("Performing VAD...")
-            result = transcribe_with_vad(model, vad_audio_path, vad_model, temperature=temperature, **args)
+            result = transcribe_with_vad(model, input_audio_path, vad_model, temperature=temperature, **args)
             
             if tfile is not None:
                 tfile.close()
         else:
             print("Performing transcription...")
-            result = transcribe(model, audio_path, temperature=temperature, **args)
+            result = transcribe(model, input_audio_path, temperature=temperature, **args)
 
         if align_model is not None:
             if result["language"] != align_metadata["language"]:
@@ -170,11 +169,11 @@ def cli():
                 print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
                 align_model, align_metadata = load_align_model(result["language"], device)
 
-            result = align(result["segments"], align_model, align_metadata, audio_path, device,
+            result = align(result["segments"], align_model, align_metadata, input_audio_path, device,
                 extend_duration=align_extend, start_from_previous=align_from_prev, interpolate_method=interpolate_method)
 
         # if diarize_model is not None:
-        #     diarize_segments = diarize_model(audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
+        #     diarize_segments = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
         #     results_segments, word_segments = assign_word_speakers(diarize_segments, )
 
         writer(result, audio_path)
