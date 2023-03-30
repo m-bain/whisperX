@@ -9,7 +9,7 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import torchaudio
 import torch
 from dataclasses import dataclass
-from .audio import SAMPLE_RATE, load_audio
+from whisper.audio import SAMPLE_RATE, load_audio
 from .utils import interpolate_nans
 
 

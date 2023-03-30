@@ -1,8 +1,23 @@
 import numpy as np
 import pandas as pd
+from pyannote.audio import Pipeline
+
+class DiarizationPipeline:
+    def __init__(
+        self,
+        model_name="pyannote/speaker-diarization@2.1",
+        use_auth_token=None,
+    ):
+        self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token)
+
+    def __call__(self, audio, min_speakers=None, max_speakers=None):
+        segments = self.model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
+        diarize_df = pd.DataFrame(segments.itertracks(yield_label=True))
+        diarize_df['start'] = diarize_df[0].apply(lambda x: x.start)
+        diarize_df['end'] = diarize_df[0].apply(lambda x: x.end)
+        return diarize_df
 
 def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
- 
     for seg in result_segments:
         wdf = seg['word-segments']
         if len(wdf['start'].dropna()) == 0:
