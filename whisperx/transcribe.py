@@ -2,22 +2,22 @@ import argparse
 import os
 import warnings
 from typing import TYPE_CHECKING, Optional, Tuple, Union
-
 import numpy as np
 import torch
-
+import tempfile 
+import ffmpeg
 from whisper.tokenizer import LANGUAGES, TO_LANGUAGE_CODE
+from whisper.audio import SAMPLE_RATE
 from whisper.utils import (
     optional_float,
     optional_int,
     str2bool,
 )
 
-from .utils import get_writer
-
-from .asr import transcribe, transcribe_with_vad
 from .alignment import load_align_model, align
+from .asr import transcribe, transcribe_with_vad
 from .diarize import DiarizationPipeline
+from .utils import get_writer
 from .vad import load_vad_model
 
 def cli():
@@ -74,7 +74,7 @@ def cli():
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
 
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
-    parser.add_argument("--model_flush", action="store_true", help="Flush memory of each stage after use, more GPU memory efficient, but slower when there are multiple audio files")
+    parser.add_argument("--model_flush", action="store_true", help="Flush memory from each model after use, reduces GPU requirement but slower processing >1 audio file.")
     # fmt: on
 
     args = parser.parse_args().__dict__
@@ -148,8 +148,18 @@ def cli():
     for audio_path in args.pop("audio"):
 
         if vad_model is not None:
+            if not audio_path.endswith(".wav"):
+                print("VAD requires .wav format, converting to wav as a tempfile...")
+                tfile = tempfile.NamedTemporaryFile(delete=True, suffix=".wav")
+                ffmpeg.input(audio_path, threads=0).output(tfile.name, ac=1, ar=SAMPLE_RATE).run(cmd=["ffmpeg"])
+                vad_audio_path = tfile.name
+            else:
+                vad_audio_path = audio_path
             print("Performing VAD...")
-            result = transcribe_with_vad(model, audio_path, vad_model, temperature=temperature, **args)
+            result = transcribe_with_vad(model, vad_audio_path, vad_model, temperature=temperature, **args)
+            
+            if tfile is not None:
+                tfile.close()
         else:
             print("Performing transcription...")
             result = transcribe(model, audio_path, temperature=temperature, **args)

@@ -1,10 +1,9 @@
 import warnings
 from typing import TYPE_CHECKING, Optional, Tuple, Union
-import tempfile
 import numpy as np
 import torch
 import tqdm
-
+import ffmpeg
 from whisper.audio import (
     FRAMES_PER_SECOND,
     HOP_LENGTH,
