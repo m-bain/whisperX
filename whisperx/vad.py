@@ -302,17 +302,3 @@ def merge_chunks(segments, chunk_size):
                 "segments": seg_idxs,
             })    
     return merged_segments
-
-
-if __name__ == "__main__":
-    import pandas as pd
-    input_fp = "tt298650_sync.wav"
-    df = pd.read_csv(f"/work/maxbain/tmp/{input_fp}.sad", sep=" ", header=None)
-    print(len(df))
-    N = 0.15
-    g = df[0].sub(df[1].shift())
-    input_base = input_fp.split('.')[0]
-    df = df.groupby(g.gt(N).cumsum()).agg({0:'min', 1:'max'})
-    df.to_csv(f"/work/maxbain/tmp/{input_base}.lab", header=None, index=False, sep=" ")
-    print(df)
-    import pdb; pdb.set_trace()

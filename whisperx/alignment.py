@@ -372,10 +372,7 @@ def align(
     for sdx, srow in segments_arr.iterrows():
 
         seg_idx = int(srow["segment-idx"])
-        try:
-            sub_start = int(srow["subsegment-idx-start"])
-        except:
-            import pdb; pdb.set_trace()
+        sub_start = int(srow["subsegment-idx-start"])
         sub_end = int(srow["subsegment-idx-end"])
 
         seg = transcript[seg_idx]
