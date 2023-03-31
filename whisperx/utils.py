@@ -236,7 +236,7 @@ class WritePickle(ResultWriter):
         pd.DataFrame(result["segments"]).to_pickle(file)
 
 class WriteSRTWord(ResultWriter):
-    extension: str = ".word.srt"
+    extension: str = "word.srt"
     always_include_hours: bool = True
     decimal_marker: str = ","
 

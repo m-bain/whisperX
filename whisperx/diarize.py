@@ -41,7 +41,12 @@ def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
                 speaker = None
             speakers.append(speaker)
         seg['word-segments']['speaker'] = speakers
-        seg["speaker"] = pd.Series(speakers).value_counts().index[0]
+
+        speaker_count = pd.Series(speakers).value_counts()
+        if len(speaker_count) == 0:
+            seg["speaker"]= "UNKNOWN"
+        else:
+            seg["speaker"] = speaker_count.index[0]
 
     # create word level segments for .srt
     word_seg = []

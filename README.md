@@ -29,7 +29,7 @@
 </p>
 
 
-<img width="1216" align="center" alt="whisperx-arch" src="https://user-images.githubusercontent.com/36994049/211200186-8b779e26-0bfd-4127-aee2-5a9238b95e1f.png">
+<img width="1216" align="center" alt="whisperx-arch" src="figures/pipeline.png">
 
 
 <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
@@ -39,7 +39,7 @@
 
 <h2 align="left", id="what-is-it">What is it 🔎</h2>
 
-This repository refines the timestamps of openAI's Whisper model via forced aligment with phoneme-based ASR models (e.g. wav2vec2.0), multilingual use-case.
+This repository refines the timestamps of openAI's Whisper model via forced aligment with phoneme-based ASR models (e.g. wav2vec2.0) and VAD preprocesssing, multilingual use-case.
 
 
 **Whisper** is an ASR model [developed by OpenAI](https://github.com/openai/whisper), trained on a large dataset of diverse audio. Whilst it does produces highly accurate transcriptions, the corresponding timestamps are at the utterance-level, not per word, and can be inaccurate by several seconds.
@@ -48,11 +48,13 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 **Forced Alignment** refers to the process by which orthographic transcriptions are aligned to audio recordings to automatically generate phone level segmentation.
 
+**Voice Activity Detection (VAD)** is the detection of the presence or absence of human speech.
+
 <h2 align="left", id="highlights">New🚨</h2>
 
-- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed.* Repo will be updated soon with this efficient batch inference.
-- Batch processing: Add `--vad_filter --parallel_bs [int]` for transcribing long audio file in batches (only supported with VAD filtering). Replace `[int]` with a batch size that fits your GPU memory, e.g. `--parallel_bs 16`.
-- VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
+- v2 released, code cleanup, imports whisper library, batched inference from paper not included (contact for licensing / batched model API). VAD filtering is now turned on by default, as in the paper.
+- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed (not provided in this repo).
+- VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter True` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
 - Character level timestamps (see `*.char.ass` file output)
 - Diarization (still in beta, add `--diarize`)
 
@@ -89,9 +91,9 @@ Run whisper on example segment (using default params)
     whisperx examples/sample01.wav
 
 
-For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models and VAD filtering e.g.
+For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models (bigger alignment model not found to be that helpful, see paper) e.g.
 
-    whisperx examples/sample01.wav --model large-v2 --vad_filter --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
+    whisperx examples/sample01.wav --model large-v2 --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
 
@@ -153,9 +155,8 @@ In addition to forced alignment, the following two modifications have been made 
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
-- Not thoroughly tested, especially for non-english, results may vary -- please post issue to let me know the results on your data
 - Whisper normalises spoken numbers e.g. "fifty seven" to arabic numerals "57". Need to perform this normalization after alignment, so the phonemes can be aligned. Currently just ignores numbers.
-- If not using VAD filter, whisperx assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
+- If setting `--vad_filter False`, then whisperx assumes the initial whisper timestamps are accurate to some degree (within margin of 2 seconds, adjust if needed -- bigger margins more prone to alignment errors)
 - Overlapping speech is not handled particularly well by whisper nor whisperx
 - Diariazation is far from perfect.
 
@@ -180,21 +181,23 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 * [x] Incorporating  speaker diarization
 
-* [x] Inference speedup with batch processing
+* [ ] Automatic .wav conversion to make VAD compatible
+
+* [ ] Model flush, for low gpu mem resources
 
 * [ ] Improve diarization (word level). *Harder than first thought...*
 
 
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
-Contact maxbain[at]robots[dot]ox[dot]ac[dot]uk for queries
+Contact maxhbain@gmail.com for queries and licensing / early access to a model API with batched inference (transcribe 1hr audio in under 1min).
 
 <a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
 
 <h2 align="left" id="acks">Acknowledgements 🙏</h2>
 
-This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and University of Oxford.
+This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
 
 
 
@@ -214,3 +217,35 @@ If you use this in your research, please cite the paper:
 }
 ```
 
+as well the following works, used in each stage of the pipeline:
+
+```bibtex
+@article{radford2022robust,
+  title={Robust speech recognition via large-scale weak supervision},
+  author={Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
+  journal={arXiv preprint arXiv:2212.04356},
+  year={2022}
+}
+```
+
+```bibtex
+@article{baevski2020wav2vec,
+  title={wav2vec 2.0: A framework for self-supervised learning of speech representations},
+  author={Baevski, Alexei and Zhou, Yuhao and Mohamed, Abdelrahman and Auli, Michael},
+  journal={Advances in neural information processing systems},
+  volume={33},
+  pages={12449--12460},
+  year={2020}
+}
+```
+
+```bibtex
+@inproceedings{bredin2020pyannote,
+  title={Pyannote. audio: neural building blocks for speaker diarization},
+  author={Bredin, Herv{\'e} and Yin, Ruiqing and Coria, Juan Manuel and Gelly, Gregory and Korshunov, Pavel and Lavechin, Marvin and Fustes, Diego and Titeux, Hadrien and Bouaziz, Wassim and Gill, Marie-Philippe},
+  booktitle={ICASSP 2020-2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={7124--7128},
+  year={2020},
+  organization={IEEE}
+}
+```
