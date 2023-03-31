@@ -4,6 +4,13 @@ from typing import Callable, TextIO, Iterator, Tuple
 import pandas as pd
 import numpy as np
 
+# This function returns the integer quotient of x and y.
+# The quotient is rounded down to the nearest integer.
+# It is assumed that x is evenly divisible by y.
+def exact_div(x, y):
+    assert x % y == 0
+    return x // y
+
 def exact_div(x, y):
     assert x % y == 0
     return x // y
@@ -31,6 +38,16 @@ def compression_ratio(text) -> float:
 
 
 def format_timestamp(seconds: float, always_include_hours: bool = False, decimal_marker: str = '.'):
+    """
+    Returns a string of the form HH:MM:SS.sss representing the given timestamp.
+
+    :param seconds: the timestamp to represent, in seconds
+    :param always_include_hours: if True, always include the hours in the output,
+        even if the timestamp is less than one hour
+    :param decimal_marker: the character to use as the decimal marker for the
+        milliseconds
+    :return: a string representation of the timestamp
+    """
     assert seconds >= 0, "non-negative timestamp expected"
     milliseconds = round(seconds * 1000.0)
 
@@ -251,7 +268,11 @@ def write_ass(transcript: Iterator[dict],
     file.write(ass_str)
 
 def interpolate_nans(x, method='nearest'):
+    """
+    Interpolate missing values in a series
+    """
     if x.notnull().sum() > 1:
         return x.interpolate(method=method).ffill().bfill()
     else:
         return x.ffill().bfill()
+

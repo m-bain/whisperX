@@ -1,90 +1,30 @@
-import pandas as pd
 import numpy as np
-from pyannote.core import Annotation, Segment, SlidingWindowFeature, Timeline
-from typing import List, Tuple, Optional
+from pyannote.core import Annotation, SlidingWindowFeature
+from typing import List, Optional, Union, BinaryIO, NamedTuple
 import torch
-import wave
+from abc import ABC, abstractmethod
+from faster_whisper.transcribe import Word
 
-from whisperx.diarize import Segment
+
+class FasterWhisperSegment(NamedTuple):
+    """Merged all potential fields in WhisperX and Faster-Whisper's Segment"""
+    start: float
+    end: float
+    text: str
+    speaker: Optional[str]
+    words: Optional[List[Word]]
 
 
-class VADSegmentPipeline:
-    def __init__(self, model_name: str, hf_token: str, device: str, chunk_length: int = 30):
-        self.device = device
-        self.hf_token = hf_token
-        self.model_name = model_name
-        self.chunk_length = chunk_length
-        assert model_name in ['silero', 'pyannote']
-        assert chunk_length > 0
-        
-        if model_name is 'silero':
-            self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir = 'snakers4/silero-vad',
-                                                          model = 'silero_vad',
-                                                          force_reload = True,
-                                                          onnx = False,
-                                                          trust_repo = True,)
-            (self.get_speech_timestamps, _, self.read_audio, _, _) = vad_utils
-        else:
-            if hf_token is None:
-                print(
-                    "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw "
-                    "error loading VAD model...")
-            from pyannote.audio import Inference, Model
-            self.vad_pipeline = Inference(
-                Model.from_pretrained("pyannote/segmentation",
-                                    use_auth_token=hf_token),
-                pre_aggregation_hook=lambda segmentation: segmentation,
-                use_auth_token=hf_token,
-                device=torch.device(device),
-            )
+class VADPipeline(ABC):
+    def __init__(self):
         pass
     
-    def get_segments_pyannote(self, audio_path: str, chunk_size: int = 0):
-        """use pyannote to get segments of speech"""
-        segments = self.vad_pipeline(audio_path)
-        if not chunk_size:
-            chunk_size = self.chunk_length
-        
-        assert chunk_size > 0
-        binarize = Binarize(max_duration=chunk_size)
-        segments = binarize(segments)
-        segments_list = []
-        for speech_turn in segments.get_timeline():
-            segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
-        
-        return segments_list
+    @abstractmethod
+    def get_segments(self, audio: Union[str, BinaryIO, np.ndarray], chunk_size: int = 30):
+        pass
     
-    def get_segments_silero_vad(self, audio_path: str = 'audio.wav', sample_rate: int = 0):
-        """use silero to get segments of speech"""""
-        # If audio sample rate is not provided, we read it from the audio file ourselves
-        if not sample_rate:
-            print("Reading sample rate from audio file...")
-            with wave.open(audio_path, 'rb') as f:
-                sample_rate = f.getframerate()
-        
-        # https://github.com/snakers4/silero-vad/wiki/Examples-and-Dependencies
-        timestamps = self.get_speech_timestamps(self.read_audio(audio_path, sampling_rate=sample_rate),
-                                                model=self.vad_pipeline,
-                                                sampling_rate=sample_rate)
-        # sample output: [{'end': 664992, 'start': 181344}, {'end': 1373088, 'start': 672864}] when sample_rate=44100
-        # Segment defined in pyannote Segment is in seconds
-        return [Segment(i['start']/sample_rate, i['end']/sample_rate, "UNKNOWN") for i in timestamps]
-    
-    def get_segments(self, audio_path: str, sample_rate: int = 0) -> List[dict]:
-        """
-        Get segments of speech from audio file by model.
-        
-        Return: List of segments, each segment is a dict with keys "start", "end", "segments".
-        """
-        if self.model_name is 'silero':
-            vad_segments = self.get_segments_silero_vad(audio_path, sample_rate)
-        else:
-            vad_segments = self.get_segments_pyannote(audio_path, self.chunk_length)
-        
-        return self.merge_chunks(vad_segments, self.chunk_length)
-        
     @staticmethod
-    def merge_chunks(segments_list, chunk_size=30):
+    def merge_chunks(segments_list, chunk_size = 30):
         """
         Merge VAD segments into larger segments of approximately size ~CHUNK_LENGTH.
         TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
@@ -94,15 +34,15 @@ class VADSegmentPipeline:
         merged_segments = []
         seg_idxs = []
         speaker_idxs = []
-    
+        
         assert chunk_size > 0
-    
+        
         assert segments_list, "segments_list is empty."
         # Make sure the starting point is the start of the segment.
         curr_start = segments_list[0].start
-    
+        
         for seg in segments_list:
-            if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
+            if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:
                 merged_segments.append({
                     "start": curr_start,
                     "end": curr_end,
@@ -116,11 +56,62 @@ class VADSegmentPipeline:
             speaker_idxs.append(seg.speaker)
         # add final
         merged_segments.append({
-                    "start": curr_start,
-                    "end": curr_end,
-                    "segments": seg_idxs,
-                })
+            "start": curr_start,
+            "end": curr_end,
+            "segments": seg_idxs,
+        })
         return merged_segments
+
+
+class PyannoteVADPipeline(VADPipeline):
+    def __init__(self, hf_token, device: str = 'cpu'):
+        super().__init__()
+        from pyannote.audio import Inference, Model
+        self.vad_pipeline = Inference(
+                Model.from_pretrained("pyannote/segmentation",
+                                      use_auth_token = hf_token),
+                pre_aggregation_hook = lambda segmentation: segmentation,
+                use_auth_token = hf_token,
+                device = torch.device(device),
+        )
+        pass
+    
+    def get_segments(self, audio: Union[str, BinaryIO, np.ndarray], chunk_size: int = 30):
+        """use pyannote to get segments of speech"""
+        segments = self.vad_pipeline(audio)
+        return self.merge_chunks(segments, chunk_size)
+
+
+class SileroVADPipeline(VADPipeline):
+    def __init__(self, device: str = 'cpu'):
+        super().__init__()
+        self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir = 'snakers4/silero-vad',
+                                                      model = 'silero_vad',
+                                                      force_reload = True,
+                                                      onnx = False,
+                                                      trust_repo = True, )
+        (self.get_speech_timestamps, _, self.read_audio, _, _) = vad_utils
+        self.device = device
+    
+    def get_segments(self, audio: Union[str, BinaryIO, np.ndarray],
+                     chunk_size: int = 30):
+        """use silero to get segments of speech"""
+        sample_rate = 16000  # default sample rate per silero-vad
+        # If user provides a numpy array, we need to know the sample rate as cannot infer from array
+        if isinstance(audio, np.ndarray):
+            audio_array = audio
+        else:
+            audio_array = self.read_audio(audio, sampling_rate = sample_rate)
+        
+        # https://github.com/snakers4/silero-vad/wiki/Examples-and-Dependencies
+        timestamps = self.get_speech_timestamps(audio_array,
+                                                model = self.vad_pipeline,
+                                                sampling_rate = sample_rate)
+        # sample output: [{'end': 664992, 'start': 181344}, {'end': 1373088, 'start': 672864}]
+        # Segment defined here is in seconds, following the pyannote convention
+        segments = [FasterWhisperSegment(i['start'] / sample_rate, i['end'] / sample_rate, "", "", []) for i in timestamps]
+        return self.merge_chunks(segments, chunk_size)
+
 
 class Binarize:
     """Binarize detection scores using hysteresis thresholding
@@ -212,14 +203,14 @@ class Binarize:
                         # divide segment
                         min_score_div_idx = search_after + np.argmin(curr_scores[search_after:])
                         min_score_t = curr_timestamps[min_score_div_idx]
-                        region = Segment(start - self.pad_onset, min_score_t + self.pad_offset)
+                        region = FasterWhisperSegment(start - self.pad_onset, min_score_t + self.pad_offset)
                         active[region, k] = label
                         start = curr_timestamps[min_score_div_idx]
                         curr_scores = curr_scores[min_score_div_idx + 1:]
                         curr_timestamps = curr_timestamps[min_score_div_idx + 1:]
                     # switching from active to inactive
                     elif y < self.offset:
-                        region = Segment(start - self.pad_onset, t + self.pad_offset)
+                        region = FasterWhisperSegment(start - self.pad_onset, t + self.pad_offset)
                         active[region, k] = label
                         start = t
                         is_active = False
@@ -236,7 +227,7 @@ class Binarize:
             
             # if active at the end, add final region
             if is_active:
-                region = Segment(start - self.pad_onset, t + self.pad_offset)
+                region = FasterWhisperSegment(start - self.pad_onset, t + self.pad_offset)
                 active[region, k] = label
         
         # because of padding, some active regions might be overlapping: merge them.
@@ -259,7 +250,7 @@ def merge_vad(vad_arr, pad_onset = 0.0, pad_offset = 0.0, min_duration_off = 0.0
     
     active = Annotation()
     for k, vad_t in enumerate(vad_arr):
-        region = Segment(vad_t[0] - pad_onset, vad_t[1] + pad_offset)
+        region = FasterWhisperSegment(vad_t[0] - pad_onset, vad_t[1] + pad_offset)
         active[region, k] = 1
     
     if pad_offset > 0.0 or pad_onset > 0.0 or min_duration_off > 0.0:
