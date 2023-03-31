@@ -395,8 +395,10 @@ def transcribe_with_vad(
 
     # merge segments to approx 30s inputs to make whisper most appropraite
     vad_segments = merge_chunks(vad_segments, chunk_size=CHUNK_LENGTH)
+    if len(vad_segments) == 0:
+        return output
 
-    print("Performing transcription...")
+    print(">>Performing transcription...")
     for sdx, seg_t in enumerate(vad_segments):
         if verbose:
             print(f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> {format_timestamp(seg_t['end'])}) ~~")

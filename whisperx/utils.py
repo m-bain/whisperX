@@ -270,6 +270,8 @@ class WriteSRTWord(ResultWriter):
                 yield segment_start, segment_end, segment_text
 
     def write_result(self, result: dict, file: TextIO):
+        if "word_segments" not in result:
+            return
         for i, (start, end, text) in enumerate(self.iterate_result(result), start=1):
             print(f"{i}\n{start} --> {end}\n{text}\n", file=file, flush=True)
 
@@ -286,11 +288,16 @@ def get_writer(output_format: str, output_dir: str) -> Callable[[dict, TextIO], 
         "vtt": WriteVTT,
         "srt": WriteSRT,
         "tsv": WriteTSV,
-        # "json": WriteJSON,
         "ass": WriteASS,
+        "srt-word": WriteSRTWord,
         # "ass-char": WriteASSchar,
         # "pickle": WritePickle,
-        "srt-word": WriteSRTWord,
+        # "json": WriteJSON,
+    }
+
+    writers_other = {
+        "pkl": WritePickle,
+        "ass-char": WriteASSchar
     }
 
     if output_format == "all":
@@ -302,4 +309,9 @@ def get_writer(output_format: str, output_dir: str) -> Callable[[dict, TextIO], 
 
         return write_all
 
-    return writers[output_format](output_dir)
+    if output_format in writers:
+        return writers[output_format](output_dir)
+    elif output_format in writers_other:
+        return writers_other[output_format](output_dir)
+    else:
+        raise ValueError(f"Output format '{output_format}' not supported, choose from {writers.keys()} and {writers_other.keys()}")
