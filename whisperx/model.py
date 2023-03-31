@@ -13,6 +13,7 @@ from .decoding import detect_language as detect_language_function, decode as dec
 from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 from faster_whisper.transcribe import AudioInfo
+from faster_whisper.transcribe import Segment as FasterWhisperSegment
 from tqdm import tqdm
 from typing import Iterable, List, Tuple
 
@@ -293,13 +294,19 @@ class FasterWhisperModelAdapter:
         end = int(end * sample_rate)
         return audio[start:end]
     
-    def __audio_segment_generator(self, audio: np.ndarray, segments: List[FasterWhisperSegment]) -> Iterable[
-        np.ndarray]:
+    def __audio_segment_generator(self, audio: np.ndarray, 
+                                  segments: List[FasterWhisperSegment]) -> Iterable[np.ndarray]:
+        """Generate audio segments from a numpy array of audio samples.
+        
+        Lazy segment generator - only yields when asked to do so to save on RAM
+        """
         for segment in segments:
             yield self.__audio_numpy_array_slice(audio, segment.start, segment.end)
     
     @staticmethod
-    def format_output(result_transcription, audio_info, verbose=False):
+    def format_output(result_transcription: List[FasterWhisperSegment], audio_info: type[AudioInfo], verbose=False):
+        """Format the output of the transcription into a dictionary of 
+        WhisperX's output format."""
         output = {"segments": []}
         language = audio_info.language
         for i, segment in enumerate(result_transcription):
@@ -321,7 +328,6 @@ class FasterWhisperModelAdapter:
     
     def transcribe(
             self,
-            model: None,
             audio: Union[str, BinaryIO, np.ndarray, torch.Tensor],
             *,
             verbose: Optional[bool] = None,
@@ -330,9 +336,12 @@ class FasterWhisperModelAdapter:
             logprob_threshold: Optional[float] = -1.0,
             no_speech_threshold: Optional[float] = 0.6,
             condition_on_previous_text: bool = False,  # turn off by default due to errors it causes
-            mel: np.ndarray = None,
             **decode_options,
     ):
+        """Transcribe audio to text.
+        
+        Wrapper of transcribe function of Faster-Whisper
+        """
         result_transcription, audio_info = self.model.transcribe(audio = audio, temperature = temperature,
                                                                  compression_ratio_threshold =
                                                                  compression_ratio_threshold,
@@ -345,45 +354,45 @@ class FasterWhisperModelAdapter:
     
     def transcribe_with_vad(
             self,
-            model: None,
             audio: Union[str, np.ndarray, torch.Tensor],
             vad_pipeline,
-            mel = None,
             verbose: Optional[bool] = None,
             **kwargs
     ):
+        """Transcribe audio to text with VAD.
+        
+        NOT using same params as the one in WhisperX!"""
         self.vad_pipeline = vad_pipeline
         result_transcription, audio_info_merged = self.__transcribe_with_vad(audio = audio, verbose = verbose, **kwargs)
         return self.format_output(result_transcription, audio_info_merged, verbose = verbose)
     
-    def transcribe_with_vad_parallel(
-            self,
-            model: None,
-            audio: Union[str, np.ndarray, torch.Tensor],
-            vad_pipeline,
-            mel = None,
-            verbose: Optional[bool] = None,
-            batch_size = -1,  # STranslate2 control batch size by thread number
-            **kwargs
-    ):
-        self.vad_pipeline = vad_pipeline
-        result_transcription, audio_info_merged = self.__transcribe_with_vad(audio = audio, verbose = verbose, **kwargs)
-        return self.format_output(result_transcription, audio_info_merged, verbose = verbose)
-
     def __transcribe_with_vad(self, *args, **kwargs) -> Tuple[Iterable[FasterWhisperSegment], AudioInfo]:
+        """Transcribe audio to text with VAD.
+        
+        Steps:
+        
+        1. Read audio and convert to numpy array - to save on reading the file multiple times
+        2. Run VAD to get segments
+        3. Cut audio into segments of around defined time, call transcribe generator function on each segment
+        4. Execute transcription on each segment, collect segments of text, word-level timestamps, 
+              start and end timestamps
+        5. Transpose timestamp inside each VAD segments to add on starting time, flattern the list and return
+        """
         verbose = kwargs.pop("verbose", False)
         
         assert "audio" in kwargs, "audio is a required argument"
-        # Convert audio to numpy array at the beginning to save on further conversions
+        # 1. Read audio and convert to numpy array - to save on reading the file multiple times
         audio = kwargs.pop("audio")
         audio_arr = decode_audio(audio)
         
+        # 2. Run VAD to get segments
         if verbose:
             print("Running VAD...")
         # get segments from VAD
         # return type is list of dict with keys 'start' and 'end'
         merged_segments_dicts = self.vad_pipeline.get_segments(audio = audio_arr)
         
+        # 3. Cut audio into segments of around defined time, call transcribe generator function on each segment
         # convert to Segment type for compatibility with Faster-Whisper
         merged_segments = [FasterWhisperSegment(start = segment['start'],
                                                 end = segment['end'], text = "", speaker = None, words = None)
@@ -398,6 +407,8 @@ class FasterWhisperModelAdapter:
         for segment in audio_segments:
             vad_transcript_segments.append(self.model.transcribe(segment, *args, **kwargs))  # adding generator
         
+        # 4. Execute transcription on each segment, collect segments of text, word-level timestamps, 
+        #    start and end timestamps
         segment_transcription = []
         audio_infos = []
         
@@ -409,6 +420,7 @@ class FasterWhisperModelAdapter:
             audio_infos.append(audio_info)
             segment_transcription.append([i for i in transcribe_segments])
         
+        # 5. Transpose timestamp inside each VAD segments to add on starting time, flattern the list and return
         result_transcription = []
         for segment_info, segments in zip(merged_segments, segment_transcription):
             for segment in segments:

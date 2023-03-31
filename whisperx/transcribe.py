@@ -257,7 +257,8 @@ def transcribe(
     
     return dict(text = tokenizer.decode(all_tokens[len(initial_prompt):]), segments = all_segments, language = language)
 
-def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
+
+def merge_chunks(segments, chunk_size = CHUNK_LENGTH):
     """
     Merge VAD segments into larger segments of approximately size ~CHUNK_LENGTH.
     TODO: Make sure VAD segment isn't too long, otherwise it will cause OOM when input to alignment model
@@ -267,20 +268,20 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
     merged_segments = []
     seg_idxs = []
     speaker_idxs = []
-
+    
     assert chunk_size > 0
-    binarize = Binarize(max_duration=chunk_size)
+    binarize = Binarize(max_duration = chunk_size)
     segments = binarize(segments)
     segments_list = []
     for speech_turn in segments.get_timeline():
         segments_list.append(Segment(speech_turn.start, speech_turn.end, "UNKNOWN"))
-
+    
     assert segments_list, "segments_list is empty."
     # Make sur the starting point is the start of the segment.
     curr_start = segments_list[0].start
-
+    
     for seg in segments_list:
-        if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
+        if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:
             merged_segments.append({
                 "start": curr_start,
                 "end": curr_end,
@@ -294,10 +295,10 @@ def merge_chunks(segments, chunk_size=CHUNK_LENGTH):
         speaker_idxs.append(seg.speaker)
     # add final
     merged_segments.append({
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })
+        "start": curr_start,
+        "end": curr_end,
+        "segments": seg_idxs,
+    })
     return merged_segments
 
 
@@ -326,10 +327,10 @@ def transcribe_with_vad(
     for sdx, seg_t in enumerate(vad_segments):
         if verbose:
             print(
-                f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> "
-                f"{format_timestamp(seg_t['end'])}) ~~")
+                    f"~~ Transcribing VAD chunk: ({format_timestamp(seg_t['start'])} --> "
+                    f"{format_timestamp(seg_t['end'])}) ~~")
         seg_f_start, seg_f_end = int(seg_t["start"] * SAMPLE_RATE / HOP_LENGTH), int(
-            seg_t["end"] * SAMPLE_RATE / HOP_LENGTH)
+                seg_t["end"] * SAMPLE_RATE / HOP_LENGTH)
         local_f_start, local_f_end = seg_f_start - prev, seg_f_end - prev
         mel = mel[:, local_f_start:]  # seek forward
         prev = seg_f_start
@@ -699,8 +700,9 @@ def cli():
     if diarize:
         if hf_token is None:
             print(
-                "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error "
-                "loading diarization model...")
+                    "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw "
+                    "error "
+                    "loading diarization model...")
         from pyannote.audio import Pipeline
         diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
                                                     use_auth_token = hf_token)
@@ -710,7 +712,7 @@ def cli():
     if model_name.endswith(".en") and args["language"] not in {"en", "English"}:
         if args["language"] is not None:
             warnings.warn(
-                f'{model_name} is an English-only model but receipted "{args["language"]}"; using English instead.')
+                    f'{model_name} is an English-only model but receipted "{args["language"]}"; using English instead.')
         args["language"] = "en"
     
     temperature = args.pop("temperature")
@@ -730,7 +732,8 @@ def cli():
             model_size_or_path = model_dir
         else:
             model_size_or_path = model_name
-        model = FasterWhisperModelAdapter(model_size_or_path = model_size_or_path, device = device)
+        model = FasterWhisperModelAdapter(model_size_or_path = model_size_or_path, device = device,
+                                          cpu_threads = threads)
     else:
         from . import load_model
         model = load_model(model_name, device = device, download_root = model_dir)
@@ -748,9 +751,9 @@ def cli():
                     result = model.transcribe_with_vad_parallel(audio = audio_path, vad_pipeline = vad_pipeline,
                                                                 temperature = temperature, **args)
                 else:
-                    result = transcribe_with_vad_parallel(model = model, audio = audio_path,
-                                                          vad_pipeline = vad_pipeline,
-                                                          temperature = temperature, batch_size = parallel_bs, **args)
+                    result = transcribe_with_vad(audio = audio_path,
+                                                 vad_pipeline = vad_pipeline,
+                                                 temperature = temperature, **args)
             else:
                 print("Performing VAD...")
                 if faster_whisper:
@@ -769,8 +772,9 @@ def cli():
         if result["language"] != align_metadata["language"]:
             # load new language
             print(
-                f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading ne"
-                f"w alignment model for new language...")
+                    f"New language found ({result['language']})! Previous was ({align_metadata['language']}), "
+                    f"loading ne"
+                    f"w alignment model for new language...")
             align_model, align_metadata = load_align_model(result["language"], device)
         
         print("Performing alignment...")
