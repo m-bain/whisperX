@@ -18,6 +18,7 @@ VAD_SEGMENTATION_URL = "https://whisperx.s3.eu-west-2.amazonaws.com/model_weight
 
 def load_vad_model(device, vad_onset, vad_offset, use_auth_token=None):
     model_dir = torch.hub._get_torch_home()
+    os.makedirs(model_dir, exist_ok = True)
     model_fp = os.path.join(model_dir, "whisperx-vad-segmentation.bin")
     if os.path.exists(model_fp) and not os.path.isfile(model_fp):
         raise RuntimeError(f"{model_fp} exists and is not a regular file")
