@@ -130,12 +130,13 @@ See more examples in other languages [here](EXAMPLES.md).
 
 ```python
 import whisperx
+import whisper
 
 device = "cuda" 
 audio_file = "audio.mp3"
 
 # transcribe with original whisper
-model = whisperx.load_model("large", device)
+model = whisper.load_model("large", device)
 result = model.transcribe(audio_file)
 
 print(result["segments"]) # before alignment
@@ -156,9 +157,6 @@ print(result_aligned["word_segments"]) # after alignment
 In addition to forced alignment, the following two modifications have been made to the whisper transcription method:
 
 1. `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
-
-2. Clamping segment `end_time` to be at least 0.02s (one time precision) later than `start_time` (prevents segments with negative duration)
-
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
