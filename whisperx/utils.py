@@ -221,13 +221,13 @@ class WriteASS(ResultWriter):
     extension: str = "ass"
 
     def write_result(self, result: dict, file: TextIO):
-        write_ass(result["segments"], file, resoltuion="word")
+        write_ass(result["segments"], file, resolution="word")
 
 class WriteASSchar(ResultWriter):
     extension: str = "ass"
 
     def write_result(self, result: dict, file: TextIO):
-        write_ass(result["segments"], file, resoltuion="char")
+        write_ass(result["segments"], file, resolution="char")
 
 class WritePickle(ResultWriter):
     extension: str = "ass"
