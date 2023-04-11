@@ -269,6 +269,10 @@ def transcribe(
                     end_timestamp_pos = (
                         sliced_tokens[-1].item() - tokenizer.timestamp_begin
                     )
+                    
+                    # clamp end-time to at least be 1 frame after start-time
+                    end_timestamp_pos = max(end_timestamp_pos, start_timestamp_pos + time_precision)
+
                     current_segments.append(
                         new_segment(
                             start=time_offset + start_timestamp_pos * time_precision,
