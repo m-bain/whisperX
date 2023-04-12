@@ -150,14 +150,6 @@ def cli():
 
         # >> VAD & ASR
         if vad_model is not None:
-            if not audio_path.endswith(".wav"):
-                print(">>VAD requires .wav format, converting to wav as a tempfile...")
-                audio_basename = os.path.splitext(os.path.basename(audio_path))[0]
-                if tmp_dir is not None:
-                    input_audio_path = os.path.join(tmp_dir, audio_basename + ".wav")
-                else:
-                    input_audio_path = os.path.join(os.path.dirname(audio_path), audio_basename + ".wav")
-                ffmpeg.input(audio_path, threads=0).output(input_audio_path, ac=1, ar=SAMPLE_RATE).run(cmd=["ffmpeg"])
             print(">>Performing VAD...")
             result = transcribe_with_vad(model, input_audio_path, vad_model, temperature=temperature, **args)
         else:
