@@ -177,9 +177,9 @@ def write_ass(transcript: Iterator[dict],
             res_segs = pd.DataFrame(segment[resolution_key])
             prev = segment['start']
             if "speaker" in segment:
-                speaker_str = f"[{segment['speaker']}]: "
+                speaker_offset = len(f"[{segment['speaker']}]:")
             else:
-                speaker_str = ""
+                speaker_str = 0
             for cdx, crow in res_segs.iterrows():
                 if not np.isnan(crow['start']):
                     if resolution == "char":
@@ -191,7 +191,7 @@ def write_ass(transcript: Iterator[dict],
                     # fill gap
                     if crow['start'] > prev:
                         filler_ts = {
-                            "chars": speaker_str + segment['text'],
+                            "chars": segment['text'],
                             "start": prev,
                             "end": crow['start'],
                             "idx_0": -1,
@@ -201,11 +201,11 @@ def write_ass(transcript: Iterator[dict],
                         ass_arr.append(filler_ts)
                     # highlight current word
                     f_word_ts = {
-                        "chars": speaker_str + segment['text'],
+                        "chars": segment['text'],
                         "start": crow['start'],
                         "end": crow['end'],
-                        "idx_0": idx_0 + len(speaker_str),
-                        "idx_1": idx_1 + len(speaker_str)
+                        "idx_0": idx_0 + speaker_offset,
+                        "idx_1": idx_1 + speaker_offset
                     }
                     ass_arr.append(f_word_ts)
                     prev = crow['end']
