@@ -32,7 +32,7 @@
 <img width="1216" align="center" alt="whisperx-arch" src="figures/pipeline.png">
 
 
-<p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy using forced alignment.
+<p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy + quality via forced phoneme alignment and speech-activity batching.
 
 </p>
 
@@ -52,6 +52,7 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 <h2 align="left", id="highlights">New🚨</h2>
 
+- v3 released, 70x speed-up open-sourced. Using batched whisper with [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend!
 - v2 released, code cleanup, imports whisper library, batched inference from paper not included (contact for licensing / batched model API). VAD filtering is now turned on by default, as in the paper.
 - Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed (not provided in this repo).
 - VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter True` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
@@ -60,7 +61,25 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
-Install this package using
+Tested for PyTorch 0.11, Python 3.8 (use other versions at your own risk!)
+
+GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be installed on the system. Please refer to the [CTranslate2 documentation](https://opennmt.net/CTranslate2/installation.html).
+
+
+### 1. Create Python3.8 environment
+
+`conda create --name whisperx python=3.8`
+
+`conda activate whisperx`
+
+
+### 2. Install PyTorch 0.11.0, e.g. for Linux and Windows:
+
+`conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch`
+
+See other methods [here.](https://pytorch.org/get-started/previous-versions/#wheel-4)
+
+### 3. Install this repo
 
 `pip install git+https://github.com/m-bain/whisperx.git`
 
@@ -76,13 +95,6 @@ $ pip install -e .
 ```
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
-
-
-### Setup not working???
-Safest to use install pytorch as follows (for gpu)
-
-`conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -c pytorch
-`
 
 
 ### Speaker Diarization
@@ -130,14 +142,15 @@ See more examples in other languages [here](EXAMPLES.md).
 
 ```python
 import whisperx
-import whisper
 
 device = "cuda" 
 audio_file = "audio.mp3"
 
 # transcribe with original whisper
-model = whisper.load_model("large", device)
-result = model.transcribe(audio_file)
+model = whisperx.load_model("large-v2", device)
+
+audio = whisperx.load_audio(audio_file)
+result = model.transcribe(audio, batch_size=8)
 
 print(result["segments"]) # before alignment
 
@@ -145,7 +158,7 @@ print(result["segments"]) # before alignment
 model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
 
 # align whisper output
-result_aligned = whisperx.align(result["segments"], model_a, metadata, audio_file, device)
+result_aligned = whisperx.align(result["segments"], model_a, metadata, audio, device)
 
 print(result_aligned["segments"]) # after alignment
 print(result_aligned["word_segments"]) # after alignment
@@ -186,9 +199,15 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 * [x] Incorporating  speaker diarization
 
-* [ ] Automatic .wav conversion to make VAD compatible
+* [x] Model flush, for low gpu mem resources
 
-* [ ] Model flush, for low gpu mem resources
+* [x] Faster-whisper backend
+
+* [ ] Add benchmarking code (TEDLIUM for spd/WER & word segmentation)
+
+* [ ] Allow silero-vad as alternative VAD option
+
+* [ ] Add max-line etc. see (openai's whisper utils.py)
 
 * [ ] Improve diarization (word level). *Harder than first thought...*
 
@@ -205,9 +224,12 @@ Contact maxhbain@gmail.com for queries and licensing / early access to a model A
 This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
 
 
-
 Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
 And borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+
+Valuable VAD & Diarization Models from (pyannote.audio)[https://github.com/pyannote/pyannote-audio]
+
+Great backend from (faster-whisper)[https://github.com/guillaumekln/faster-whisper] and (CTranslate2)[https://github.com/OpenNMT/CTranslate2]
 
 
 <h2 align="left" id="cite">Citation</h2>
@@ -219,38 +241,5 @@ If you use this in your research, please cite the paper:
   author={Bain, Max and Huh, Jaesung and Han, Tengda and Zisserman, Andrew},
   journal={arXiv preprint, arXiv:2303.00747},
   year={2023}
-}
-```
-
-as well the following works, used in each stage of the pipeline:
-
-```bibtex
-@article{radford2022robust,
-  title={Robust speech recognition via large-scale weak supervision},
-  author={Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
-  journal={arXiv preprint arXiv:2212.04356},
-  year={2022}
-}
-```
-
-```bibtex
-@article{baevski2020wav2vec,
-  title={wav2vec 2.0: A framework for self-supervised learning of speech representations},
-  author={Baevski, Alexei and Zhou, Yuhao and Mohamed, Abdelrahman and Auli, Michael},
-  journal={Advances in neural information processing systems},
-  volume={33},
-  pages={12449--12460},
-  year={2020}
-}
-```
-
-```bibtex
-@inproceedings{bredin2020pyannote,
-  title={Pyannote. audio: neural building blocks for speaker diarization},
-  author={Bredin, Herv{\'e} and Yin, Ruiqing and Coria, Juan Manuel and Gelly, Gregory and Korshunov, Pavel and Lavechin, Marvin and Fustes, Diego and Titeux, Hadrien and Bouaziz, Wassim and Gill, Marie-Philippe},
-  booktitle={ICASSP 2020-2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
-  pages={7124--7128},
-  year={2020},
-  organization={IEEE}
 }
 ```
