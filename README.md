@@ -81,7 +81,7 @@ See other methods [here.](https://pytorch.org/get-started/previous-versions/#whe
 
 ### 3. Install this repo
 
-`pip install git+https://github.com/m-bain/whisperx.git`
+`pip install git+https://github.com/m-bain/whisperx.git@v3`
 
 If already installed, update package to most recent commit
 
