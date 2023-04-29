@@ -207,7 +207,7 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None
+        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -232,7 +232,7 @@ class FasterWhisperPipeline(Pipeline):
 
         segments = []
         batch_size = batch_size or self._batch_size
-        for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size)):
+        for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
             text = out['text']
             if batch_size in [0, 1, None]:
                 text = text[0]
