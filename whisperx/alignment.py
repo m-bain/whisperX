@@ -450,8 +450,8 @@ def align(
                 "end": srow["end"],
                 "text": text,
                 "words": word_list,
-                # "word-segments": wseg,
-                # "char-segments": cseg
+                "word-segments": wseg,
+                "char-segments": cseg
             }
         )
     

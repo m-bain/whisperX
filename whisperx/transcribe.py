@@ -203,6 +203,12 @@ def cli():
 
     # >> Write
     for result, audio_path in results:
+        # Remove pandas dataframes from result so that
+        # we can serialize the result with json
+        for seg in result["segments"]:
+            seg.pop("word-segments", None)
+            seg.pop("char-segments", None)
+
         writer(result, audio_path, writer_args)
 
 if __name__ == "__main__":
