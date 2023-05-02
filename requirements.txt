@@ -1,6 +1,5 @@
-torch==1.13.1
-torchaudio==0.13.1
-pyannote.audio==2.1.1
+torch==2.0.0
+torchaudio==2.0.1
 faster-whisper
 transformers
 ffmpeg-python==0.2.0
