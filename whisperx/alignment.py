@@ -439,8 +439,8 @@ def align(
         word_list.append(
             {
                 "word": curr_text.rstrip(),
-                "start": word_start,
-                "end": word_end,
+                "start": wseg.iloc[wdx]['start'],
+                "end": wseg.iloc[wdx]['end'],
             }
         )
 
