@@ -52,7 +52,8 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 <h2 align="left", id="highlights">New🚨</h2>
 
-- v2 released, code cleanup, imports whisper library, batched inference from paper not included (contact for licensing / batched model API). VAD filtering is now turned on by default, as in the paper.
+- v3 pre-release [this branch](https://github.com/m-bain/whisperX/tree/v3) *70x speed-up open-sourced. Using batched whisper with faster-whisper backend*!
+- v2 released, code cleanup, imports whisper library. VAD filtering is now turned on by default, as in the paper.
 - Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed (not provided in this repo).
 - VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter True` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
 - Character level timestamps (see `*.char.ass` file output)
@@ -179,7 +180,7 @@ In addition to forced alignment, the following two modifications have been made 
 
 If you are multilingual, a major way you can contribute to this project is to find phoneme models on huggingface (or train your own) and test them on speech for the target language. If the results look good send a merge request and some examples showing its success.
 
-The next major upgrade we are working on is whisper with speaker diarization, so if you have any experience on this please share.
+Bug finding and pull requests are also highly appreciated to keep this project going, since it's already diverging from the original research scope.
 
 <h2 align="left" id="coming-soon">Coming Soon 🗓</h2>
 
@@ -195,16 +196,14 @@ The next major upgrade we are working on is whisper with speaker diarization, so
 
 * [x] Incorporating  speaker diarization
 
-* [ ] Automatic .wav conversion to make VAD compatible
+* [x] Model flush, for low gpu mem resources
 
-* [ ] Model flush, for low gpu mem resources
-
-* [ ] Improve diarization (word level). *Harder than first thought...*
+* [ ] Improve diarization (word level). *Harder than first thought... see #below*
 
 
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
-Contact maxhbain@gmail.com for queries and licensing / early access to a model API with batched inference (transcribe 1hr audio in under 1min).
+Contact maxhbain@gmail.com for queries. WhisperX v4 development is underway with *with siginificantly improved diarization*. To support v4 and get early access, get in touch.
 
 <a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
@@ -216,7 +215,9 @@ This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https:/
 
 
 Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
-And borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+Borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
+
 
 
 <h2 align="left" id="cite">Citation</h2>
@@ -228,38 +229,5 @@ If you use this in your research, please cite the paper:
   author={Bain, Max and Huh, Jaesung and Han, Tengda and Zisserman, Andrew},
   journal={arXiv preprint, arXiv:2303.00747},
   year={2023}
-}
-```
-
-as well the following works, used in each stage of the pipeline:
-
-```bibtex
-@article{radford2022robust,
-  title={Robust speech recognition via large-scale weak supervision},
-  author={Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
-  journal={arXiv preprint arXiv:2212.04356},
-  year={2022}
-}
-```
-
-```bibtex
-@article{baevski2020wav2vec,
-  title={wav2vec 2.0: A framework for self-supervised learning of speech representations},
-  author={Baevski, Alexei and Zhou, Yuhao and Mohamed, Abdelrahman and Auli, Michael},
-  journal={Advances in neural information processing systems},
-  volume={33},
-  pages={12449--12460},
-  year={2020}
-}
-```
-
-```bibtex
-@inproceedings{bredin2020pyannote,
-  title={Pyannote. audio: neural building blocks for speaker diarization},
-  author={Bredin, Herv{\'e} and Yin, Ruiqing and Coria, Juan Manuel and Gelly, Gregory and Korshunov, Pavel and Lavechin, Marvin and Fustes, Diego and Titeux, Hadrien and Bouaziz, Wassim and Gill, Marie-Philippe},
-  booktitle={ICASSP 2020-2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
-  pages={7124--7128},
-  year={2020},
-  organization={IEEE}
 }
 ```
