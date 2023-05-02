@@ -77,7 +77,16 @@ $ pip install -e .
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
-
+### Docker 
+Alternatively, you can use the docker image provided in this repo. To build the image, run the following command from the root of this repo:
+1. In this image you can find jupyter notebook where you can easily run and debug the code.
+```bash
+docker build -t whisperx .
+```
+2. To run the image, run the following command:
+```bash
+docker run --gpus=all  -it -v <local code dir>:/workspace -p 8888:8888 whisperx
+```
 ### Setup not working???
 Safest to use install pytorch as follows (for gpu)
 
