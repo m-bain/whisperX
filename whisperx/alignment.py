@@ -140,9 +140,9 @@ def align(
     prev_t2 = 0
 
     char_segments_arr = {
-        "segment-idx": [],
-        "subsegment-idx": [],
-        "word-idx": [],
+        "segment_idx": [],
+        "subsegment_idx": [],
+        "word_idx": [],
         "char": [],
         "start": [],
         "end": [],
@@ -199,7 +199,7 @@ def align(
             tokens = [model_dictionary[c] for c in transcription_cleaned]
 
             # we only pad if not using VAD filtering
-            if "seg_text" not in segment:
+            if "seg-text" not in segment:
                 # pad according original timestamps
                 t1 = max(segment["start"] - extend_duration, 0)
                 t2 = min(segment["end"] + extend_duration, MAX_DURATION)
@@ -248,9 +248,11 @@ def align(
 
             # sub-segments
             if "seg-text" not in segment:
-                segment["seg-text"] = [transcription]
+                segment["seg_text"] = [transcription]
+            else:
+                segment["seg_text"] = segment["seg-text"]
                 
-            seg_lens = [0] + [len(x) for x in segment["seg-text"]]
+            seg_lens = [0] + [len(x) for x in segment["seg_text"]]
             seg_lens_cumsum = list(np.cumsum(seg_lens))
             sub_seg_idx = 0
 
@@ -276,9 +278,9 @@ def align(
                 char_segments_arr["start"].append(start)
                 char_segments_arr["end"].append(end)
                 char_segments_arr["score"].append(score)
-                char_segments_arr["word-idx"].append(wdx)
-                char_segments_arr["segment-idx"].append(sdx)
-                char_segments_arr["subsegment-idx"].append(sub_seg_idx)
+                char_segments_arr["word_idx"].append(wdx)
+                char_segments_arr["segment_idx"].append(sdx)
+                char_segments_arr["subsegment_idx"].append(sub_seg_idx)
 
                 # word-level info
                 if model_lang in LANGUAGES_WITHOUT_SPACES:
@@ -304,13 +306,13 @@ def align(
     char_segments_arr = pd.DataFrame(char_segments_arr)
     not_space = char_segments_arr["char"] != " "
 
-    per_seg_grp = char_segments_arr.groupby(["segment-idx", "subsegment-idx"], as_index = False)
+    per_seg_grp = char_segments_arr.groupby(["segment_idx", "subsegment_idx"], as_index = False)
     char_segments_arr = per_seg_grp.apply(lambda x: x.reset_index(drop = True)).reset_index()
-    per_word_grp = char_segments_arr[not_space].groupby(["segment-idx", "subsegment-idx", "word-idx"])
-    per_subseg_grp = char_segments_arr[not_space].groupby(["segment-idx", "subsegment-idx"])
-    per_seg_grp = char_segments_arr[not_space].groupby(["segment-idx"])
-    char_segments_arr["local-char-idx"] = char_segments_arr.groupby(["segment-idx", "subsegment-idx"]).cumcount()
-    per_word_grp = char_segments_arr[not_space].groupby(["segment-idx", "subsegment-idx", "word-idx"]) # regroup
+    per_word_grp = char_segments_arr[not_space].groupby(["segment_idx", "subsegment_idx", "word_idx"])
+    per_subseg_grp = char_segments_arr[not_space].groupby(["segment_idx", "subsegment_idx"])
+    per_seg_grp = char_segments_arr[not_space].groupby(["segment_idx"])
+    char_segments_arr["local_char_idx"] = char_segments_arr.groupby(["segment_idx", "subsegment_idx"]).cumcount()
+    per_word_grp = char_segments_arr[not_space].groupby(["segment_idx", "subsegment_idx", "word_idx"]) # regroup
 
     word_segments_arr = {}
 
@@ -321,22 +323,22 @@ def align(
     # score of word is mean (excluding nan)
     word_segments_arr["score"] = per_word_grp["score"].mean().values
 
-    word_segments_arr["segment-text-start"] = per_word_grp["local-char-idx"].min().astype(int).values
-    word_segments_arr["segment-text-end"] = per_word_grp["local-char-idx"].max().astype(int).values+1
+    word_segments_arr["segment_text_start"] = per_word_grp["local_char_idx"].min().astype(int).values
+    word_segments_arr["segment_text_end"] = per_word_grp["local_char_idx"].max().astype(int).values+1
     word_segments_arr = pd.DataFrame(word_segments_arr)
 
-    word_segments_arr[["segment-idx", "subsegment-idx", "word-idx"]] = per_word_grp["local-char-idx"].min().reset_index()[["segment-idx", "subsegment-idx", "word-idx"]].astype(int)
+    word_segments_arr[["segment_idx", "subsegment_idx", "word_idx"]] = per_word_grp["local_char_idx"].min().reset_index()[["segment_idx", "subsegment_idx", "word_idx"]].astype(int)
     segments_arr = {}
     segments_arr["start"] = per_subseg_grp["start"].min().reset_index()["start"]
     segments_arr["end"] = per_subseg_grp["end"].max().reset_index()["end"]
     segments_arr = pd.DataFrame(segments_arr)
-    segments_arr[["segment-idx", "subsegment-idx-start"]] = per_subseg_grp["start"].min().reset_index()[["segment-idx", "subsegment-idx"]]
-    segments_arr["subsegment-idx-end"] = segments_arr["subsegment-idx-start"] + 1
+    segments_arr[["segment_idx", "subsegment_idx_start"]] = per_subseg_grp["start"].min().reset_index()[["segment_idx", "subsegment_idx"]]
+    segments_arr["subsegment_idx_end"] = segments_arr["subsegment_idx_start"] + 1
 
     # interpolate missing words / sub-segments
     if interpolate_method != "ignore":
-        wrd_subseg_grp = word_segments_arr.groupby(["segment-idx", "subsegment-idx"], group_keys=False)
-        wrd_seg_grp = word_segments_arr.groupby(["segment-idx"], group_keys=False)
+        wrd_subseg_grp = word_segments_arr.groupby(["segment_idx", "subsegment_idx"], group_keys=False)
+        wrd_seg_grp = word_segments_arr.groupby(["segment_idx"], group_keys=False)
         # we still know which word timestamps are interpolated because their score == nan
         word_segments_arr["start"] = wrd_subseg_grp['start'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
         word_segments_arr["end"] = wrd_subseg_grp['end'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
@@ -344,21 +346,21 @@ def align(
         word_segments_arr["start"] = wrd_seg_grp['start'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
         word_segments_arr["end"] = wrd_seg_grp['end'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
 
-        sub_seg_grp =  segments_arr.groupby(["segment-idx"], group_keys=False)
+        sub_seg_grp =  segments_arr.groupby(["segment_idx"], group_keys=False)
         segments_arr['start'] = sub_seg_grp['start'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
         segments_arr['end'] = sub_seg_grp['end'].apply(lambda group: interpolate_nans(group, method=interpolate_method))
 
         # merge words & subsegments which are missing times
-        word_grp = word_segments_arr.groupby(["segment-idx", "subsegment-idx", "end"])
+        word_grp = word_segments_arr.groupby(["segment_idx", "subsegment_idx", "end"])
 
-        word_segments_arr["segment-text-start"] = word_grp["segment-text-start"].transform(min)
-        word_segments_arr["segment-text-end"] = word_grp["segment-text-end"].transform(max)
-        word_segments_arr.drop_duplicates(subset=["segment-idx", "subsegment-idx", "end"], inplace=True)
+        word_segments_arr["segment_text_start"] = word_grp["segment_text_start"].transform(min)
+        word_segments_arr["segment_text_end"] = word_grp["segment_text_end"].transform(max)
+        word_segments_arr.drop_duplicates(subset=["segment_idx", "subsegment_idx", "end"], inplace=True)
 
-        seg_grp_dup = segments_arr.groupby(["segment-idx", "start", "end"])
-        segments_arr["subsegment-idx-start"] = seg_grp_dup["subsegment-idx-start"].transform(min)
-        segments_arr["subsegment-idx-end"] = seg_grp_dup["subsegment-idx-end"].transform(max)
-        segments_arr.drop_duplicates(subset=["segment-idx", "subsegment-idx-start", "subsegment-idx-end"], inplace=True)
+        seg_grp_dup = segments_arr.groupby(["segment_idx", "start", "end"])
+        segments_arr["subsegment_idx_start"] = seg_grp_dup["subsegment_idx_start"].transform(min)
+        segments_arr["subsegment_idx_end"] = seg_grp_dup["subsegment_idx_end"].transform(max)
+        segments_arr.drop_duplicates(subset=["segment_idx", "subsegment_idx_start", "subsegment_idx_end"], inplace=True)
     else:
         word_segments_arr.dropna(inplace=True)
         segments_arr.dropna(inplace=True)
@@ -366,41 +368,41 @@ def align(
     # if some segments still have missing timestamps (usually because all numerals / symbols), then use original timestamps...
     segments_arr['start'].fillna(pd.Series([x['start'] for x in transcript]), inplace=True)
     segments_arr['end'].fillna(pd.Series([x['end'] for x in transcript]), inplace=True)
-    segments_arr['subsegment-idx-start'].fillna(0, inplace=True)
-    segments_arr['subsegment-idx-end'].fillna(1, inplace=True)
+    segments_arr['subsegment_idx_start'].fillna(0, inplace=True)
+    segments_arr['subsegment_idx_end'].fillna(1, inplace=True)
 
 
     aligned_segments = []
     aligned_segments_word = []
 
-    word_segments_arr.set_index(["segment-idx", "subsegment-idx"], inplace=True)
-    char_segments_arr.set_index(["segment-idx", "subsegment-idx", "word-idx"], inplace=True)
+    word_segments_arr.set_index(["segment_idx", "subsegment_idx"], inplace=True)
+    char_segments_arr.set_index(["segment_idx", "subsegment_idx", "word_idx"], inplace=True)
 
     for sdx, srow in segments_arr.iterrows():
 
-        seg_idx = int(srow["segment-idx"])
-        sub_start = int(srow["subsegment-idx-start"])
-        sub_end = int(srow["subsegment-idx-end"])
+        seg_idx = int(srow["segment_idx"])
+        sub_start = int(srow["subsegment_idx_start"])
+        sub_end = int(srow["subsegment_idx_end"])
 
         seg = transcript[seg_idx]
-        text = "".join(seg["seg-text"][sub_start:sub_end])
+        text = "".join(seg["seg_text"][sub_start:sub_end])
 
         wseg = word_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1]
         wseg["start"].fillna(srow["start"], inplace=True)
         wseg["end"].fillna(srow["end"], inplace=True)
-        wseg["segment-text-start"].fillna(0, inplace=True)
-        wseg["segment-text-end"].fillna(len(text)-1, inplace=True)
+        wseg["segment_text_start"].fillna(0, inplace=True)
+        wseg["segment_text_end"].fillna(len(text)-1, inplace=True)
 
         cseg = char_segments_arr.loc[seg_idx].loc[sub_start:sub_end-1]
         # fixes bug for single segment in transcript
-        cseg['segment-text-start'] = cseg['level_1'] if 'level_1' in cseg else 0
-        cseg['segment-text-end'] = cseg['level_1'] + 1 if 'level_1' in cseg else 1
+        cseg['segment_text_start'] = cseg['level_1'] if 'level_1' in cseg else 0
+        cseg['segment_text_end'] = cseg['level_1'] + 1 if 'level_1' in cseg else 1
         if 'level_1' in cseg: del cseg['level_1']
         if 'level_0' in cseg: del cseg['level_0']
         cseg.reset_index(inplace=True)
 
         def get_raw_text(word_row):
-            return seg["seg-text"][word_row.name][int(word_row["segment-text-start"]):int(word_row["segment-text-end"])+1]
+            return seg["seg_text"][word_row.name][int(word_row["segment_text_start"]):int(word_row["segment_text_end"])+1]
 
         word_list = []
         wdx = 0
@@ -456,8 +458,8 @@ def align(
                 "end": srow["end"],
                 "text": text,
                 "words": word_list,
-                "word-segments": wseg,
-                "char-segments": cseg
+                "word_segments_df": wseg,
+                "char_segments_df": cseg
             }
         )
     

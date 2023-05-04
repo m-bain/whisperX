@@ -19,7 +19,7 @@ class DiarizationPipeline:
 
 def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
     for seg in result_segments:
-        wdf = seg['word-segments']
+        wdf = seg['word_segments_df']
         if len(wdf['start'].dropna()) == 0:
             wdf['start'] = seg['start']
             wdf['end'] = seg['end']
@@ -40,7 +40,7 @@ def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
             else:
                 speaker = None
             speakers.append(speaker)
-        seg['word-segments']['speaker'] = speakers
+        seg['word_segments_df']['speaker'] = speakers
 
         speaker_count = pd.Series(speakers).value_counts()
         if len(speaker_count) == 0:
@@ -51,7 +51,7 @@ def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
     # create word level segments for .srt
     word_seg = []
     for seg in result_segments:
-        wseg = pd.DataFrame(seg["word-segments"])
+        wseg = pd.DataFrame(seg["word_segments_df"])
         for wdx, wrow in wseg.iterrows():
             if wrow["start"] is not None:
                 speaker = wrow['speaker']
@@ -61,7 +61,7 @@ def assign_word_speakers(diarize_df, result_segments, fill_nearest=False):
                     {
                         "start": wrow["start"],
                         "end": wrow["end"],
-                        "text": f"[{speaker}]: " + seg["text"][int(wrow["segment-text-start"]):int(wrow["segment-text-end"])]
+                        "text": f"[{speaker}]: " + seg["text"][int(wrow["segment_text_start"]):int(wrow["segment_text_end"])]
                     }
                 )
 

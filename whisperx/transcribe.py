@@ -206,8 +206,8 @@ def cli():
         # Remove pandas dataframes from result so that
         # we can serialize the result with json
         for seg in result["segments"]:
-            seg.pop("word-segments", None)
-            seg.pop("char-segments", None)
+            seg.pop("word_segments_df", None)
+            seg.pop("char_segments_df", None)
 
         writer(result, audio_path, writer_args)
 
