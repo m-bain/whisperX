@@ -38,6 +38,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "fa": "jonatasgrosman/wav2vec2-large-xlsr-53-persian",
     "el": "jonatasgrosman/wav2vec2-large-xlsr-53-greek",
     "tr": "mpoyraz/wav2vec2-xls-r-300m-cv7-turkish",
+    "he": "imvladikon/wav2vec2-xls-r-300m-hebrew",
 }
 
 
@@ -231,8 +232,13 @@ def align(
 
             emission = emissions[0].cpu().detach()
 
-            trellis = get_trellis(emission, tokens)
-            path = backtrack(trellis, emission, tokens)
+            blank_id = 0
+            for char, code in model_dictionary.items():
+                if char == '[pad]' or char == '<pad>':
+                    blank_id = code
+
+            trellis = get_trellis(emission, tokens, blank_id)
+            path = backtrack(trellis, emission, tokens, blank_id)
             if path is None:
                 print(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original...')
                 break
