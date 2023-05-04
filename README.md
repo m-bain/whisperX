@@ -61,23 +61,23 @@ This repository refines the timestamps of openAI's Whisper model via forced alig
 
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
-Tested for PyTorch 0.11, Python 3.8 (use other versions at your own risk!)
+Tested for PyTorch 2.0, Python 3.10 (use other versions at your own risk!)
 
 GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be installed on the system. Please refer to the [CTranslate2 documentation](https://opennmt.net/CTranslate2/installation.html).
 
 
-### 1. Create Python3.8 environment
+### 1. Create Python3.10 environment
 
-`conda create --name whisperx python=3.8`
+`conda create --name whisperx python=3.10`
 
 `conda activate whisperx`
 
 
-### 2. Install PyTorch 0.11.0, e.g. for Linux and Windows:
+### 2. Install PyTorch2.0, e.g. for Linux and Windows CUDA11.7:
 
-`pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113`
+`pip3 install torch torchvision torchaudio`
 
-See other methods [here.](https://pytorch.org/get-started/previous-versions/#wheel-4)
+See other methods [here.](https://pytorch.org/get-started/locally/)
 
 ### 3. Install this repo
 

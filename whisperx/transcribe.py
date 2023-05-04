@@ -72,7 +72,6 @@ def cli():
 
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
     # parser.add_argument("--model_flush", action="store_true", help="Flush memory from each model after use, reduces GPU requirement but slower processing >1 audio file.")
-    parser.add_argument("--tmp_dir", default=None, help="Temporary directory to write audio file if input if not .wav format (only for VAD).")
     # fmt: on
 
     args = parser.parse_args().__dict__
@@ -85,10 +84,6 @@ def cli():
 
     # model_flush: bool = args.pop("model_flush")
     os.makedirs(output_dir, exist_ok=True)
-
-    tmp_dir: str = args.pop("tmp_dir")
-    if tmp_dir is not None:
-        os.makedirs(tmp_dir, exist_ok=True)
 
     align_model: str = args.pop("align_model")
     interpolate_method: str = args.pop("interpolate_method")
@@ -195,7 +190,7 @@ def cli():
         tmp_results = results
         print(">>Performing diarization...")
         results = []
-        diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
+        diarize_model = DiarizationPipeline(use_auth_token=hf_token)
         for result, input_audio_path in tmp_results:
             diarize_segments = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
             results_segments, word_segments = assign_word_speakers(diarize_segments, result["segments"])

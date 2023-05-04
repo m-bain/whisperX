@@ -268,8 +268,8 @@ def align(
                 start, end, score = None, None, None
                 if cdx in clean_cdx:
                     char_seg = char_segments[clean_cdx.index(cdx)]
-                    start = char_seg.start * ratio + t1
-                    end = char_seg.end * ratio + t1
+                    start = round(char_seg.start * ratio + t1, 3)
+                    end = round(char_seg.end * ratio + t1, 3)
                     score = char_seg.score        
 
                 char_segments_arr["char"].append(char)
