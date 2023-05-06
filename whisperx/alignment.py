@@ -3,7 +3,7 @@ Forced Alignment with Whisper
 C. Max Bain
 """
 from dataclasses import dataclass
-from typing import Iterator, Union
+from typing import Iterator, Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -87,6 +87,7 @@ def align(
     extend_duration: float = 0.0,
     start_from_previous: bool = True,
     interpolate_method: str = "nearest",
+    on_progress: Callable[[int, int], None] = lambda n, t: None
 ):
     """
     Force align phoneme recognition predictions to known transcription
@@ -116,6 +117,10 @@ def align(
     interpolate_method: str ["nearest", "linear", "ignore"]
         Method to assign timestamps to non-aligned words. Words are not able to be aligned when none of the characters occur in the align model dictionary.
         "nearest" copies timestamp of nearest word within the segment. "linear" is linear interpolation. "drop" removes that word from output.
+
+    on_progress: Callable[[int, int], None]
+        Callback function to report the progress of the alignment process. The first argument is the current segment index, and the second argument is the total number of segments.
+
 
     Returns
     -------
@@ -294,6 +299,7 @@ def align(
             prev_t2 = segment["end"]
 
             segment_align_success = True
+            on_progress(sdx, len(transcript))
             # end while True loop
             break
 

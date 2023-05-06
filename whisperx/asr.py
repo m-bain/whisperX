@@ -207,7 +207,7 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0
+        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, on_progress=None
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -243,6 +243,8 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]['end'], 3)
                 }
             )
+            if on_progress:
+                on_progress(idx, len(vad_segments))
         
         if del_tokenizer:
             self.tokenizer = None
