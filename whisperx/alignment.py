@@ -300,7 +300,20 @@ def align(
         # reset prev_t2 due to drifting issues
         if not segment_align_success:
             prev_t2 = 0
+
+            if "seg-text" not in segment:
+                segment["seg-text"] = [segment["text"]]
+
+            for cdx, char in enumerate(segment["text"] + " "):
+                char_segments_arr["char"].append(char)
+                char_segments_arr["start"].append(float('nan'))
+                char_segments_arr["end"].append(float('nan'))
+                char_segments_arr["score"].append(float('nan'))
+                char_segments_arr["word-idx"].append(0)
+                char_segments_arr["segment-idx"].append(0)
+                char_segments_arr["subsegment-idx"].append(0)
         
+
     char_segments_arr = pd.DataFrame(char_segments_arr)
     not_space = char_segments_arr["char"] != " "
 
