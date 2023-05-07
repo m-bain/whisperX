@@ -231,11 +231,16 @@ class SubtitlesWriter(ResultWriter):
             line_count = 1
             # the next subtitle to yield (a list of word timings with whitespace)
             subtitle: list[dict] = []
-            last = result["segments"][0]["words"][0]["start"]
+            times = []
+            last = result["segments"][0]["start"]
             for segment in result["segments"]:
                 for i, original_timing in enumerate(segment["words"]):
                     timing = original_timing.copy()
-                    long_pause = not preserve_segments and timing["start"] - last > 3.0
+                    long_pause = not preserve_segments
+                    if "start" in timing:
+                        long_pause = long_pause and timing["start"] - last > 3.0
+                    else:
+                        long_pause = False
                     has_room = line_len + len(timing["word"]) <= max_line_width
                     seg_break = i == 0 and len(subtitle) > 0 and preserve_segments
                     if line_len > 0 and has_room and not long_pause and not seg_break:
@@ -251,8 +256,9 @@ class SubtitlesWriter(ResultWriter):
                             or seg_break
                         ):
                             # subtitle break
-                            yield subtitle
+                            yield subtitle, times
                             subtitle = []
+                            times = []
                             line_count = 1
                         elif line_len > 0:
                             # line break
@@ -260,40 +266,53 @@ class SubtitlesWriter(ResultWriter):
                             timing["word"] = "\n" + timing["word"]
                         line_len = len(timing["word"].strip())
                     subtitle.append(timing)
-                    last = timing["start"]
+                    times.append((segment["start"], segment["end"], segment.get("speaker")))
+                    if "start" in timing:
+                        last = timing["start"]
             if len(subtitle) > 0:
-                yield subtitle
+                yield subtitle, times
 
         if "words" in result["segments"][0]:
-            for subtitle in iterate_subtitles():
-                subtitle_start = self.format_timestamp(subtitle[0]["start"])
-                subtitle_end = self.format_timestamp(subtitle[-1]["end"])
-                subtitle_text = "".join([word["word"] for word in subtitle])
-                if highlight_words:
+            for subtitle, _ in iterate_subtitles():
+                sstart, ssend, speaker = _[0]
+                subtitle_start = self.format_timestamp(sstart)
+                subtitle_end = self.format_timestamp(ssend)
+                subtitle_text = " ".join([word["word"] for word in subtitle])
+                has_timing = any(["start" in word for word in subtitle])
+
+                # add [$SPEAKER_ID]: to each subtitle if speaker is available
+                prefix = ""
+                if speaker is not None:
+                    prefix = f"[{speaker}]: "
+
+                if highlight_words and has_timing:
                     last = subtitle_start
                     all_words = [timing["word"] for timing in subtitle]
                     for i, this_word in enumerate(subtitle):
-                        start = self.format_timestamp(this_word["start"])
-                        end = self.format_timestamp(this_word["end"])
-                        if last != start:
-                            yield last, start, subtitle_text
+                        if "start" in this_word:
+                            start = self.format_timestamp(this_word["start"])
+                            end = self.format_timestamp(this_word["end"])
+                            if last != start:
+                                yield last, start, subtitle_text
 
-                        yield start, end, "".join(
-                            [
-                                re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
-                                if j == i
-                                else word
-                                for j, word in enumerate(all_words)
-                            ]
-                        )
-                        last = end
+                            yield start, end, prefix + " ".join(
+                                [
+                                    re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
+                                    if j == i
+                                    else word
+                                    for j, word in enumerate(all_words)
+                                ]
+                            )
+                            last = end
                 else:
-                    yield subtitle_start, subtitle_end, subtitle_text
+                    yield subtitle_start, subtitle_end, prefix + subtitle_text
         else:
             for segment in result["segments"]:
                 segment_start = self.format_timestamp(segment["start"])
                 segment_end = self.format_timestamp(segment["end"])
                 segment_text = segment["text"].strip().replace("-->", "->")
+                if "speaker" in segment:
+                    segment_text = f"[{segment['speaker']}]: {segment_text}"
                 yield segment_start, segment_end, segment_text
 
     def format_timestamp(self, seconds: float):

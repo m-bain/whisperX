@@ -64,14 +64,11 @@ def cli():
     parser.add_argument("--max_line_width", type=optional_int, default=None, help="(not possible with --no_align) the maximum number of characters in a line before breaking the line")
     parser.add_argument("--max_line_count", type=optional_int, default=None, help="(requires --no_align) the maximum number of lines in a segment")
     parser.add_argument("--highlight_words", type=str2bool, default=False, help="(requires --word_timestamps True) underline each word as it is spoken in srt and vtt")
+    parser.add_argument("--segment_resolution", type=str, default="sentence", choices=["sentence", "chunk"], help="(not possible with --no_align) the maximum number of characters in a line before breaking the line")
 
-    # parser.add_argument("--word_timestamps", type=str2bool, default=False, help="(experimental) extract word-level timestamps and refine the results based on them")
-    # parser.add_argument("--prepend_punctuations", type=str, default="\"\'“¿([{-", help="if word_timestamps is True, merge these punctuation symbols with the next word")
-    # parser.add_argument("--append_punctuations", type=str, default="\"\'.。,，!！?？:：”)]}、", help="if word_timestamps is True, merge these punctuation symbols with the previous word")
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
 
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Access Token to access PyAnnote gated models")
-    # parser.add_argument("--model_flush", action="store_true", help="Flush memory from each model after use, reduces GPU requirement but slower processing >1 audio file.")
     # fmt: on
 
     args = parser.parse_args().__dict__
@@ -97,7 +94,6 @@ def cli():
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
 
-    # TODO: check model loading works.
 
     if model_name.endswith(".en") and args["language"] not in {"en", "English"}:
         if args["language"] is not None:
@@ -176,6 +172,7 @@ def cli():
                     align_model, align_metadata = load_align_model(result["language"], device)
                 print(">>Performing alignment...")
                 result = align(result["segments"], align_model, align_metadata, input_audio, device, interpolate_method=interpolate_method)
+
             results.append((result, audio_path))
 
         # Unload align model
@@ -193,18 +190,10 @@ def cli():
         diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
             diarize_segments = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
-            results_segments, word_segments = assign_word_speakers(diarize_segments, result["segments"])
-            result = {"segments": results_segments, "word_segments": word_segments}
+            result = assign_word_speakers(diarize_segments, result)
             results.append((result, input_audio_path))
-
     # >> Write
     for result, audio_path in results:
-        # Remove pandas dataframes from result so that
-        # we can serialize the result with json
-        for seg in result["segments"]:
-            seg.pop("word-segments", None)
-            seg.pop("char-segments", None)
-
         writer(result, audio_path, writer_args)
 
 if __name__ == "__main__":
