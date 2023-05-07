@@ -52,6 +52,12 @@ This repository provides fast automatic speaker recognition (70x realtime with l
 
 **Speaker Diarization** is the process of partitioning an audio stream containing human speech into homogeneous segments according to the identity of each speaker.
 
+- v3 pre-release [this branch](https://github.com/m-bain/whisperX/tree/v3) *70x speed-up open-sourced. Using batched whisper with faster-whisper backend*!
+- v2 released, code cleanup, imports whisper library. VAD filtering is now turned on by default, as in the paper.
+- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed (not provided in this repo).
+- VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter True` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
+- Character level timestamps (see `*.char.ass` file output)
+- Diarization (still in beta, add `--diarize`)
 
 <h2 align="left", id="highlights">New🚨</h2>
 
@@ -247,6 +253,7 @@ Bug finding and pull requests are also highly appreciated to keep this project g
 
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
+
 Contact maxhbain@gmail.com for queries. WhisperX v4 development is underway with with siginificantly improved diarization. To support v4 and get early access, get in touch.
 
 <a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
@@ -257,7 +264,9 @@ Contact maxhbain@gmail.com for queries. WhisperX v4 development is underway with
 This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
 
 Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
-And borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+Borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
+And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
+
 
 Valuable VAD & Diarization Models from [pyannote audio][https://github.com/pyannote/pyannote-audio]
 

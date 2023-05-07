@@ -7,7 +7,7 @@ setup(
     name="whisperx",
     py_modules=["whisperx"],
     version="3.1.0",
-    description="Time-Accurate Automatic Speech Recognition using Whisper.",
+    description="Time-Accurate Automatic Speech Recognition.",
     readme="README.md",
     python_requires=">=3.8",
     author="Max Bain",
