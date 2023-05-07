@@ -6,8 +6,8 @@ from setuptools import setup, find_packages
 setup(
     name="whisperx",
     py_modules=["whisperx"],
-    version="2.0.1",
-    description="Time-Accurate Automatic Speech Recognition using Whisper.",
+    version="3.1.0",
+    description="Time-Accurate Automatic Speech Recognition.",
     readme="README.md",
     python_requires=">=3.8",
     author="Max Bain",
@@ -19,7 +19,7 @@ setup(
         for r in pkg_resources.parse_requirements(
             open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
         )
-    ],
+    ] + ["pyannote.audio @ git+https://github.com/pyannote/pyannote-audio@11b56a137a578db9335efc00298f6ec1932e6317"],
     entry_points = {
         'console_scripts': ['whisperx=whisperx.transcribe:cli'],
     },

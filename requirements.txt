@@ -1,10 +1,8 @@
-numpy
-pandas
-torch >=1.9
-torchaudio >=0.10,<1.0
-tqdm
-more-itertools
-transformers>=4.19.0
+torch==2.0.0
+torchaudio==2.0.1
+faster-whisper
+transformers
 ffmpeg-python==0.2.0
-pyannote.audio
-openai-whisper==20230314
+pandas
+setuptools==65.6.3
+nltk
