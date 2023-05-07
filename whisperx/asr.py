@@ -244,7 +244,7 @@ class FasterWhisperPipeline(Pipeline):
                 }
             )
             if on_progress:
-                on_progress(idx, len(vad_segments))
+                on_progress(idx + 1, len(vad_segments))
         
         if del_tokenizer:
             self.tokenizer = None

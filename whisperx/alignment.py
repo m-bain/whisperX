@@ -119,7 +119,7 @@ def align(
         "nearest" copies timestamp of nearest word within the segment. "linear" is linear interpolation. "drop" removes that word from output.
 
     on_progress: Callable[[int, int], None]
-        Callback function to report the progress of the alignment process. The first argument is the current segment index, and the second argument is the total number of segments.
+        Callback function to report the progress of the alignment process. The first argument is the number of segments processed, and the second argument is the total number of segments.
 
 
     Returns
@@ -299,7 +299,7 @@ def align(
             prev_t2 = segment["end"]
 
             segment_align_success = True
-            on_progress(sdx, len(transcript))
+            on_progress(sdx + 1, len(transcript))
             # end while True loop
             break
 
