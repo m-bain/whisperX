@@ -80,11 +80,11 @@ See other methods [here.](https://pytorch.org/get-started/locally/)
 
 ### 3. Install this repo
 
-`pip install git+https://github.com/m-bain/whisperx.git@v3`
+`pip install git+https://github.com/m-bain/whisperx.git`
 
 If already installed, update package to most recent commit
 
-`pip install git+https://github.com/m-bain/whisperx.git@v3 --upgrade`
+`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
 
 If wishing to modify this package, clone and install in editable mode:
 ```
