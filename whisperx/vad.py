@@ -1,10 +1,67 @@
-import pandas as pd
+import hashlib
+import os
+import urllib
+from typing import Callable, Optional, Text, Union
+
 import numpy as np
-from pyannote.core import Annotation, Segment, SlidingWindowFeature, Timeline
-from typing import List, Tuple, Optional
+import pandas as pd
+import torch
+from pyannote.audio import Model
+from pyannote.audio.core.io import AudioFile
+from pyannote.audio.pipelines import VoiceActivityDetection
+from pyannote.audio.pipelines.utils import PipelineModel
+from pyannote.core import Annotation, Segment, SlidingWindowFeature
+from tqdm import tqdm
+
+from .diarize import Segment as SegmentX
+
+VAD_SEGMENTATION_URL = "https://whisperx.s3.eu-west-2.amazonaws.com/model_weights/segmentation/0b5b3216d60a2d32fc086b47ea8c67589aaeb26b7e07fcbe620d6d0b83e209ea/pytorch_model.bin"
+
+def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=None, model_fp=None):
+    model_dir = torch.hub._get_torch_home()
+    os.makedirs(model_dir, exist_ok = True)
+    if model_fp is None:
+        model_fp = os.path.join(model_dir, "whisperx-vad-segmentation.bin")
+    if os.path.exists(model_fp) and not os.path.isfile(model_fp):
+        raise RuntimeError(f"{model_fp} exists and is not a regular file")
+
+    if not os.path.isfile(model_fp):
+        with urllib.request.urlopen(VAD_SEGMENTATION_URL) as source, open(model_fp, "wb") as output:
+            with tqdm(
+                total=int(source.info().get("Content-Length")),
+                ncols=80,
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
+            ) as loop:
+                while True:
+                    buffer = source.read(8192)
+                    if not buffer:
+                        break
+
+                    output.write(buffer)
+                    loop.update(len(buffer))
+
+    model_bytes = open(model_fp, "rb").read()
+    if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
+        raise RuntimeError(
+            "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
+        )
+
+    vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
+    hyperparameters = {"onset": vad_onset, 
+                    "offset": vad_offset,
+                    "min_duration_on": 0.1,
+                    "min_duration_off": 0.1}
+    vad_pipeline = VoiceActivitySegmentation(segmentation=vad_model, device=torch.device(device))
+    vad_pipeline.instantiate(hyperparameters)
+
+    return vad_pipeline
 
 class Binarize:
-    """Binarize detection scores using hysteresis thresholding
+    """Binarize detection scores using hysteresis thresholding, with min-cut operation
+    to ensure not segments are longer than max_duration.
+
     Parameters
     ----------
     onset : float, optional
@@ -28,6 +85,9 @@ class Binarize:
     Gregory Gelly and Jean-Luc Gauvain. "Minimum Word Error Training of
     RNN-based Voice Activity Detection", InterSpeech 2015.
 
+    Modified by Max Bain to include WhisperX's min-cut operation 
+    https://arxiv.org/abs/2303.00747
+    
     Pyannote-audio
     """
 
@@ -136,6 +196,51 @@ class Binarize:
         return active
 
 
+class VoiceActivitySegmentation(VoiceActivityDetection):
+    def __init__(
+        self,
+        segmentation: PipelineModel = "pyannote/segmentation",
+        fscore: bool = False,
+        use_auth_token: Union[Text, None] = None,
+        **inference_kwargs,
+    ):
+
+        super().__init__(segmentation=segmentation, fscore=fscore, use_auth_token=use_auth_token, **inference_kwargs)
+
+    def apply(self, file: AudioFile, hook: Optional[Callable] = None) -> Annotation:
+        """Apply voice activity detection
+
+        Parameters
+        ----------
+        file : AudioFile
+            Processed file.
+        hook : callable, optional
+            Hook called after each major step of the pipeline with the following
+            signature: hook("step_name", step_artefact, file=file)
+
+        Returns
+        -------
+        speech : Annotation
+            Speech regions.
+        """
+
+        # setup hook (e.g. for debugging purposes)
+        hook = self.setup_hook(file, hook=hook)
+
+        # apply segmentation model (only if needed)
+        # output shape is (num_chunks, num_frames, 1)
+        if self.training:
+            if self.CACHED_SEGMENTATION in file:
+                segmentations = file[self.CACHED_SEGMENTATION]
+            else:
+                segmentations = self._segmentation(file)
+                file[self.CACHED_SEGMENTATION] = segmentations
+        else:
+            segmentations: SlidingWindowFeature = self._segmentation(file)
+
+        return segmentations
+
+
 def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_duration_on=0.0):
 
     active = Annotation()
@@ -157,29 +262,46 @@ def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_
     active_segs = pd.DataFrame([x['segment'] for x in active['content']])
     return active_segs
 
+def merge_chunks(segments, chunk_size):
+    """
+    Merge operation described in paper
+    """
+    curr_end = 0
+    merged_segments = []
+    seg_idxs = []
+    speaker_idxs = []
 
-if __name__ == "__main__":
-    # from pyannote.audio import Inference
-    # hook = lambda segmentation: segmentation
-    # inference = Inference("pyannote/segmentation", pre_aggregation_hook=hook)
-    # audio = "/tmp/11962.wav" 
-    # scores = inference(audio)
-    # binarize = Binarize(max_duration=15)
-    # anno = binarize(scores)
-    # res = []
-    # for ann in anno.get_timeline():
-    #     res.append((ann.start, ann.end))
+    assert chunk_size > 0
+    binarize = Binarize(max_duration=chunk_size)
+    segments = binarize(segments)
+    segments_list = []
+    for speech_turn in segments.get_timeline():
+        segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
-    # res = pd.DataFrame(res)
-    # res[2] = res[1] - res[0]
-    import pandas as pd
-    input_fp = "tt298650_sync.wav"
-    df = pd.read_csv(f"/work/maxbain/tmp/{input_fp}.sad", sep=" ", header=None)
-    print(len(df))
-    N = 0.15
-    g = df[0].sub(df[1].shift())
-    input_base = input_fp.split('.')[0]
-    df = df.groupby(g.gt(N).cumsum()).agg({0:'min', 1:'max'})
-    df.to_csv(f"/work/maxbain/tmp/{input_base}.lab", header=None, index=False, sep=" ")
-    print(df)
-    import pdb; pdb.set_trace()
+    if len(segments_list) == 0:
+        print("No active speech found in audio")
+        return []
+    # assert segments_list, "segments_list is empty."
+    # Make sur the starting point is the start of the segment.
+    curr_start = segments_list[0].start
+
+    for seg in segments_list:
+        if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
+            merged_segments.append({
+                "start": curr_start,
+                "end": curr_end,
+                "segments": seg_idxs,
+            })
+            curr_start = seg.start
+            seg_idxs = []
+            speaker_idxs = []
+        curr_end = seg.end
+        seg_idxs.append((seg.start, seg.end))
+        speaker_idxs.append(seg.speaker)
+    # add final
+    merged_segments.append({ 
+                "start": curr_start,
+                "end": curr_end,
+                "segments": seg_idxs,
+            })    
+    return merged_segments

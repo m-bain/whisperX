@@ -1,9 +1,8 @@
-numpy
-torch
-torchaudio
-tqdm
-more-itertools
-transformers>=4.19.0
+torch==2.0.0
+torchaudio==2.0.1
+faster-whisper
+transformers
 ffmpeg-python==0.2.0
-pyannote.audio
-soundfile
+pandas
+setuptools==65.6.3
+nltk
