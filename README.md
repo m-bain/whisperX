@@ -32,12 +32,12 @@
 <!-- <h2 align="left", id="what-is-it">What is it 🔎</h2> -->
 
 
-This repository provides fast automatic speaker recognition (70x realtime with large-v2) with word-level timestamps and speaker diarization.
+This repository provides fast automatic speech recognition (70x realtime with large-v2) with word-level timestamps and speaker diarization.
 
 - ⚡️ Batched inference for 70x realtime transcription using whisper large-v2
 - 🪶 [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend, requires <8GB gpu memory for large-v2 with beam_size=5
 - 🎯 Accurate word-level timestamps using wav2vec2 alignment
-- 👯‍♂️ Multispeaker ASR using speaker diarization from [pyannote-audio](https://github.com/pyannote/pyannote-audio) (labels each segment/word with speaker ID) 
+- 👯‍♂️ Multispeaker ASR using speaker diarization from [pyannote-audio](https://github.com/pyannote/pyannote-audio) (speaker ID labels) 
 - 🗣️ VAD preprocessing, reduces hallucination & batching with no WER degradation
 
 
@@ -74,9 +74,9 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 ### 2. Install PyTorch2.0, e.g. for Linux and Windows CUDA11.7:
 
-`pip3 install torch torchvision torchaudio`
+`conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.7 -c pytorch -c nvidia`
 
-See other methods [here.](https://pytorch.org/get-started/locally/)
+See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
 ### 3. Install this repo
 

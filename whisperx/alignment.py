@@ -261,6 +261,10 @@ def align(
                 word_text = "".join(word_chars["char"].tolist()).strip()
                 if len(word_text) == 0:
                     continue
+
+                # dont use space character for alignment
+                word_chars = word_chars[word_chars["char"] != " "]
+
                 word_start = word_chars["start"].min()
                 word_end = word_chars["end"].max()
                 word_score = round(word_chars["score"].mean(), 3)
