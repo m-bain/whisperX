@@ -14,7 +14,7 @@ from .vad import load_vad_model, merge_chunks
 
 
 def load_model(whisper_arch, device, compute_type="float16", asr_options=None, language=None,
-               vad_options=None, model=None):
+               vad_options=None, model=None, task="transcribe"):
     '''Load a Whisper model for inference.
     Args:
         whisper_arch: str - The name of the Whisper model to load.
@@ -31,7 +31,7 @@ def load_model(whisper_arch, device, compute_type="float16", asr_options=None, l
 
     model = WhisperModel(whisper_arch, device=device, compute_type=compute_type)
     if language is not None:
-        tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task="transcribe", language=language)
+        tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
         print("No language specified, language will be first be detected for each audio file (increases inference time).")
         tokenizer = None
