@@ -228,9 +228,12 @@ class FasterWhisperPipeline(Pipeline):
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(vad_segments, 30)
-
-        language = language or self.tokenizer.language_code
-        task = task or self.tokenizer.task
+        if self.tokenizer is None:
+            language = language or self.detect_language(audio)
+            task = task or "transcribe"
+        else:
+            language = language or self.tokenizer.language_code
+            task = task or self.tokenizer.task
         if task != self.tokenizer.task or language != self.tokenizer.language_code:
             self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
                                                                 self.model.model.is_multilingual, task=task,
