@@ -13,7 +13,7 @@ from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from .vad import load_vad_model, merge_chunks
 from .types import TranscriptionResult, SingleSegment
 
-def load_model(whisper_arch, device, compute_type="float16", asr_options=None, language=None,
+def load_model(whisper_arch, device, device_index=0, compute_type="float16", asr_options=None, language=None,
                vad_options=None, model=None, task="transcribe"):
     '''Load a Whisper model for inference.
     Args:
@@ -29,7 +29,7 @@ def load_model(whisper_arch, device, compute_type="float16", asr_options=None, l
     if whisper_arch.endswith(".en"):
         language = "en"
 
-    model = WhisperModel(whisper_arch, device=device, compute_type=compute_type)
+    model = WhisperModel(whisper_arch, device=device, device_index=device_index, compute_type=compute_type)
     if language is not None:
         tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
