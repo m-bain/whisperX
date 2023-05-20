@@ -231,13 +231,16 @@ class FasterWhisperPipeline(Pipeline):
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
-        else:
-            language = language or self.tokenizer.language_code
-            task = task or self.tokenizer.task
-        if task != self.tokenizer.task or language != self.tokenizer.language_code:
             self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
                                                                 self.model.model.is_multilingual, task=task,
                                                                 language=language)
+        else:
+            language = language or self.tokenizer.language_code
+            task = task or self.tokenizer.task
+            if task != self.tokenizer.task or language != self.tokenizer.language_code:
+                self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
+                                                                    self.model.model.is_multilingual, task=task,
+                                                                    language=language)
 
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
