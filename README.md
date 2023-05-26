@@ -78,7 +78,7 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
-### 3. Install this repo
+### 3. Install this repository
 
 `pip install git+https://github.com/m-bain/whisperx.git`
 
@@ -117,7 +117,7 @@ Compare this to original whisper out the box, where many transcriptions are out 
 https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
 
 
-For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models (bigger alignment model not found to be that helpful, see paper) e.g.
+For increased timestamp accuracy, at the cost of higher gpu memory, use bigger models (bigger alignment model not found to be that helpful, see paper) e.g.
 
     whisperx examples/sample01.wav --model large-v2 --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --batch_size 4
 
