@@ -147,8 +147,6 @@ class Binarize:
                 if is_active: 
                     curr_duration = t - start
                     if curr_duration > self.max_duration:
-                        # if curr_duration > 15:
-                            # import pdb; pdb.set_trace()
                         search_after = len(curr_scores) // 2
                         # divide segment
                         min_score_div_idx = search_after + np.argmin(curr_scores[search_after:])
@@ -159,21 +157,21 @@ class Binarize:
                         curr_scores = curr_scores[min_score_div_idx+1:]
                         curr_timestamps = curr_timestamps[min_score_div_idx+1:]
                     # switching from active to inactive
-                    elif y < self.offset:
+                    elif y <= self.offset:
                         region = Segment(start - self.pad_onset, t + self.pad_offset)
                         active[region, k] = label
                         start = t
                         is_active = False
                         curr_scores = []
                         curr_timestamps = []
+                    curr_scores.append(y)
+                    curr_timestamps.append(t)
                 # currently inactive
                 else:
                     # switching from inactive to active
-                    if y > self.onset:
+                    if y >= self.onset:
                         start = t
                         is_active = True
-                curr_scores.append(y)
-                curr_timestamps.append(t)
 
             # if active at the end, add final region
             if is_active:

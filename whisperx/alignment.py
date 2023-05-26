@@ -298,6 +298,8 @@ def align(
         aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
         # concatenate sentences with same timestamps
         agg_dict = {"text": " ".join, "words": "sum"}
+        if model_lang in LANGUAGES_WITHOUT_SPACES:
+            agg_dict["text"] = "".join
         if return_char_alignments:
             agg_dict["chars"] = "sum"
         aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
