@@ -15,6 +15,9 @@ from .audio import SAMPLE_RATE, load_audio
 from .utils import interpolate_nans
 from .types import AlignedTranscriptionResult, SingleSegment, SingleAlignedSegment, SingleWordSegment
 import nltk
+from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
+
+PUNKT_ABBREVIATIONS = ['dr', 'vs', 'mr', 'mrs', 'prof']
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -143,7 +146,11 @@ def align(
             if any([c in model_dictionary.keys() for c in wrd]):
                 clean_wdx.append(wdx)
 
-        sentence_spans = list(nltk.tokenize.punkt.PunktSentenceTokenizer().span_tokenize(text))
+                
+        punkt_param = PunktParameters()
+        punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
+        sentence_splitter = PunktSentenceTokenizer(punkt_param)
+        sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment["clean_char"] = clean_char
         segment["clean_cdx"] = clean_cdx
