@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List
 
 
 class SingleWordSegment(TypedDict):
@@ -38,15 +38,15 @@ class SingleAlignedSegment(TypedDict):
     start: float
     end: float
     text: str
-    words: list[SingleWordSegment]
-    chars: Optional[list[SingleCharSegment]]
+    words: List[SingleWordSegment]
+    chars: Optional[List[SingleCharSegment]]
 
 
 class TranscriptionResult(TypedDict):
     """
     A list of segments and word segments of a speech.
     """
-    segments: list[SingleSegment]
+    segments: List[SingleSegment]
     language: str
 
 
@@ -54,5 +54,5 @@ class AlignedTranscriptionResult(TypedDict):
     """
     A list of segments and word segments of a speech.
     """
-    segments: list[SingleAlignedSegment]
-    word_segments: list[SingleWordSegment]
+    segments: List[SingleAlignedSegment]
+    word_segments: List[SingleWordSegment]
