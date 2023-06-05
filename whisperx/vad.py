@@ -157,7 +157,7 @@ class Binarize:
                         curr_scores = curr_scores[min_score_div_idx+1:]
                         curr_timestamps = curr_timestamps[min_score_div_idx+1:]
                     # switching from active to inactive
-                    elif y <= self.offset:
+                    elif y < self.offset:
                         region = Segment(start - self.pad_onset, t + self.pad_offset)
                         active[region, k] = label
                         start = t
@@ -169,7 +169,7 @@ class Binarize:
                 # currently inactive
                 else:
                     # switching from inactive to active
-                    if y >= self.onset:
+                    if y > self.onset:
                         start = t
                         is_active = True
 

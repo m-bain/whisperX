@@ -52,13 +52,6 @@ This repository provides fast automatic speech recognition (70x realtime with la
 
 **Speaker Diarization** is the process of partitioning an audio stream containing human speech into homogeneous segments according to the identity of each speaker.
 
-- v3 pre-release [this branch](https://github.com/m-bain/whisperX/tree/v3) *70x speed-up open-sourced. Using batched whisper with faster-whisper backend*!
-- v2 released, code cleanup, imports whisper library. VAD filtering is now turned on by default, as in the paper.
-- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed (not provided in this repo).
-- VAD filtering: Voice Activity Detection (VAD) from [Pyannote.audio](https://huggingface.co/pyannote/voice-activity-detection) is used as a preprocessing step to remove reliance on whisper timestamps and only transcribe audio segments containing speech. add `--vad_filter True` flag, increases timestamp accuracy and robustness (requires more GPU mem due to 30s inputs in wav2vec2)
-- Character level timestamps (see `*.char.ass` file output)
-- Diarization (still in beta, add `--diarize`)
-
 <h2 align="left", id="highlights">New🚨</h2>
 
 - v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitlting & better diarization
@@ -87,11 +80,11 @@ See other methods [here.](https://pytorch.org/get-started/previous-versions/#v20
 
 ### 3. Install this repo
 
-`pip install git+https://github.com/m-bain/whisperx.git@v3`
+`pip install git+https://github.com/m-bain/whisperx.git`
 
 If already installed, update package to most recent commit
 
-`pip install git+https://github.com/m-bain/whisperx.git@v3 --upgrade`
+`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
 
 If wishing to modify this package, clone and install in editable mode:
 ```
@@ -183,10 +176,10 @@ print(result["segments"]) # after alignment
 diarize_model = whisperx.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
 
 # add min/max number of speakers if known
-diarize_segments = diarize_model(input_audio_path)
-# diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
+diarize_segments = diarize_model(audio_file)
+# diarize_model(audio_file, min_speakers=min_speakers, max_speakers=max_speakers)
 
-result = assign_word_speakers(diarize_segments, result)
+result = whisperx.assign_word_speakers(diarize_segments, result)
 print(diarize_segments)
 print(result["segments"]) # segments are now assigned speaker IDs
 ```

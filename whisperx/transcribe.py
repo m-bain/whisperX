@@ -21,6 +21,7 @@ def cli():
     parser.add_argument("--model", default="small", help="name of the Whisper model to use")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
+    parser.add_argument("--device_index", default=0, type=int, help="device index to use for FasterWhisper inference")
     parser.add_argument("--batch_size", default=8, type=int, help="device to use for PyTorch inference")
     parser.add_argument("--compute_type", default="float16", type=str, choices=["float16", "float32", "int8"], help="compute type for computation")
 
@@ -80,6 +81,7 @@ def cli():
     output_dir: str = args.pop("output_dir")
     output_format: str = args.pop("output_format")
     device: str = args.pop("device")
+    device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
 
     # model_flush: bool = args.pop("model_flush")
@@ -148,7 +150,7 @@ def cli():
     results = []
     tmp_results = []
     # model = load_model(model_name, device=device, download_root=model_dir)
-    model = load_model(model_name, device=device, compute_type=compute_type, language=args['language'], asr_options=asr_options, vad_options={"vad_onset": vad_onset, "vad_offset": vad_offset}, task=task)
+    model = load_model(model_name, device=device, device_index=device_index, compute_type=compute_type, language=args['language'], asr_options=asr_options, vad_options={"vad_onset": vad_onset, "vad_offset": vad_offset}, task=task)
 
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
