@@ -11,7 +11,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from .vad import load_vad_model, merge_chunks
-<<<<<<< HEAD
+from .types import TranscriptionResult, SingleSegment
 
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
@@ -20,12 +20,6 @@ def find_numeral_symbol_tokens(tokenizer):
         if all(c in "0123456789@#%&*+=_$:-.,?!" for c in token):
             numeral_symbol_tokens.append(i)
     return numeral_symbol_tokens
-
-
-def load_model(whisper_arch, device, compute_type="float16", asr_options=None, language=None,
-               vad_options=None, model=None, task="transcribe"):
-=======
-from .types import TranscriptionResult, SingleSegment
 
 def load_model(whisper_arch,
                device,
@@ -37,7 +31,6 @@ def load_model(whisper_arch,
                model=None,
                task="transcribe",
                download_root=None):
->>>>>>> ec6a110cdf2616919cfd0a616f9ae2fbdd44903f
     '''Load a Whisper model for inference.
     Args:
         whisper_arch: str - The name of the Whisper model to load.
@@ -99,9 +92,6 @@ def load_model(whisper_arch,
     del default_asr_options["suppress_numerals"]
 
     default_asr_options = faster_whisper.transcribe.TranscriptionOptions(**default_asr_options)
-
-
-
 
     default_vad_options = {
         "vad_onset": 0.500,
