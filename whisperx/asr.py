@@ -17,7 +17,8 @@ def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
     for i in range(tokenizer.eot):
         token = tokenizer.decode([i]).removeprefix(" ")
-        if all(c in "0123456789@#%&*+=_$:-.,?!" for c in token):
+        has_numeral_symbol = any(c in "0123456789%$£" for c in token)
+        if has_numeral_symbol:
             numeral_symbol_tokens.append(i)
     return numeral_symbol_tokens
 
