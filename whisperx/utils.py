@@ -399,12 +399,14 @@ def get_writer(
     output_format: str, output_dir: str
 ) -> Callable[[dict, TextIO, dict], None]:
     writers = {
-        "aud": WriteAudacity,
         "txt": WriteTXT,
         "vtt": WriteVTT,
         "srt": WriteSRT,
         "tsv": WriteTSV,
         "json": WriteJSON,
+    }
+    optional_writers = {
+        "aud": WriteAudacity,
     }
 
     if output_format == "all":
@@ -416,6 +418,8 @@ def get_writer(
 
         return write_all
 
+    if output_format in optional_writers:
+        return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
 
 def interpolate_nans(x, method='nearest'):
