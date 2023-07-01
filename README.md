@@ -185,6 +185,11 @@ print(diarize_segments)
 print(result["segments"]) # segments are now assigned speaker IDs
 ```
 
+## Demos 🚀
+
+[![Replicate](https://replicate.com/daanelson/whisperx/badge)](https://replicate.com/daanelson/whisperx) 
+
+If you don't have access to your own GPUs, use the link above to try out WhisperX. 
 
 <h2 align="left" id="whisper-mod">Technical Details 👷‍♂️</h2>
 
