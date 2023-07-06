@@ -1,6 +1,7 @@
 import os
 import warnings
 from typing import List, Union
+import zlib
 
 import ctranslate2
 import faster_whisper
@@ -136,16 +137,6 @@ class WhisperModel(faster_whisper.WhisperModel):
             round(options.max_initial_timestamp / self.time_precision)
         )
 
-        result = self.model.generate(
-                encoder_output,
-                [prompt] * batch_size,
-                length_penalty=options.length_penalty,
-                max_length=self.max_length,
-                suppress_blank=options.suppress_blank,
-                suppress_tokens=options.suppress_tokens,
-            )
-
-        tokens_batch = [x.sequences_ids[0] for x in result]
 
         def decode_batch(tokens: List[List[int]]) -> str:
             res = []
@@ -153,8 +144,68 @@ class WhisperModel(faster_whisper.WhisperModel):
                 res.append([token for token in tk if token < tokenizer.eot])
             # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
+        
+        def get_compression_ratio(text: str) -> float:
+            text_bytes = text.encode("utf-8")
+            return len(text_bytes) / len(zlib.compress(text_bytes))
 
-        text = decode_batch(tokens_batch)
+        for temperature in options.temperatures:
+            if temperature > 0:
+                kwargs = {
+                    "beam_size": 1,
+                    "num_hypotheses": options.best_of,
+                    "sampling_topk": 10,
+                    "sampling_temperature": temperature,
+                }
+            else:
+                kwargs = {
+                    "beam_size": options.beam_size,
+                    "patience": options.patience,
+                }
+
+            result = self.model.generate(
+                    encoder_output,
+                    [prompt] * batch_size,
+                    length_penalty=options.length_penalty,
+                    max_length=self.max_length,
+                    return_scores=True,
+                    return_no_speech_prob=True,
+                    suppress_blank=options.suppress_blank,
+                    suppress_tokens=options.suppress_tokens,
+                    **kwargs,
+                )
+                
+            needs_fallback = False
+            
+            for batch_res in result:
+                
+                tokens = batch_res.sequences_ids[0]
+                
+                # Recover the average log prob from the returned score.
+                seq_len = len(tokens)
+                cum_logprob = batch_res.scores[0] * (seq_len**options.length_penalty)
+                avg_logprob = cum_logprob / (seq_len + 1)
+                
+                text = tokenizer.decode(tokens).strip()
+                compression_ratio = get_compression_ratio(text)
+
+                if (options.compression_ratio_threshold is not None and compression_ratio > options.compression_ratio_threshold):
+                    needs_fallback = True  # too repetitive
+
+                    print("Compression ratio threshold is not met with temperature %.1f (%f > %f)" % (temperature, compression_ratio, options.compression_ratio_threshold))
+
+                if (options.log_prob_threshold is not None and avg_logprob < options.log_prob_threshold):
+                    needs_fallback = True  # average log probability is too low
+
+                    print("Log probability threshold is not met with temperature %.1f (%f < %f)" % (temperature, avg_logprob, options.log_prob_threshold))
+
+                if needs_fallback:
+                    break
+                    
+            if not needs_fallback:
+                tokens_batch = [x.sequences_ids[0] for x in result]
+                text = decode_batch(tokens_batch)
+                break
 
         return text
 
