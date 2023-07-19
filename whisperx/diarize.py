@@ -46,7 +46,7 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
         # assign speaker to words
         if 'words' in seg:
             for word in seg['words']:
-                word = word.replace('"', "'")
+                word["word"] = word["word"].replace('"', "'")
                 if 'start' in word:
                     diarize_df['intersection'] = np.minimum(diarize_df['end'], word['end']) - np.maximum(diarize_df['start'], word['start'])
                     diarize_df['union'] = np.maximum(diarize_df['end'], word['end']) - np.minimum(diarize_df['start'], word['start'])
