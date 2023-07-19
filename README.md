@@ -97,7 +97,7 @@ $ pip install -e .
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
 ### Speaker Diarization
-To **enable Speaker. Diarization**, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
+To **enable Speaker Diarization**, include your Hugging Face access token that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
 
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
@@ -257,7 +257,7 @@ Contact maxhbain@gmail.com for queries. WhisperX v4 development is underway with
 
 This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
 
-Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
+Of course, this builds on [openAI's whisper](https://github.com/openai/whisper).
 Borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 
