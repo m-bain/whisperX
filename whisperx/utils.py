@@ -365,6 +365,28 @@ class WriteTSV(ResultWriter):
             print(round(1000 * segment["end"]), file=file, end="\t")
             print(segment["text"].strip().replace("\t", " "), file=file, flush=True)
 
+class WriteAudacity(ResultWriter):
+    """
+    Write a transcript to a text file that audacity can import as labels.
+    The extension used is "aud" to distinguish it from the txt file produced by WriteTXT.
+    Yet this is not an audacity project but only a label file!
+    
+    Please note : Audacity uses seconds in timestamps not ms! 
+    Also there is no header expected.
+
+    If speaker is provided it is prepended to the text between double square brackets [[]].
+    """
+
+    extension: str = "aud"    
+
+    def write_result(self, result: dict, file: TextIO, options: dict):
+        ARROW = "	"
+        for segment in result["segments"]:
+            print(segment["start"], file=file, end=ARROW)
+            print(segment["end"], file=file, end=ARROW)
+            print( ( ("[[" + segment["speaker"] + "]]") if "speaker" in segment else "") + segment["text"].strip().replace("\t", " "), file=file, flush=True)
+
+            
 
 class WriteJSON(ResultWriter):
     extension: str = "json"
@@ -383,6 +405,9 @@ def get_writer(
         "tsv": WriteTSV,
         "json": WriteJSON,
     }
+    optional_writers = {
+        "aud": WriteAudacity,
+    }
 
     if output_format == "all":
         all_writers = [writer(output_dir) for writer in writers.values()]
@@ -393,6 +418,8 @@ def get_writer(
 
         return write_all
 
+    if output_format in optional_writers:
+        return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
 
 def interpolate_nans(x, method='nearest'):

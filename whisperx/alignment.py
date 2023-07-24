@@ -15,6 +15,9 @@ from .audio import SAMPLE_RATE, load_audio
 from .utils import interpolate_nans
 from .types import AlignedTranscriptionResult, SingleSegment, SingleAlignedSegment, SingleWordSegment
 import nltk
+from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
+
+PUNKT_ABBREVIATIONS = ['dr', 'vs', 'mr', 'mrs', 'prof']
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -33,6 +36,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
     "pt": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
     "ar": "jonatasgrosman/wav2vec2-large-xlsr-53-arabic",
+    "cs": "comodoro/wav2vec2-xls-r-300m-cs-250",
     "ru": "jonatasgrosman/wav2vec2-large-xlsr-53-russian",
     "pl": "jonatasgrosman/wav2vec2-large-xlsr-53-polish",
     "hu": "jonatasgrosman/wav2vec2-large-xlsr-53-hungarian",
@@ -42,6 +46,9 @@ DEFAULT_ALIGN_MODELS_HF = {
     "tr": "mpoyraz/wav2vec2-xls-r-300m-cv7-turkish",
     "da": "saattrupdan/wav2vec2-xls-r-300m-ftspeech",
     "he": "imvladikon/wav2vec2-xls-r-300m-hebrew",
+    "vi": 'nguyenvulebinh/wav2vec2-base-vi',
+    "ko": "kresnik/wav2vec2-large-xlsr-korean",
+    "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
 }
 
 
@@ -141,7 +148,11 @@ def align(
             if any([c in model_dictionary.keys() for c in wrd]):
                 clean_wdx.append(wdx)
 
-        sentence_spans = list(nltk.tokenize.punkt.PunktSentenceTokenizer().span_tokenize(text))
+                
+        punkt_param = PunktParameters()
+        punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
+        sentence_splitter = PunktSentenceTokenizer(punkt_param)
+        sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment["clean_char"] = clean_char
         segment["clean_cdx"] = clean_cdx
@@ -300,6 +311,8 @@ def align(
         aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
         # concatenate sentences with same timestamps
         agg_dict = {"text": " ".join, "words": "sum"}
+        if model_lang in LANGUAGES_WITHOUT_SPACES:
+            agg_dict["text"] = "".join
         if return_char_alignments:
             agg_dict["chars"] = "sum"
         aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
