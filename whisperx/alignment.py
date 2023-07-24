@@ -48,6 +48,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "he": "imvladikon/wav2vec2-xls-r-300m-hebrew",
     "vi": 'nguyenvulebinh/wav2vec2-base-vi',
     "ko": "kresnik/wav2vec2-large-xlsr-korean",
+    "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
 }
 
 
