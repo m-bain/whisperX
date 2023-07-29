@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Union
+from typing import List, Union, Optional
 
 import ctranslate2
 import faster_whisper
@@ -27,7 +27,7 @@ def load_model(whisper_arch,
                device_index=0,
                compute_type="float16",
                asr_options=None,
-               language=None,
+               language : Optional[str] = None,
                vad_options=None,
                model=None,
                task="transcribe",
@@ -104,9 +104,7 @@ def load_model(whisper_arch,
 
     vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
 
-    return FasterWhisperPipeline(model, vad_model, default_asr_options, tokenizer)
-
-
+    return FasterWhisperPipeline(model, vad_model, default_asr_options, tokenizer, language)
 
 class WhisperModel(faster_whisper.WhisperModel):
     '''
@@ -183,11 +181,13 @@ class FasterWhisperPipeline(Pipeline):
             vad,
             options,
             tokenizer=None,
+            language : Optional[str] = None,
             device: Union[int, str, "torch.device"] = -1,
             framework = "pt",
             **kwargs
     ):
         self.model = model
+        self.preset_language = language
         self.tokenizer = tokenizer
         self.options = options
         self._batch_size = kwargs.pop("batch_size", None)
@@ -258,7 +258,7 @@ class FasterWhisperPipeline(Pipeline):
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(vad_segments, 30)
-        if self.tokenizer is None:
+        if self.preset_language is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
             self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
