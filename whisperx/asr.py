@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Union
+from typing import List, Union, Optional, NamedTuple
 
 import ctranslate2
 import faster_whisper
@@ -27,7 +27,7 @@ def load_model(whisper_arch,
                device_index=0,
                compute_type="float16",
                asr_options=None,
-               language=None,
+               language : Optional[str] = None,
                vad_options=None,
                model=None,
                task="transcribe",
@@ -83,13 +83,7 @@ def load_model(whisper_arch,
     if asr_options is not None:
         default_asr_options.update(asr_options)
 
-    if default_asr_options["suppress_numerals"]:
-        if tokenizer is None:
-            tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language="en")
-        numeral_symbol_tokens = find_numeral_symbol_tokens(tokenizer)
-        print(f"Suppressing numeral and symbol tokens: {numeral_symbol_tokens}")
-        default_asr_options["suppress_tokens"] += numeral_symbol_tokens
-        default_asr_options["suppress_tokens"] = list(set(default_asr_options["suppress_tokens"]))
+    suppress_numerals = default_asr_options["suppress_numerals"]
     del default_asr_options["suppress_numerals"]
 
     default_asr_options = faster_whisper.transcribe.TranscriptionOptions(**default_asr_options)
@@ -104,9 +98,14 @@ def load_model(whisper_arch,
 
     vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
 
-    return FasterWhisperPipeline(model, vad_model, default_asr_options, tokenizer)
-
-
+    return FasterWhisperPipeline(
+        model=model,
+        vad=vad_model,
+        options=default_asr_options,
+        tokenizer=tokenizer,
+        language=language,
+        suppress_numerals=suppress_numerals,
+    )
 
 class WhisperModel(faster_whisper.WhisperModel):
     '''
@@ -181,15 +180,19 @@ class FasterWhisperPipeline(Pipeline):
             self,
             model,
             vad,
-            options,
+            options : NamedTuple,
             tokenizer=None,
             device: Union[int, str, "torch.device"] = -1,
             framework = "pt",
+            language : Optional[str] = None,
+            suppress_numerals: bool = False,
             **kwargs
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.options = options
+        self.preset_language = language
+        self.suppress_numerals = suppress_numerals
         self._batch_size = kwargs.pop("batch_size", None)
         self._num_workers = 1
         self._preprocess_params, self._forward_params, self._postprocess_params = self._sanitize_parameters(**kwargs)
@@ -271,6 +274,14 @@ class FasterWhisperPipeline(Pipeline):
                 self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
                                                                     self.model.model.is_multilingual, task=task,
                                                                     language=language)
+                
+        if self.suppress_numerals:
+            previous_suppress_tokens = self.options.suppress_tokens
+            numeral_symbol_tokens = find_numeral_symbol_tokens(self.tokenizer)
+            print(f"Suppressing numeral and symbol tokens: {numeral_symbol_tokens}")
+            new_suppressed_tokens = numeral_symbol_tokens + self.options.suppress_tokens
+            new_suppressed_tokens = list(set(new_suppressed_tokens))
+            self.options = self.options._replace(suppress_tokens=new_suppressed_tokens)
 
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
@@ -285,6 +296,14 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]['end'], 3)
                 }
             )
+
+        # revert the tokenizer if multilingual inference is enabled
+        if self.preset_language is None:
+            self.tokenizer = None
+
+        # revert suppressed tokens if suppress_numerals is enabled
+        if self.suppress_numerals:
+            self.options = self.options._replace(suppress_tokens=previous_suppress_tokens)
 
         return {"segments": segments, "language": language}
 
