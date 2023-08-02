@@ -177,7 +177,7 @@ print(result["segments"]) # after alignment
 diarize_model = whisperx.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
 
 # add min/max number of speakers if known
-diarize_segments = diarize_model(audio_file)
+diarize_segments = diarize_model(audio)
 # diarize_model(audio_file, min_speakers=min_speakers, max_speakers=max_speakers)
 
 result = whisperx.assign_word_speakers(diarize_segments, result)
