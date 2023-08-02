@@ -4,6 +4,8 @@ from pyannote.audio import Pipeline
 from typing import Optional, Union
 import torch
 
+from .audio import load_audio, SAMPLE_RATE
+
 class DiarizationPipeline:
     def __init__(
         self,
@@ -15,8 +17,14 @@ class DiarizationPipeline:
             device = torch.device(device)
         self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
-    def __call__(self, audio, min_speakers=None, max_speakers=None):
-        segments = self.model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
+    def __call__(self, audio: Union[str, np.ndarray], min_speakers=None, max_speakers=None):
+        if isinstance(audio, str):
+            audio = load_audio(audio)
+        audio_data = {
+            'waveform': torch.from_numpy(audio[None, :]),
+            'sample_rate': SAMPLE_RATE
+        }
+        segments = self.model(audio_data, min_speakers=min_speakers, max_speakers=max_speakers)
         diarize_df = pd.DataFrame(segments.itertracks(yield_label=True))
         diarize_df['start'] = diarize_df[0].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df[0].apply(lambda x: x.end)

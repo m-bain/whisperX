@@ -75,7 +75,7 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 ### 2. Install PyTorch2.0, e.g. for Linux and Windows CUDA11.7:
 
-`conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.7 -c pytorch -c nvidia`
+`conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
 
 See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
@@ -177,14 +177,19 @@ print(result["segments"]) # after alignment
 diarize_model = whisperx.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
 
 # add min/max number of speakers if known
-diarize_segments = diarize_model(audio_file)
-# diarize_model(audio_file, min_speakers=min_speakers, max_speakers=max_speakers)
+diarize_segments = diarize_model(audio)
+# diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
 
 result = whisperx.assign_word_speakers(diarize_segments, result)
 print(diarize_segments)
 print(result["segments"]) # segments are now assigned speaker IDs
 ```
 
+## Demos 🚀
+
+[![Replicate](https://replicate.com/daanelson/whisperx/badge)](https://replicate.com/daanelson/whisperx) 
+
+If you don't have access to your own GPUs, use the link above to try out WhisperX. 
 
 <h2 align="left" id="whisper-mod">Technical Details 👷‍♂️</h2>
 
