@@ -370,3 +370,4 @@ class FasterWhisperPipeline(Pipeline):
         language = language_token[2:-2]
         print(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio...")
         return language
+        
