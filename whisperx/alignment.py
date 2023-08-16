@@ -162,9 +162,15 @@ def align(
         segment["sentence_spans"] = sentence_spans
     
     aligned_segments: List[SingleAlignedSegment] = []
-
+    total_segments = len(list(transcript))
+    transcript = iter(transcript)
+    
     # 2. Get prediction matrix from alignment model & align
     for sdx, segment in enumerate(transcript):
+        
+        percent_complete = ((sdx + 1) / total_segments) * 100
+        print(f"Progress: {percent_complete:.2f}%...")
+        
         t1 = segment["start"]
         t2 = segment["end"]
         text = segment["text"]
