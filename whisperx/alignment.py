@@ -98,9 +98,9 @@ def align(
     device: str,
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
-    print_progress = False,
-    combined_progress = False,
-    total_segments = 0
+    print_progress: bool = False,
+    combined_progress: bool = False,
+    total_segments: int = 0
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
