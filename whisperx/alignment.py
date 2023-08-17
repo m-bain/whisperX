@@ -98,7 +98,8 @@ def align(
     device: str,
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
-    print_progress = False
+    print_progress = False,
+    combined_progress = False
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -124,7 +125,8 @@ def align(
     for sdx, segment in enumerate(transcript):
         # strip spaces at beginning / end, but keep track of the amount.
         if print_progress:
-            percent_complete = ((sdx + 1) / total_segments) * 100
+            base_progress = ((sdx + 1) / total_segments) * 100
+            percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
             print(f"Progress: {percent_complete:.2f}%...")
             
         num_leading = len(segment["text"]) - len(segment["text"].lstrip())
