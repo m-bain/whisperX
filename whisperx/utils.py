@@ -226,6 +226,9 @@ class SubtitlesWriter(ResultWriter):
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
         preserve_segments = max_line_count is None or raw_max_line_width is None
 
+        if len(result["segments"]) == 0:
+            return
+
         def iterate_subtitles():
             line_len = 0
             line_count = 1
