@@ -99,7 +99,8 @@ def align(
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
     print_progress = False,
-    combined_progress = False
+    combined_progress = False,
+    total_segments = 0
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -117,9 +118,6 @@ def align(
     model_dictionary = align_model_metadata["dictionary"]
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
-
-    total_segments = len(list(transcript))
-    transcript = iter(transcript)
 
     # 1. Preprocess to keep only characters in dictionary
     for sdx, segment in enumerate(transcript):
