@@ -127,6 +127,10 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
     whisperx examples/sample01.wav --model large-v2 --diarize --highlight_words True
 
+To run on CPU instead of GPU (and for running on Mac OS X):
+
+    whisperx examples/sample01.wav --compute_type int8
+
 ### Other languages
 
 The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
