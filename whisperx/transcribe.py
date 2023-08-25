@@ -213,6 +213,7 @@ def cli():
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
+        result["language"] = align_language
         writer(result, audio_path, writer_args)
 
 if __name__ == "__main__":
