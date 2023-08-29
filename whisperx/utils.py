@@ -225,6 +225,9 @@ class SubtitlesWriter(ResultWriter):
         highlight_words: bool = options["highlight_words"]
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
         preserve_segments = max_line_count is None or raw_max_line_width is None
+        
+        if len(result["segments"]) == 0:
+            return
 
         if len(result["segments"]) == 0:
             return
@@ -296,7 +299,7 @@ class SubtitlesWriter(ResultWriter):
                             start = self.format_timestamp(this_word["start"])
                             end = self.format_timestamp(this_word["end"])
                             if last != start:
-                                yield last, start, subtitle_text
+                                yield last, start, prefix + subtitle_text
 
                             yield start, end, prefix + " ".join(
                                 [

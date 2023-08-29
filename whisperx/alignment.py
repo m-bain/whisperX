@@ -50,6 +50,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "ko": "kresnik/wav2vec2-large-xlsr-korean",
     "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
     "te": "anuragshas/wav2vec2-large-xlsr-53-telugu",
+    "hi": "theainerd/Wav2Vec2-large-xlsr-hindi"
 }
 
 
@@ -97,6 +98,9 @@ def align(
     device: str,
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
+    print_progress: bool = False,
+    combined_progress: bool = False,
+    total_segments: int = 0
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -118,6 +122,11 @@ def align(
     # 1. Preprocess to keep only characters in dictionary
     for sdx, segment in enumerate(transcript):
         # strip spaces at beginning / end, but keep track of the amount.
+        if print_progress:
+            base_progress = ((sdx + 1) / total_segments) * 100
+            percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
+            print(f"Progress: {percent_complete:.2f}%...")
+            
         num_leading = len(segment["text"]) - len(segment["text"].lstrip())
         num_trailing = len(segment["text"]) - len(segment["text"].rstrip())
         text = segment["text"]
@@ -161,9 +170,10 @@ def align(
         segment["sentence_spans"] = sentence_spans
     
     aligned_segments: List[SingleAlignedSegment] = []
-
+    
     # 2. Get prediction matrix from alignment model & align
     for sdx, segment in enumerate(transcript):
+        
         t1 = segment["start"]
         t2 = segment["end"]
         text = segment["text"]
