@@ -296,7 +296,7 @@ class SubtitlesWriter(ResultWriter):
                             start = self.format_timestamp(this_word["start"])
                             end = self.format_timestamp(this_word["end"])
                             if last != start:
-                                yield last, start, subtitle_text
+                                yield last, start, prefix + subtitle_text
 
                             yield start, end, prefix + " ".join(
                                 [
