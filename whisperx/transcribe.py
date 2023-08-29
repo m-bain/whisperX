@@ -118,6 +118,7 @@ def cli():
                 f"{model_name} is an English-only model but receipted '{args['language']}'; using English instead."
             )
         args["language"] = "en"
+    align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
 
     temperature = args.pop("temperature")
     if (increment := args.pop("temperature_increment_on_fallback")) is not None:
@@ -174,7 +175,6 @@ def cli():
     if not no_align:
         tmp_results = results
         results = []
-        align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
         align_model, align_metadata = load_align_model(align_language, device, model_name=align_model)
         for result, audio_path in tmp_results:
             # >> Align
@@ -213,6 +213,7 @@ def cli():
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
+        result["language"] = align_language
         writer(result, audio_path, writer_args)
 
 if __name__ == "__main__":
