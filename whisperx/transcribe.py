@@ -41,6 +41,7 @@ def cli():
     # vad params
     parser.add_argument("--vad_onset", type=float, default=0.500, help="Onset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected")
     parser.add_argument("--vad_offset", type=float, default=0.363, help="Offset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected.")
+    parser.add_argument("--chunk_size", type=int, default=30, help="Chunk size for merging VAD segments. Default is 30, reduce this if the chunk is too long.")
 
     # diarization params
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
@@ -103,6 +104,8 @@ def cli():
     vad_onset: float = args.pop("vad_onset")
     vad_offset: float = args.pop("vad_offset")
 
+    chunk_size: int = args.pop("chunk_size")
+
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
@@ -159,7 +162,7 @@ def cli():
         audio = load_audio(audio_path)
         # >> VAD & ASR
         print(">>Performing transcription...")
-        result = model.transcribe(audio, batch_size=batch_size, print_progress=print_progress)
+        result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress)
         results.append((result, audio_path))
 
     # Unload Whisper and VAD
