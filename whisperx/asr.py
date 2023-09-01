@@ -10,8 +10,9 @@ from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
+from .types import SingleSegment, TranscriptionResult
 from .vad import load_vad_model, merge_chunks
-from .types import TranscriptionResult, SingleSegment
+
 
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
@@ -138,24 +139,35 @@ class WhisperModel(faster_whisper.WhisperModel):
         result = self.model.generate(
                 encoder_output,
                 [prompt] * batch_size,
+                return_scores=True,
                 length_penalty=options.length_penalty,
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
                 suppress_tokens=options.suppress_tokens,
             )
-
-        tokens_batch = [x.sequences_ids[0] for x in result]
-
-        def decode_batch(tokens: List[List[int]]) -> str:
+    
+        avg_logprobs = []
+        tokens_batch = []
+        for result in result:
+            tokens = result.sequences_ids[0]
+            tokens_batch.append(tokens)
+    
+            # Calculate average log probability.
+            seq_len = len(tokens)
+            cum_logprob = result.scores[0] * (seq_len**options.length_penalty)
+            avg_logprob = cum_logprob / (seq_len + 1)
+            avg_logprobs.append(avg_logprob)
+    
+        def decode_batch(tokens: List[List[int]]) -> List[str]:
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
-            # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
 
-        return text
+        return {'text': text, 'avg_logprob': avg_logprobs}  # Return as a dictionary
+
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
@@ -225,8 +237,9 @@ class FasterWhisperPipeline(Pipeline):
         return {'inputs': features}
 
     def _forward(self, model_inputs):
-        outputs = self.model.generate_segment_batched(model_inputs['inputs'], self.tokenizer, self.options)
-        return {'text': outputs}
+        model_outputs = self.model.generate_segment_batched(model_inputs['inputs'], self.tokenizer, self.options)
+        return model_outputs
+
 
     def postprocess(self, model_outputs):
         return model_outputs
@@ -247,7 +260,7 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -260,7 +273,7 @@ class FasterWhisperPipeline(Pipeline):
                 yield {'inputs': audio[f1:f2]}
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
-        vad_segments = merge_chunks(vad_segments, chunk_size)
+        vad_segments = merge_chunks(vad_segments, 30)
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
@@ -285,18 +298,17 @@ class FasterWhisperPipeline(Pipeline):
 
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
-        total_segments = len(vad_segments)
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
-            if print_progress:
-                base_progress = ((idx + 1) / total_segments) * 100
-                percent_complete = base_progress / 2 if combined_progress else base_progress
-                print(f"Progress: {percent_complete:.2f}%...")
             text = out['text']
+            avg_logprob = out['avg_logprob']
+            # full_results = out['results']
             if batch_size in [0, 1, None]:
                 text = text[0]
+                avg_logprob = avg_logprob[0]
             segments.append(
                 {
                     "text": text,
+                    "avg_logprob": avg_logprob,  # Include average log probabilities in the output
                     "start": round(vad_segments[idx]['start'], 3),
                     "end": round(vad_segments[idx]['end'], 3)
                 }
