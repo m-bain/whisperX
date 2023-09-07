@@ -35,11 +35,10 @@ dev = [ "pytest" ]
 
 [tool.setuptools]
 py-modules = [ "whisperx" ]
+packages = [ "whisperx" ]
 include-package-data = true
 license-files = [ "LICENSE" ]
 
 [tools.setuptools.packages.find]
-where = [ "whisperx" ]
 exclude = [ "tests*" ]
-packages = [ "whisperx" ]
 
