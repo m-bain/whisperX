@@ -1,8 +1,0 @@
-torch>=2
-torchaudio>=2
-faster-whisper
-transformers
-ffmpeg-python>=0.2
-pandas
-setuptools>=65
-nltk
