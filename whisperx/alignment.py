@@ -3,7 +3,7 @@ Forced Alignment with Whisper
 C. Max Bain
 """
 from dataclasses import dataclass
-from typing import Iterator, Union, List
+from typing import Iterable, Union, List
 
 import numpy as np
 import pandas as pd
@@ -91,7 +91,7 @@ def load_align_model(language_code, device, model_name=None, model_dir=None):
 
 
 def align(
-    transcript: Iterator[SingleSegment],
+    transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
     align_model_metadata: dict,
     audio: Union[str, np.ndarray, torch.Tensor],
