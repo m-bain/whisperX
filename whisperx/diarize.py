@@ -9,7 +9,7 @@ from .audio import load_audio, SAMPLE_RATE
 class DiarizationPipeline:
     def __init__(
         self,
-        model_name="pyannote/speaker-diarization@2.1",
+        model_name="pyannote/speaker-diarization-2.1",
         use_auth_token=None,
         device: Optional[Union[str, torch.device]] = "cpu",
     ):
