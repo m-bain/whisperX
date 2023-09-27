@@ -41,7 +41,7 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
     model_bytes = open(model_fp, "rb").read()
     if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
         raise RuntimeError(
-            "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
+            "Model has been downloaded but the SHA256 checksum does not match. Please retry loading the model."
         )
 
     vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
