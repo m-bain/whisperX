@@ -100,7 +100,6 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
-    total_segments: int = 0
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -120,6 +119,7 @@ def align(
     model_type = align_model_metadata["type"]
 
     # 1. Preprocess to keep only characters in dictionary
+    total_segments = len(transcript)
     for sdx, segment in enumerate(transcript):
         # strip spaces at beginning / end, but keep track of the amount.
         if print_progress:
