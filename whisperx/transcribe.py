@@ -162,7 +162,7 @@ def cli():
     model = load_model(model_name, device=device, device_index=device_index, compute_type=compute_type, language=args['language'], asr_options=asr_options, vad_options={"vad_onset": vad_onset, "vad_offset": vad_offset}, task=task, threads=faster_whisper_threads)
 
     for audio_path in args.pop("audio"):
-        audio = load_audio(audio_path)
+        audio = load_audio(audio_path, lowcut=40, highcut=4000)
         # >> VAD & ASR
         print(">>Performing transcription...")
         result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress)

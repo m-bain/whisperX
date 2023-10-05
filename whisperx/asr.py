@@ -120,6 +120,7 @@ class WhisperModel(faster_whisper.WhisperModel):
     '''
 
     def generate_segment_batched(self, features: np.ndarray, tokenizer: faster_whisper.tokenizer.Tokenizer, options: faster_whisper.transcribe.TranscriptionOptions, encoder_output = None):
+        features = torch.tensor(features).to(self.model.device)
         batch_size = features.shape[0]
         all_tokens = []
         prompt_reset_since = 0
@@ -164,6 +165,7 @@ class WhisperModel(faster_whisper.WhisperModel):
         return text
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
+        features = torch.tensor(features).to(self.model.device)
         # When the model is running on multiple GPUs, the encoder output should be moved
         # to the CPU since we don't know which GPU will handle the next job.
         to_cpu = self.model.device == "cuda" and len(self.model.device_index) > 1
@@ -265,7 +267,7 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
+        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0).float(), "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(vad_segments, chunk_size)
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
