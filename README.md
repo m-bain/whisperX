@@ -53,7 +53,7 @@ This repository provides fast automatic speech recognition (70x realtime with la
 **Speaker Diarization** is the process of partitioning an audio stream containing human speech into homogeneous segments according to the identity of each speaker.
 
 <h2 align="left", id="highlights">New🚨</h2>
-
+- 1st place at [Ego4d transcription challenge](https://eval.ai/web/challenges/challenge-page/1637/leaderboard/3931/WER)
 - _WhisperX_ accepted at INTERSPEECH 2023 
 - v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitlting & better diarization
 - v3 released, 70x speed-up open-sourced. Using batched whisper with [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend!
@@ -73,7 +73,7 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 `conda activate whisperx`
 
 
-### 2. Install PyTorch2.0, e.g. for Linux and Windows CUDA11.7:
+### 2. Install PyTorch, e.g. for Linux and Windows CUDA11.8:
 
 `conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
 
@@ -97,7 +97,7 @@ $ pip install -e .
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
 ### Speaker Diarization
-To **enable Speaker. Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization)
+To **enable Speaker. Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation) , [Voice Activity Detection (VAD)](https://huggingface.co/pyannote/voice-activity-detection) , and [Speaker Diarization](https://huggingface.co/pyannote/speaker-diarization-3.0)
 
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
