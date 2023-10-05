@@ -53,7 +53,8 @@ This repository provides fast automatic speech recognition (70x realtime with la
 **Speaker Diarization** is the process of partitioning an audio stream containing human speech into homogeneous segments according to the identity of each speaker.
 
 <h2 align="left", id="highlights">New🚨</h2>
-- 1st place at [Ego4d transcription challenge](https://eval.ai/web/challenges/challenge-page/1637/leaderboard/3931/WER)
+
+- 1st place at [Ego4d transcription challenge](https://eval.ai/web/challenges/challenge-page/1637/leaderboard/3931/WER)  🏆
 - _WhisperX_ accepted at INTERSPEECH 2023 
 - v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitlting & better diarization
 - v3 released, 70x speed-up open-sourced. Using batched whisper with [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend!
