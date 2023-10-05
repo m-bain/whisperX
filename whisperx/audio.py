@@ -6,6 +6,8 @@ import ffmpeg
 import numpy as np
 import torch
 import torch.nn.functional as F
+import librosa
+import scipy.signal
 
 from .utils import exact_div
 
@@ -23,25 +25,20 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE):
-    """
-    Open an audio file and read as mono waveform, resampling as necessary
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = scipy.signal.butter(order, [low, high], btype='band')
+    return b, a
 
-    Parameters
-    ----------
-    file: str
-        The audio file to open
+def filter_data(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = scipy.signal.lfilter(b, a, data)
+    return y
 
-    sr: int
-        The sample rate to resample the audio if necessary
-
-    Returns
-    -------
-    A NumPy array containing the audio waveform, in float32 dtype.
-    """
+def load_audio(file: str, lowcut: float, highcut: float, sr: int = SAMPLE_RATE):
     try:
-        # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
-        # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
         out, _ = (
             ffmpeg.input(file, threads=0)
             .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
@@ -50,8 +47,19 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     except ffmpeg.Error as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    audio = np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
+    # Apply Preemphasis filter
+    audio = librosa.effects.preemphasis(audio)
+
+    # Normalization
+    audio = filter_data(audio, lowcut, highcut, sr)
+
+    # Apply Butterworth Bandpass filter
+    filtered_audio = audio / np.linalg.norm(audio)
+
+
+    return filtered_audio
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
     """
@@ -139,6 +147,8 @@ def log_mel_spectrogram(
     magnitudes = stft[..., :-1].abs() ** 2
 
     filters = mel_filters(audio.device, n_mels)
+    filters = filters.to(dtype=torch.float32)
+    magnitudes = magnitudes.to(dtype=torch.float32)
     mel_spec = filters @ magnitudes
 
     log_spec = torch.clamp(mel_spec, min=1e-10).log10()

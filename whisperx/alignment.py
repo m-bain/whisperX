@@ -104,11 +104,16 @@ def align(
     """
     Align phoneme recognition predictions to known transcription.
     """
-    
+
+    model = model.to(dtype=torch.float32)
+
     if not torch.is_tensor(audio):
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio = torch.from_numpy(audio)
+
+    audio = audio.to(dtype=torch.float32)
+
     if len(audio.shape) == 1:
         audio = audio.unsqueeze(0)
     
