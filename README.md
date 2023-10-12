@@ -137,7 +137,7 @@ To run on CPU instead of GPU (and for running on Mac OS X):
 The phoneme ASR alignment model is *language-specific*, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/e909f2f766b23b2000f2d95df41f9b844ac53e49/whisperx/transcribe.py#L22).
 Just pass in the `--language` code, and use the whisper `--model large`.
 
-Currently default models provided for `{en, fr, de, es, it, ja, zh, nl, uk, pt}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
+Currently default models provided for `{ar, cs, da, de, el, en, es, fa, fi, fr, he, hi, hu, it, ja, ko, nl, pl, pt, ru, te, tr, uk, ur, vi, zh}`. If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
 
 
 #### E.g. German
