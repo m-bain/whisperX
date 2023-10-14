@@ -283,7 +283,7 @@ def merge_chunks(
         segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
     if len(segments_list) == 0:
-        warnings.warn("\033[93mNo active speech found in audio."
+        print("\033[93mNo active speech found in audio."
                             "Have you set the 'sample_rate' argument correctly?\033[0m")
         return []
     # assert segments_list, "segments_list is empty."

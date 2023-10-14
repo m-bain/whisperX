@@ -5,7 +5,6 @@ import soxr
 
 import ffmpeg
 import numpy as np
-from scipy import signal
 import torch
 import torch.nn.functional as F
 

@@ -265,7 +265,7 @@ class FasterWhisperPipeline(Pipeline):
                 audio = resample_audio(audio, sample_rate)
                 sample_rate = SAMPLE_RATE
             else:
-                warnings.warn("The 'sample_rate' argument is set to 16000 (16 kHz) by default. Audio will not be resampled")
+                print("The 'sample_rate' argument is set to 16000 (16 kHz) by default. Audio will not be resampled")
 
         def data(audio, segments):
             for seg in segments:
