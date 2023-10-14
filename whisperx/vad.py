@@ -2,6 +2,7 @@ import hashlib
 import os
 import urllib
 from typing import Callable, Optional, Text, Union
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -282,7 +283,8 @@ def merge_chunks(
         segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
     if len(segments_list) == 0:
-        print("No active speech found in audio")
+        warnings.warn("\033[93mNo active speech found in audio."
+                            "Have you set the 'sample_rate' argument correctly?\033[0m")
         return []
     # assert segments_list, "segments_list is empty."
     # Make sur the starting point is the start of the segment.

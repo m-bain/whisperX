@@ -1,9 +1,11 @@
 import os
 from functools import lru_cache
 from typing import Optional, Union
+import soxr
 
 import ffmpeg
 import numpy as np
+from scipy import signal
 import torch
 import torch.nn.functional as F
 
@@ -51,6 +53,29 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    """
+    Resample audio: np.ndarray to 16 kHz
+
+    Parameters
+    ----------
+    audio: np.ndarray
+        The data to be resampled
+    sample_rate: int 
+        The sample rate of audio
+    """
+    if audio.dtype != np.float32 and audio.dtype != np.float64:
+        audio = audio.astype(np.float32)
+
+    audio = audio.flatten() / 32768.0
+
+    return soxr.resample(
+            audio,              # 1D(mono) or 2D(frames, channels) array input
+            sample_rate,        # input samplerate
+            SAMPLE_RATE         # target samplerate
+            )
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):

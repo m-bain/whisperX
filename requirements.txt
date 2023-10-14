@@ -6,3 +6,4 @@ ffmpeg-python>=0.2
 pandas
 setuptools>=65
 nltk
+soxr

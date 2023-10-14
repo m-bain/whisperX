@@ -9,7 +9,7 @@ import torch
 from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
-from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
+from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram, resample_audio
 from .vad import load_vad_model, merge_chunks
 from .types import TranscriptionResult, SingleSegment
 
@@ -256,10 +256,16 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], sample_rate=SAMPLE_RATE, batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+            self, audio: Union[str, np.ndarray], sample_rate: int = SAMPLE_RATE, batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
+        elif isinstance(audio, np.ndarray):
+            if sample_rate != 16000:
+                audio = resample_audio(audio, sample_rate)
+                sample_rate = SAMPLE_RATE
+            else:
+                warnings.warn("The 'sample_rate' argument is set to 16000 (16 kHz) by default. Audio will not be resampled")
 
         def data(audio, segments):
             for seg in segments:
@@ -268,7 +274,7 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": sample_rate})
+        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(
             vad_segments,
             chunk_size,
