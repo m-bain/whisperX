@@ -12,6 +12,7 @@ from .utils import exact_div
 
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
+ALPHA = 0.5
 N_FFT = 400
 N_MELS = 80
 HOP_LENGTH = 160
@@ -60,18 +61,33 @@ def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
     Parameters
     ----------
-    audio: np.ndarray
-        The data to be resampled
+    audio: np.ndarray[ float32 | float64 | int16 | int32 ]
+        The data to be resampled, 1D(mono) or 2D(stereo)
+
     sample_rate: int 
         The sample rate of audio
-    """
-    if audio.dtype != np.float32 and audio.dtype != np.float64:
-        audio = audio.astype(np.float32)
 
-    audio = audio.flatten() / 32768.0
+    Returns
+    -------
+    A NumPy array 1D containing the audio waveform, in float32 or float64 dtype.
+    """
+    if audio.dtype not in (np.float32, np.float64, np.int16, np.int32):
+        raise ValueError(f"Audio type must be one of [float32, float64, int16, int32], not {audio.dtype}")
+
+    audio_dtype = audio.dtype
+
+    if audio.ndim == 2: #Stereo
+        # Convert to mono
+        # MIX = A * (1-alpha) + B * alpha
+        audio = (audio[:,:-1] * ALPHA + audio[:,1:] * ALPHA).flatten()
+    elif audio.ndim != 1:
+        raise ValueError(f"Audio ndim must be 1D(mono) or 2D(stereo)")
+
+    if audio_dtype in (np.int16, np.int32):
+        audio = audio.astype(np.float32) / (32768.0 if audio_dtype == np.int16 else 2147483648.0)
 
     return soxr.resample(
-            audio,              # 1D(mono) or 2D(frames, channels) array input
+            audio,              # 1D(mono) or 2D(stereo) array input
             sample_rate,        # input samplerate
             SAMPLE_RATE         # target samplerate
             )
