@@ -194,8 +194,8 @@ def align(
             aligned_segments.append(aligned_seg)
             continue
 
-        if t1 >= MAX_DURATION or t2 - t1 < 0.02:
-            print("Failed to align segment: original start time longer than audio duration, skipping...")
+        if t1 >= MAX_DURATION:
+            print(f'Failed to align segment ("{segment["text"]}"): original start time longer than audio duration, skipping...')
             aligned_segments.append(aligned_seg)
             continue
 
