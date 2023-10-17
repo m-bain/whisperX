@@ -111,6 +111,7 @@ def load_model(whisper_arch,
         tokenizer=tokenizer,
         language=language,
         suppress_numerals=suppress_numerals,
+        vad_params=default_vad_options,
     )
 
 class WhisperModel(faster_whisper.WhisperModel):
@@ -144,6 +145,8 @@ class WhisperModel(faster_whisper.WhisperModel):
         result = self.model.generate(
                 encoder_output,
                 [prompt] * batch_size,
+                beam_size=options.beam_size,
+                patience=options.patience,
                 length_penalty=options.length_penalty,
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
@@ -186,6 +189,7 @@ class FasterWhisperPipeline(Pipeline):
             self,
             model,
             vad,
+            vad_params: dict,
             options : NamedTuple,
             tokenizer=None,
             device: Union[int, str, "torch.device"] = -1,
@@ -218,6 +222,7 @@ class FasterWhisperPipeline(Pipeline):
 
         super(Pipeline, self).__init__()
         self.vad_model = vad
+        self._vad_params = vad_params
 
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
@@ -266,7 +271,12 @@ class FasterWhisperPipeline(Pipeline):
                 yield {'inputs': audio[f1:f2]}
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
-        vad_segments = merge_chunks(vad_segments, chunk_size)
+        vad_segments = merge_chunks(
+            vad_segments,
+            chunk_size,
+            onset=self._vad_params["vad_onset"],
+            offset=self._vad_params["vad_offset"],
+        )
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"

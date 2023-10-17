@@ -6,10 +6,11 @@ import torch
 
 from .audio import load_audio, SAMPLE_RATE
 
+
 class DiarizationPipeline:
     def __init__(
         self,
-        model_name="pyannote/speaker-diarization@2.1",
+        model_name="pyannote/speaker-diarization-3.0",
         use_auth_token=None,
         device: Optional[Union[str, torch.device]] = "cpu",
     ):
@@ -25,10 +26,9 @@ class DiarizationPipeline:
             'sample_rate': SAMPLE_RATE
         }
         segments = self.model(audio_data, min_speakers=min_speakers, max_speakers=max_speakers)
-        diarize_df = pd.DataFrame(segments.itertracks(yield_label=True))
-        diarize_df['start'] = diarize_df[0].apply(lambda x: x.start)
-        diarize_df['end'] = diarize_df[0].apply(lambda x: x.end)
-        diarize_df.rename(columns={2: "speaker"}, inplace=True)
+        diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
+        diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
+        diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
         return diarize_df
 
 
