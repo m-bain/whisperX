@@ -145,6 +145,8 @@ class WhisperModel(faster_whisper.WhisperModel):
         result = self.model.generate(
                 encoder_output,
                 [prompt] * batch_size,
+                beam_size=options.beam_size,
+                patience=options.patience,
                 length_penalty=options.length_penalty,
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
