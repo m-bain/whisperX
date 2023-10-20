@@ -261,7 +261,7 @@ class FasterWhisperPipeline(Pipeline):
         if isinstance(audio, str):
             audio = load_audio(audio)
         elif isinstance(audio, np.ndarray):
-            if sample_rate != 16000:
+            if sample_rate != SAMPLE_RATE:
                 audio = resample_audio(audio, sample_rate)
                 sample_rate = SAMPLE_RATE
             else:

@@ -69,7 +69,7 @@ def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
     Returns
     -------
-    A NumPy array 1D containing the audio waveform, in float32 or float64 dtype.
+    A NumPy array 1D containing the audio waveform, in float32 or dtype.
     """
     if audio.dtype not in (np.float32, np.float64, np.int16, np.int32):
         raise ValueError(f"Audio type must be one of [float32, float64, int16, int32], not {audio.dtype}")
@@ -85,6 +85,8 @@ def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
     if audio_dtype in (np.int16, np.int32):
         audio = audio.astype(np.float32) / (32768.0 if audio_dtype == np.int16 else 2147483648.0)
+    elif audio_dtype == np.float64:
+        audio = audio.astype(np.float32)
 
     return soxr.resample(
             audio,              # 1D(mono) or 2D(stereo) array input
