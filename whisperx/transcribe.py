@@ -111,8 +111,15 @@ def cli():
     max_speakers: int = args.pop("max_speakers")
     print_progress: bool = args.pop("print_progress")
 
+    if args["language"] is not None:
+        args["language"] = args["language"].lower()
+        if args["language"] not in LANGUAGES:
+            if args["language"] in TO_LANGUAGE_CODE:
+                args["language"] = TO_LANGUAGE_CODE[args["language"]]
+            else:
+                raise ValueError(f"Unsupported language: {args['language']}")
 
-    if model_name.endswith(".en") and args["language"] not in {"en", "English"}:
+    if model_name.endswith(".en") and args["language"] != "en":
         if args["language"] is not None:
             warnings.warn(
                 f"{model_name} is an English-only model but receipted '{args['language']}'; using English instead."
