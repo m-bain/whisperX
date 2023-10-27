@@ -1,12 +1,12 @@
 import os
 from functools import lru_cache
 from typing import Optional, Union
-import soxr
 
 import ffmpeg
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torchaudio.functional import resample
 
 from .utils import exact_div
 
@@ -55,7 +55,7 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 
-def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+def resample_audio(audio: Union[torch.Tensor, np.ndarray ], sample_rate: int) -> torch.Tensor:
     """
     Resample audio: np.ndarray to 16 kHz
 
@@ -69,30 +69,39 @@ def resample_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
     Returns
     -------
-    A NumPy array 1D containing the audio waveform, in float32 or dtype.
+    A torch Tensor 1D containing the audio waveform, in float32 dtype.
     """
-    if audio.dtype not in (np.float32, np.float64, np.int16, np.int32):
+    if type(audio) != torch.Tensor:
+        audio = torch.from_numpy(audio)
+
+    if audio.dtype not in (torch.float32, torch.float64, torch.int16, torch.int32):
         raise ValueError(f"Audio type must be one of [float32, float64, int16, int32], not {audio.dtype}")
 
     audio_dtype = audio.dtype
 
     if audio.ndim == 2: #Stereo
-        # Convert to mono
-        # MIX = A * (1-alpha) + B * alpha
-        audio = (audio[:,:-1] * ALPHA + audio[:,1:] * ALPHA).flatten()
+        if audio.shape[0] == 2 or audio.shape[1] == 2:
+            if audio.shape[1] == 2: #SciPy
+                audio = torch.transpose(audio, 0, 1)
+
+            # Convert to mono
+            # MIX = A * (1 - ALPHA) + B * ALPHA
+            audio = (audio[0] * ALPHA + audio[1] * ALPHA)
+
+        elif audio.shape[0] != 1:
+            raise ValueError(f"Invalid audio shape ({audio.shape}). Audio shape must be one of the following: \n"
+                             "([1, *], [*]) for mono audio, \n"
+                             "([2, *], [*, 2]) for stereo audio")
+
     elif audio.ndim != 1:
         raise ValueError(f"Audio ndim must be 1D(mono) or 2D(stereo)")
 
-    if audio_dtype in (np.int16, np.int32):
-        audio = audio.astype(np.float32) / (32768.0 if audio_dtype == np.int16 else 2147483648.0)
-    elif audio_dtype == np.float64:
-        audio = audio.astype(np.float32)
+    if audio_dtype in (torch.int16, torch.int32):
+        audio = audio.to(torch.float32) / (32768.0 if audio_dtype == torch.int16 else 2147483648.0)
+    elif audio_dtype == torch.float64:
+        audio = audio.to(torch.float32)
 
-    return soxr.resample(
-            audio,              # 1D(mono) or 2D(stereo) array input
-            sample_rate,        # input samplerate
-            SAMPLE_RATE         # target samplerate
-            )
+    return resample(audio, sample_rate, SAMPLE_RATE)
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
