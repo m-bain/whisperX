@@ -276,7 +276,10 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0) if type(audio) == np.ndarray else audio, "sample_rate": SAMPLE_RATE})
+        vad_segments = self.vad_model(
+                {"waveform": torch.from_numpy(audio).unsqueeze(0) if type(audio) == np.ndarray else audio.unsqueeze(0),
+                 "sample_rate": SAMPLE_RATE}
+                )
         vad_segments = merge_chunks(
             vad_segments,
             chunk_size,
