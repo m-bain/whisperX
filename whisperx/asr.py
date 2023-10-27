@@ -258,11 +258,11 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-            self, audio: Union[str, np.ndarray], sample_rate: int = SAMPLE_RATE, batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+            self, audio: Union[str, np.ndarray, torch.Tensor], sample_rate: int = SAMPLE_RATE, batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
-        elif isinstance(audio, np.ndarray):
+        elif isinstance(audio, (np.ndarray, torch.Tensor)):
             if sample_rate != SAMPLE_RATE:
                 audio = resample_audio(audio, sample_rate)
                 sample_rate = SAMPLE_RATE
@@ -276,7 +276,7 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
+        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0) if type(audio) == np.ndarray else audio, "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(
             vad_segments,
             chunk_size,

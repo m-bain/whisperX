@@ -61,6 +61,8 @@ def resample_audio(audio: Union[torch.Tensor, np.ndarray ], sample_rate: int) ->
 
     Parameters
     ----------
+    audio: Union[np.ndarray, torch.Tensor]
+        The data to be resampled, 1D (mono) or 2D (stereo). This parameter can accept either a NumPy array (np.ndarray) or a PyTorch tensor (torch.Tensor) containing audio data. The audio data should be of type float32, float64, int16, or int32.
     audio: np.ndarray[ float32 | float64 | int16 | int32 ]
         The data to be resampled, 1D(mono) or 2D(stereo)
 
