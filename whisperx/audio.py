@@ -103,7 +103,7 @@ def resample_audio(audio: Union[torch.Tensor, np.ndarray ], sample_rate: int) ->
     elif audio_dtype == torch.float64:
         audio = audio.to(torch.float32)
 
-    return resample(audio, sample_rate, SAMPLE_RATE)
+    return resample(audio, sample_rate, SAMPLE_RATE).flatten()
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
