@@ -83,7 +83,7 @@ def resample_audio(audio: Union[torch.Tensor, np.ndarray ], sample_rate: int) ->
 
     if audio.ndim == 2: #Stereo
         if audio.shape[0] == 2 or audio.shape[1] == 2:
-            if audio.shape[1] == 2: #SciPy
+            if audio.shape[1] == 2: #SciPy | Soundfile
                 audio = torch.transpose(audio, 0, 1)
 
             # Convert to mono
@@ -91,12 +91,13 @@ def resample_audio(audio: Union[torch.Tensor, np.ndarray ], sample_rate: int) ->
             audio = (audio[0] * ALPHA + audio[1] * ALPHA)
 
         elif audio.shape[0] != 1:
-            raise ValueError(f"Invalid audio shape ({audio.shape}). Audio shape must be one of the following: \n"
-                             "([1, *], [*]) for mono audio, \n"
-                             "([2, *], [*, 2]) for stereo audio")
+            raise ValueError(f"Invalid audio shape ({audio.shape}). Audio must be provided as: \n"
+                             "([channel, time], [time]) for mono audio, \n"
+                             "([channel, time], [time, channel]) for stereo audio")
 
     elif audio.ndim != 1:
         raise ValueError(f"Audio ndim must be 1D(mono) or 2D(stereo)")
+
 
     if audio_dtype in (torch.int16, torch.int32):
         audio = audio.to(torch.float32) / (32768.0 if audio_dtype == torch.int16 else 2147483648.0)
