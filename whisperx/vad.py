@@ -142,6 +142,7 @@ class Binarize:
             is_active = k_scores[0] > self.onset
             curr_scores = [k_scores[0]]
             curr_timestamps = [start]
+            t = start
             for t, y in zip(timestamps[1:], k_scores[1:]):
                 # currently active
                 if is_active: 
