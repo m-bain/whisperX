@@ -1,7 +1,7 @@
 import os
 from functools import lru_cache
 from typing import Optional, Union
-
+from io import BytesIO
 import ffmpeg
 import numpy as np
 import torch
@@ -23,7 +23,7 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE):
+def load_audio(file: Union[str, BytesIO], sr: int = SAMPLE_RATE):
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -42,11 +42,22 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     try:
         # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
         # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-        out, _ = (
-            ffmpeg.input(file, threads=0)
-            .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
-            .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
-        )
+        if isinstance(file, BytesIO):
+            process = (
+                ffmpeg
+                .input('pipe:') \
+                .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr) \
+                .overwrite_output() \
+                .run_async(cmd=["ffmpeg", "-nostdin"],pipe_stdin=True, pipe_stdout=True, pipe_stderr=True) \
+            )
+
+            out, _ = process.communicate(input=file.getbuffer())
+        elif isinstance(file, str):
+            out, _ = (
+                ffmpeg.input(file, threads=0)
+                .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
+                .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
+            )
     except ffmpeg.Error as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
