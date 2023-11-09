@@ -1,8 +1,8 @@
 import os
+import subprocess
 from functools import lru_cache
 from typing import Optional, Union
 
-import ffmpeg
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -40,14 +40,27 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     A NumPy array containing the audio waveform, in float32 dtype.
     """
     try:
-        # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
-        # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-        out, _ = (
-            ffmpeg.input(file, threads=0)
-            .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
-            .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
-        )
-    except ffmpeg.Error as e:
+        # Launches a subprocess to decode audio while down-mixing and resampling as necessary.
+        # Requires the ffmpeg CLI to be installed.
+        cmd = [
+            "ffmpeg",
+            "-nostdin",
+            "-threads",
+            "0",
+            "-i",
+            file,
+            "-f",
+            "s16le",
+            "-ac",
+            "1",
+            "-acodec",
+            "pcm_s16le",
+            "-ar",
+            str(sr),
+            "-",
+        ]
+        out = subprocess.run(cmd, capture_output=True, check=True).stdout
+    except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
