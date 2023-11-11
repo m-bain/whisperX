@@ -283,7 +283,8 @@ def align(
         
             sentence_text = text[sstart:send]
             sentence_start = curr_chars["start"].min()
-            sentence_end = curr_chars["end"].max()
+            end_chars = curr_chars[curr_chars["char"] != ' ']
+            sentence_end = end_chars["end"].max()
             sentence_words = []
 
             for word_idx in curr_chars["word-idx"].unique():
