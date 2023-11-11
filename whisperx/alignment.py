@@ -50,7 +50,10 @@ DEFAULT_ALIGN_MODELS_HF = {
     "ko": "kresnik/wav2vec2-large-xlsr-korean",
     "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
     "te": "anuragshas/wav2vec2-large-xlsr-53-telugu",
-    "hi": "theainerd/Wav2Vec2-large-xlsr-hindi"
+    "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
+    "sl": "DrishtiSharma/wav2vec2-large-xls-r-300m-sl-with-LM-v2",
+    "ar": "jonatasgrosman/wav2vec2-large-xlsr-53-arabic",
+    "id": "indonesian-nlp/wav2vec2-large-xlsr-indonesian"
 }
 
 
