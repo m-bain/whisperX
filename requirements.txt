@@ -1,6 +1,7 @@
 torch>=2
 torchaudio>=2
 faster-whisper>=0.8
+ctranslate2>=3.21.0
 transformers
 pandas
 setuptools>=65

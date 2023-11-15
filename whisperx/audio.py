@@ -12,7 +12,8 @@ from .utils import exact_div
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
 N_FFT = 400
-N_MELS = 80
+# Large-v3 support - https://github.com/m-bain/whisperX/issues/569
+N_MELS = 128  # Updated mel bands
 HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
@@ -97,13 +98,17 @@ def mel_filters(device, n_mels: int = N_MELS) -> torch.Tensor:
     """
     load the mel filterbank matrix for projecting STFT into a Mel spectrogram.
     Allows decoupling librosa dependency; saved using:
-
+    # Large-v3 support - https://github.com/m-bain/whisperX/issues/569
+        import numpy as np
+        import librosa
         np.savez_compressed(
             "mel_filters.npz",
             mel_80=librosa.filters.mel(sr=16000, n_fft=400, n_mels=80),
+            mel_128=librosa.filters.mel(sr=16000, n_fft=400, n_mels=128),
         )
     """
-    assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
+    # Large-v3 support - https://github.com/m-bain/whisperX/issues/569
+    assert n_mels in [80, 128], f"Unsupported n_mels: {n_mels}"
     with np.load(
         os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")
     ) as f:
