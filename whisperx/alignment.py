@@ -52,7 +52,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "te": "anuragshas/wav2vec2-large-xlsr-53-telugu",
     "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
     "ca": "softcatala/wav2vec2-large-xlsr-catala",
-    "ml": "gvs/wav2vec2-large-xlsr-malayalam"
+    "ml": "gvs/wav2vec2-large-xlsr-malayalam",
 }
 
 
