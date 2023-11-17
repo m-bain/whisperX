@@ -1,15 +1,8 @@
 import os
 import platform
+
 import pkg_resources
-from setuptools import setup, find_packages
-
-
-def get_pyannote_audio_version():
-    machine = platform.machine()
-    system = platform.system()
-    version = "3.0.0" if machine == "aarch64" or system == "Darwin" else "3.0.1"
-    return version
-
+from setuptools import find_packages, setup
 
 setup(
     name="whisperx",
@@ -28,7 +21,7 @@ setup(
             open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
         )
     ]
-    + [f"pyannote.audio=={get_pyannote_audio_version()}"],
+    + [f"pyannote.audio==3.1.0"],
     entry_points={
         "console_scripts": ["whisperx=whisperx.transcribe:cli"],
     },
