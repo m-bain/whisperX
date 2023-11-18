@@ -228,9 +228,6 @@ class SubtitlesWriter(ResultWriter):
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
         max_words_count = 1000 if max_words_count is None else max_words_count
         preserve_segments = max_line_count is None or raw_max_line_width is None
-        
-        if len(result["segments"]) == 0:
-            return
 
         if len(result["segments"]) == 0:
             return
