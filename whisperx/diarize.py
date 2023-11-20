@@ -38,15 +38,15 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
         # assign speaker to segment (if any)
         diarize_df['intersection'] = np.minimum(diarize_df['end'], seg['end']) - np.maximum(diarize_df['start'], seg['start'])
         diarize_df['union'] = np.maximum(diarize_df['end'], seg['end']) - np.minimum(diarize_df['start'], seg['start'])
-        # remove no hit, otherwise we look for closest (even negative intersection...)
-        if not fill_nearest:
-            dia_tmp = diarize_df[diarize_df['intersection'] > 0]
+        
+        intersected = diarize_df[diarize_df["intersection"] > 0]
+    
+        if len(intersected) > 0:
+            # Choosing most strong intersection
+            speaker = intersected.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
         else:
-            dia_tmp = diarize_df
-        if len(dia_tmp) > 0:
-            # sum over speakers
-            speaker = dia_tmp.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
-            seg["speaker"] = speaker
+            # Otherwise choosing closest
+            speaker = diarize_df.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
         
         # assign speaker to words
         if 'words' in seg:
@@ -54,15 +54,15 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
                 if 'start' in word:
                     diarize_df['intersection'] = np.minimum(diarize_df['end'], word['end']) - np.maximum(diarize_df['start'], word['start'])
                     diarize_df['union'] = np.maximum(diarize_df['end'], word['end']) - np.minimum(diarize_df['start'], word['start'])
-                    # remove no hit
-                    if not fill_nearest:
-                        dia_tmp = diarize_df[diarize_df['intersection'] > 0]
+                    
+                    intersected = diarize_df[diarize_df["intersection"] > 0]
+
+                    if len(intersected) > 0:
+                        # Choosing most strong intersection
+                        speaker = intersected.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
                     else:
-                        dia_tmp = diarize_df
-                    if len(dia_tmp) > 0:
-                        # sum over speakers
-                        speaker = dia_tmp.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
-                        word["speaker"] = speaker
+                        # Otherwise choosing closest
+                        speaker = diarize_df.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
         
     return transcript_result            
 
