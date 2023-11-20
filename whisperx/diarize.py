@@ -40,13 +40,17 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
         diarize_df['union'] = np.maximum(diarize_df['end'], seg['end']) - np.minimum(diarize_df['start'], seg['start'])
         
         intersected = diarize_df[diarize_df["intersection"] > 0]
-    
+
+        speaker = None
         if len(intersected) > 0:
             # Choosing most strong intersection
             speaker = intersected.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
-        else:
+        elif fill_nearest:
             # Otherwise choosing closest
             speaker = diarize_df.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
+
+        if speaker is not None:
+            seg["speaker"] = speaker
         
         # assign speaker to words
         if 'words' in seg:
@@ -57,12 +61,16 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
                     
                     intersected = diarize_df[diarize_df["intersection"] > 0]
 
+                    word_speaker = None
                     if len(intersected) > 0:
                         # Choosing most strong intersection
-                        speaker = intersected.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
-                    else:
+                        word_speaker = intersected.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
+                    elif fill_nearest:
                         # Otherwise choosing closest
-                        speaker = diarize_df.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
+                        word_speaker = diarize_df.sort_values(by=["intersection"], ascending=False)["speaker"].values[0]
+
+                    if word_speaker is not None:
+                        word["speaker"] = word_speaker
         
     return transcript_result            
 
