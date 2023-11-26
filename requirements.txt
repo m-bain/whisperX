@@ -1,6 +1,6 @@
 torch>=2
 torchaudio>=2
-faster-whisper>=0.8
+git+https://github.com/SYSTRAN/faster-whisper.git@0.10.0
 transformers
 pandas
 setuptools>=65
