@@ -122,7 +122,7 @@ def cli():
     if model_name.endswith(".en") and args["language"] != "en":
         if args["language"] is not None:
             warnings.warn(
-                f"{model_name} is an English-only model but receipted '{args['language']}'; using English instead."
+                f"{model_name} is an English-only model but received '{args['language']}'; using English instead."
             )
         args["language"] = "en"
     align_language = args["language"] if args["language"] is not None else "en" # default to loading english if not specified
