@@ -248,7 +248,6 @@ class FasterWhisperPipeline(Pipeline):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
                 percent_complete = base_progress / 2 if combined_progress else base_progress
-                on_progress(idx + 1, total_segments)
                 print(f"Progress: {percent_complete:.2f}%...")
 
             if on_progress:
