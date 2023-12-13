@@ -102,7 +102,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
-    Preprocess: bool = True,
+    preprocess: bool = True,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
