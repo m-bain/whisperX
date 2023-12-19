@@ -53,6 +53,8 @@ DEFAULT_ALIGN_MODELS_HF = {
     "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
     "ca": "softcatala/wav2vec2-large-xlsr-catala",
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
+    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
+    "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
 }
 
 
