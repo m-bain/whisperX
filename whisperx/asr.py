@@ -262,7 +262,7 @@ def load_model(whisper_arch,
                compute_type="float16",
                asr_options=None,
                language : Optional[str] = None,
-               vad_model=None,
+               vad_model_fp=None,
                vad_options=None,
                model : Optional[WhisperModel] = None,
                task="transcribe",
@@ -339,8 +339,8 @@ def load_model(whisper_arch,
     if vad_options is not None:
         default_vad_options.update(vad_options)
 
-    if vad_model is not None:
-        vad_model = vad_model
+    if vad_model_fp is not None:
+        vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options, model_fp=vad_model_fp)
     else:
         vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
 
