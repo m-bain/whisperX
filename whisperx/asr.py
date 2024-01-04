@@ -275,6 +275,7 @@ def load_model(whisper_arch,
         compute_type: str - The compute type to use for the model.
         options: dict - A dictionary of options to use for the model.
         language: str - The language of the model. (use English for now)
+        vad_model_fp: str - File path to the VAD model to use
         model: Optional[WhisperModel] - The WhisperModel instance to use.
         download_root: Optional[str] - The root directory to download the model to.
         threads: int - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
