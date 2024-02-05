@@ -13,10 +13,15 @@ class DiarizationPipeline:
         model_name="pyannote/speaker-diarization-3.1",
         use_auth_token=None,
         device: Optional[Union[str, torch.device]] = "cpu",
+        offline_use = False,
+        config_path = "config.yaml"
     ):
         if isinstance(device, str):
             device = torch.device(device)
-        self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
+        if offline_use:
+            self.model = Pipeline.from_pretrained(config_path).to(device)
+        else:
+            self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
     def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None):
         if isinstance(audio, str):
