@@ -1,7 +1,8 @@
 torch>=2
 torchaudio>=2
-faster-whisper==1.0.0
+faster-whisper==0.10.1
 transformers
 pandas
 setuptools>=65
 nltk
+speechbrain==0.5.16
