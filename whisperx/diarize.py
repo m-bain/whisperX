@@ -18,11 +18,17 @@ class DiarizationPipeline:
             device = torch.device(device)
         self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
-    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None):
+    def __call__(self, audio: Union[str, np.ndarray, torch.Tensor], num_speakers=None, min_speakers=None, max_speakers=None):
         if isinstance(audio, str):
             audio = load_audio(audio)
+
+        audio = audio[None, :]
+
+        if isinstance(audio, np.ndarray):
+            audio = torch.from_numpy(audio)
+
         audio_data = {
-            'waveform': torch.from_numpy(audio[None, :]),
+            'waveform': audio,
             'sample_rate': SAMPLE_RATE
         }
         segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers)
@@ -47,7 +53,7 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
             # sum over speakers
             speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
             seg["speaker"] = speaker
-        
+
         # assign speaker to words
         if 'words' in seg:
             for word in seg['words']:
@@ -63,8 +69,8 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
                         # sum over speakers
                         speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
                         word["speaker"] = speaker
-        
-    return transcript_result            
+
+    return transcript_result
 
 
 class Segment:
