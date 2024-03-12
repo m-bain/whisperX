@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Union, Optional, NamedTuple
+from typing import List, NamedTuple, Optional, Union
 
 import ctranslate2
 import faster_whisper
@@ -10,8 +10,9 @@ from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
+from .types import SingleSegment, TranscriptionResult
 from .vad import load_vad_model, merge_chunks
-from .types import TranscriptionResult, SingleSegment
+
 
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
@@ -242,18 +243,27 @@ class FasterWhisperPipeline(Pipeline):
         return {"segments": segments, "language": language}
 
 
-    def detect_language(self, audio: np.ndarray):
-        if audio.shape[0] < N_SAMPLES:
-            print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
+    def detect_language(self, audio: np.ndarray, start_time_seconds: int = 60, end_time_seconds: int = 90):
+        start_sample = start_time_seconds * SAMPLE_RATE
+        end_sample = end_time_seconds * SAMPLE_RATE
+
+        if audio.shape[0] < end_sample:
+            print("Warning: audio does not reach the end time of the specified range, language detection may be inaccurate.")
+            # You could adjust this to handle audio shorter than expected more gracefully
+        
+        # Ensure the slice does not exceed audio length
+        segment_end_sample = min(end_sample, audio.shape[0])
+        segment_length = segment_end_sample - start_sample
+
         model_n_mels = self.model.feat_kwargs.get("feature_size")
-        segment = log_mel_spectrogram(audio[: N_SAMPLES],
-                                      n_mels=model_n_mels if model_n_mels is not None else 80,
-                                      padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
+        segment = log_mel_spectrogram(audio[start_sample:segment_end_sample],
+                                    n_mels=model_n_mels if model_n_mels is not None else 80,
+                                    padding=0 if segment_length >= (end_sample - start_sample) else (end_sample - start_sample) - segment_length)
         encoder_output = self.model.encode(segment)
         results = self.model.model.detect_language(encoder_output)
         language_token, language_probability = results[0][0]
         language = language_token[2:-2]
-        print(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio...")
+        print(f"Detected language: {language} ({language_probability:.2f}) in the specified range...")
         return language
 
 def load_model(whisper_arch,
