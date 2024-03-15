@@ -55,6 +55,26 @@ DEFAULT_ALIGN_MODELS_HF = {
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
     "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
     "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
+    "bn": "Tahsin-Mayeesha/wav2vec2-bn-300m",
+    "ne":"DrishtiSharma/whisper-large-v2-ne-NP-v1",
+    "id":"indonesian-nlp/wav2vec2-large-xlsr-indonesian",
+    "mr":"DrishtiSharma/whisper-large-v2-marathi",
+    "it":"facebook/wav2vec2-large-xlsr-53-italian",
+    "sw":"Neprox/STT-Swedish-Whisper",
+    "ro":"gigant/romanian-wav2vec2",
+    "bg":"infinitejoy/wav2vec2-large-xls-r-300m-bulgarian",
+    "ma":"mesolitica/wav2vec2-xls-r-300m-mixed",
+    "sl":"infinitejoy/wav2vec2-large-xls-r-300m-slovak",
+    "cr":"classla/wav2vec2-xls-r-parlaspeech-hr",
+    "ta":"Thanish/wav2vec2-large-xlsr-tamil",
+    "fr":"jonatasgrosman/wav2vec2-large-xlsr-53-french",
+    "ge":"jonatasgrosman/wav2vec2-large-xlsr-53-german",
+    "es":"facebook/wav2vec2-large-xlsr-53-spanish",
+    "as":"infinitejoy/Wav2Vec2-Large-XLSR-53-Assamese",
+    "gu":"Harveenchadha/wav2vec2-pretrained-clsril-23-10k",
+    "or":"theainerd/wav2vec2-large-xlsr-53-odia",
+    "pa":"manandey/wav2vec2-large-xlsr-punjabi",
+    "kn":"amoghsgopadi/wav2vec2-large-xlsr-kn"
 }
 
 
