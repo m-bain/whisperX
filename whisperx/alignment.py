@@ -74,7 +74,8 @@ DEFAULT_ALIGN_MODELS_HF = {
     "gu":"Harveenchadha/wav2vec2-pretrained-clsril-23-10k",
     "or":"theainerd/wav2vec2-large-xlsr-53-odia",
     "pa":"manandey/wav2vec2-large-xlsr-punjabi",
-    "kn":"amoghsgopadi/wav2vec2-large-xlsr-kn"
+    "kn":"amoghsgopadi/wav2vec2-large-xlsr-kn",
+    "gl":"ifrz/wav2vec2-large-xlsr-galician"
 }
 
 
