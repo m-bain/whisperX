@@ -48,6 +48,8 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
             "0",
             "-i",
             file,
+            "-af",
+            "asplit[a],aphasemeter=video=0,ametadata=select:key=lavfi.aphasemeter.phase:value=-0.005:function=less,pan=1c|c0=c0,aresample=async=1:first_pts=0,[a]amix", #mix out of phase stereo correctly instead of cancelling out
             "-f",
             "s16le",
             "-ac",
