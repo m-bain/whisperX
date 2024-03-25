@@ -10,6 +10,7 @@ class SingleWordSegment(TypedDict):
     end: float
     score: float
 
+
 class SingleCharSegment(TypedDict):
     """
     A single char of a speech.

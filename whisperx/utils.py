@@ -169,7 +169,7 @@ def compression_ratio(text) -> float:
 
 
 def format_timestamp(
-    seconds: float, always_include_hours: bool = False, decimal_marker: str = "."
+        seconds: float, always_include_hours: bool = False, decimal_marker: str = "."
 ):
     assert seconds >= 0, "non-negative timestamp expected"
     milliseconds = round(seconds * 1000.0)
@@ -255,10 +255,10 @@ class SubtitlesWriter(ResultWriter):
                         # new line
                         timing["word"] = timing["word"].strip()
                         if (
-                            len(subtitle) > 0
-                            and max_line_count is not None
-                            and (long_pause or line_count >= max_line_count)
-                            or seg_break
+                                len(subtitle) > 0
+                                and max_line_count is not None
+                                and (long_pause or line_count >= max_line_count)
+                                or seg_break
                         ):
                             # subtitle break
                             yield subtitle, times
@@ -349,7 +349,7 @@ class WriteSRT(SubtitlesWriter):
 
     def write_result(self, result: dict, file: TextIO, options: dict):
         for i, (start, end, text) in enumerate(
-            self.iterate_result(result, options), start=1
+                self.iterate_result(result, options), start=1
         ):
             print(f"{i}\n{start} --> {end}\n{text}\n", file=file, flush=True)
 
@@ -373,6 +373,7 @@ class WriteTSV(ResultWriter):
             print(round(1000 * segment["end"]), file=file, end="\t")
             print(segment["text"].strip().replace("\t", " "), file=file, flush=True)
 
+
 class WriteAudacity(ResultWriter):
     """
     Write a transcript to a text file that audacity can import as labels.
@@ -385,16 +386,17 @@ class WriteAudacity(ResultWriter):
     If speaker is provided it is prepended to the text between double square brackets [[]].
     """
 
-    extension: str = "aud"    
+    extension: str = "aud"
 
     def write_result(self, result: dict, file: TextIO, options: dict):
         ARROW = "	"
         for segment in result["segments"]:
             print(segment["start"], file=file, end=ARROW)
             print(segment["end"], file=file, end=ARROW)
-            print( ( ("[[" + segment["speaker"] + "]]") if "speaker" in segment else "") + segment["text"].strip().replace("\t", " "), file=file, flush=True)
+            print(
+                (("[[" + segment["speaker"] + "]]") if "speaker" in segment else "") + segment["text"].strip().replace(
+                    "\t", " "), file=file, flush=True)
 
-            
 
 class WriteJSON(ResultWriter):
     extension: str = "json"
@@ -404,7 +406,7 @@ class WriteJSON(ResultWriter):
 
 
 def get_writer(
-    output_format: str, output_dir: str
+        output_format: str, output_dir: str
 ) -> Callable[[dict, TextIO, dict], None]:
     writers = {
         "txt": WriteTXT,
@@ -429,6 +431,7 @@ def get_writer(
     if output_format in optional_writers:
         return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
+
 
 def interpolate_nans(x, method='nearest'):
     if x.notnull().sum() > 1:

@@ -1,3 +1,8 @@
 whisperx.egg-info/
 **/__pycache__/
 .ipynb_checkpoints
+.idea/
+build/
+gildun-1707727632.2858-merged.txt
+gildun-1707727632.2858-merged.wav
+venv/
