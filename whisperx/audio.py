@@ -104,16 +104,16 @@ def mel_filters(device, n_mels: int) -> torch.Tensor:
     """
     assert n_mels in [80, 128], f"Unsupported n_mels: {n_mels}"
     with np.load(
-        os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")
+            os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")
     ) as f:
         return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
 
 
 def log_mel_spectrogram(
-    audio: Union[str, np.ndarray, torch.Tensor],
-    n_mels: int,
-    padding: int = 0,
-    device: Optional[Union[str, torch.device]] = None,
+        audio: Union[str, np.ndarray, torch.Tensor],
+        n_mels: int,
+        padding: int = 0,
+        device: Optional[Union[str, torch.device]] = None,
 ):
     """
     Compute the log-Mel spectrogram of

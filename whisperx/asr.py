@@ -1,5 +1,4 @@
 import os
-import warnings
 from typing import List, Union, Optional, NamedTuple
 
 import ctranslate2
@@ -10,8 +9,9 @@ from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
-from .vad import load_vad_model, merge_chunks
 from .types import TranscriptionResult, SingleSegment
+from .vad import load_vad_model, merge_chunks
+
 
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
@@ -22,13 +22,15 @@ def find_numeral_symbol_tokens(tokenizer):
             numeral_symbol_tokens.append(i)
     return numeral_symbol_tokens
 
+
 class WhisperModel(faster_whisper.WhisperModel):
     '''
     FasterWhisperModel provides batched inference for faster-whisper.
     Currently only works in non-timestamp mode and fixed prompt for all samples in batch.
     '''
 
-    def generate_segment_batched(self, features: np.ndarray, tokenizer: faster_whisper.tokenizer.Tokenizer, options: faster_whisper.transcribe.TranscriptionOptions, encoder_output = None):
+    def generate_segment_batched(self, features: np.ndarray, tokenizer: faster_whisper.tokenizer.Tokenizer,
+                                 options: faster_whisper.transcribe.TranscriptionOptions, encoder_output=None):
         batch_size = features.shape[0]
         all_tokens = []
         prompt_reset_since = 0
@@ -51,15 +53,15 @@ class WhisperModel(faster_whisper.WhisperModel):
         )
 
         result = self.model.generate(
-                encoder_output,
-                [prompt] * batch_size,
-                beam_size=options.beam_size,
-                patience=options.patience,
-                length_penalty=options.length_penalty,
-                max_length=self.max_length,
-                suppress_blank=options.suppress_blank,
-                suppress_tokens=options.suppress_tokens,
-            )
+            encoder_output,
+            [prompt] * batch_size,
+            beam_size=options.beam_size,
+            patience=options.patience,
+            length_penalty=options.length_penalty,
+            max_length=self.max_length,
+            suppress_blank=options.suppress_blank,
+            suppress_tokens=options.suppress_tokens,
+        )
 
         tokens_batch = [x.sequences_ids[0] for x in result]
 
@@ -85,10 +87,12 @@ class WhisperModel(faster_whisper.WhisperModel):
 
         return self.model.encode(features, to_cpu=to_cpu)
 
+
 class FasterWhisperPipeline(Pipeline):
     """
     Huggingface Pipeline wrapper for FasterWhisperModel.
     """
+
     # TODO:
     # - add support for timestamp mode
     # - add support for custom inference kwargs
@@ -98,11 +102,11 @@ class FasterWhisperPipeline(Pipeline):
             model,
             vad,
             vad_params: dict,
-            options : NamedTuple,
+            options: NamedTuple,
             tokenizer=None,
             device: Union[int, str, "torch.device"] = -1,
-            framework = "pt",
-            language : Optional[str] = None,
+            framework="pt",
+            language: Optional[str] = None,
             suppress_numerals: bool = False,
             **kwargs
     ):
@@ -156,22 +160,26 @@ class FasterWhisperPipeline(Pipeline):
         return model_outputs
 
     def get_iterator(
-        self, inputs, num_workers: int, batch_size: int, preprocess_params, forward_params, postprocess_params
+            self, inputs, num_workers: int, batch_size: int, preprocess_params, forward_params, postprocess_params
     ):
         dataset = PipelineIterator(inputs, self.preprocess, preprocess_params)
         if "TOKENIZERS_PARALLELISM" not in os.environ:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
         # TODO hack by collating feature_extractor and image_processor
 
         def stack(items):
             return {'inputs': torch.stack([x['inputs'] for x in items])}
-        dataloader = torch.utils.data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, collate_fn=stack)
+
+        dataloader = torch.utils.data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size,
+                                                 collate_fn=stack)
         model_iterator = PipelineIterator(dataloader, self.forward, forward_params, loader_batch_size=batch_size)
         final_iterator = PipelineIterator(model_iterator, self.postprocess, postprocess_params)
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+            self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None,
+            chunk_size=30, print_progress=False, combined_progress=False
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -203,7 +211,7 @@ class FasterWhisperPipeline(Pipeline):
                 self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
                                                                     self.model.model.is_multilingual, task=task,
                                                                     language=language)
-                
+
         if self.suppress_numerals:
             previous_suppress_tokens = self.options.suppress_tokens
             numeral_symbol_tokens = find_numeral_symbol_tokens(self.tokenizer)
@@ -215,7 +223,8 @@ class FasterWhisperPipeline(Pipeline):
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
-        for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
+        for idx, out in enumerate(
+                self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
                 percent_complete = base_progress / 2 if combined_progress else base_progress
@@ -241,7 +250,6 @@ class FasterWhisperPipeline(Pipeline):
 
         return {"segments": segments, "language": language}
 
-
     def detect_language(self, audio: np.ndarray):
         if audio.shape[0] < N_SAMPLES:
             print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
@@ -256,15 +264,16 @@ class FasterWhisperPipeline(Pipeline):
         print(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio...")
         return language
 
+
 def load_model(whisper_arch,
                device,
                device_index=0,
                compute_type="float16",
                asr_options=None,
-               language : Optional[str] = None,
+               language: Optional[str] = None,
                vad_model=None,
                vad_options=None,
-               model : Optional[WhisperModel] = None,
+               model: Optional[WhisperModel] = None,
                task="transcribe",
                download_root=None,
                threads=4):
@@ -286,18 +295,20 @@ def load_model(whisper_arch,
         language = "en"
 
     model = model or WhisperModel(whisper_arch,
-                         device=device,
-                         device_index=device_index,
-                         compute_type=compute_type,
-                         download_root=download_root,
-                         cpu_threads=threads)
+                                  device=device,
+                                  device_index=device_index,
+                                  compute_type=compute_type,
+                                  download_root=download_root,
+                                  cpu_threads=threads)
     if language is not None:
-        tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
+        tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task,
+                                                       language=language)
     else:
-        print("No language specified, language will be first be detected for each audio file (increases inference time).")
+        print(
+            "No language specified, language will be first be detected for each audio file (increases inference time).")
         tokenizer = None
 
-    default_asr_options =  {
+    default_asr_options = {
         "beam_size": 5,
         "best_of": 5,
         "patience": 1,
