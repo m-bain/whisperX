@@ -278,15 +278,19 @@ class SubtitlesWriter(ResultWriter):
                 yield subtitle, times
 
         if "words" in result["segments"][0]:
-            for subtitle, _ in iterate_subtitles():
-                sstart, ssend, speaker = _[0]
+            for subtitle, times in iterate_subtitles():
+                # TODO: handle multiple segments with different start/end times and speakers
+                sstart, send, speaker = times[0]
+                has_timing = any(["start" in timing for timing in subtitle])
+                if has_timing:
+                    sstart = next(timing["start"] for timing in subtitle if "start" in timing)
+                    send = next(timing["end"] for timing in reversed(subtitle) if "end" in timing)
                 subtitle_start = self.format_timestamp(sstart)
-                subtitle_end = self.format_timestamp(ssend)
+                subtitle_end = self.format_timestamp(send)
                 if result["language"] in LANGUAGES_WITHOUT_SPACES:
                     subtitle_text = "".join([word["word"] for word in subtitle])
                 else:
                     subtitle_text = " ".join([word["word"] for word in subtitle])
-                has_timing = any(["start" in word for word in subtitle])
 
                 # add [$SPEAKER_ID]: to each subtitle if speaker is available
                 prefix = ""
