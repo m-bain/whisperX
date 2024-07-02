@@ -175,7 +175,6 @@ def cli():
         print(">>Performing transcription...")
         result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress)
         results.append((result, audio_path))
-
     # Unload Whisper and VAD
     del model
     gc.collect()
@@ -208,6 +207,7 @@ def cli():
         del align_model
         gc.collect()
         torch.cuda.empty_cache()
+        
 
     # >> Diarize
     if diarize:
