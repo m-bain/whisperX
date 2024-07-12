@@ -47,6 +47,7 @@ def cli():
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
     parser.add_argument("--min_speakers", default=None, type=int, help="Minimum number of speakers to in audio file")
     parser.add_argument("--max_speakers", default=None, type=int, help="Maximum number of speakers to in audio file")
+    parser.add_argument("--speaker_embeddings", action="store_true", help="Return speaker embeddings in JSON output")
 
     parser.add_argument("--temperature", type=float, default=0, help="temperature to use for sampling")
     parser.add_argument("--best_of", type=optional_int, default=5, help="number of candidates when sampling with non-zero temperature")
@@ -111,6 +112,7 @@ def cli():
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
     print_progress: bool = args.pop("print_progress")
+    return_speaker_embeddings: bool = args.pop("speaker_embeddings")
 
     if args["language"] is not None:
         args["language"] = args["language"].lower()
@@ -218,7 +220,7 @@ def cli():
         results = []
         diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
-            diarize_segments, speaker_embeddings = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
+            diarize_segments, speaker_embeddings = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers, return_embeddings=return_speaker_embeddings)
             result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
             results.append((result, input_audio_path))
     # >> Write
