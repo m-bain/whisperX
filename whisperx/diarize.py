@@ -18,21 +18,28 @@ class DiarizationPipeline:
             device = torch.device(device)
         self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
-    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None):
+    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None, return_embeddings=False):
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio_data = {
             'waveform': torch.from_numpy(audio[None, :]),
             'sample_rate': SAMPLE_RATE
         }
-        segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers)
-        diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
+
+        result = self.model(audio_data, num_speakers=num_speakers, min_speakers=min_speakers, max_speakers=max_speakers, return_embeddings=return_embeddings)
+
+        diarization = result[0] if return_embeddings else result
+        embeddings = result[1] if return_embeddings else None
+
+        diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
-        return diarize_df
 
+        speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())} if embeddings is not None else None
 
-def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
+        return diarize_df, speaker_embeddings
+
+def assign_word_speakers(diarize_df, transcript_result, speaker_embeddings=None, fill_nearest=False):
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
@@ -63,8 +70,11 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
                         # sum over speakers
                         speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
                         word["speaker"] = speaker
-        
-    return transcript_result            
+
+    if speaker_embeddings is not None:
+        transcript_result["speaker_embeddings"] = speaker_embeddings
+
+    return transcript_result
 
 
 class Segment:
