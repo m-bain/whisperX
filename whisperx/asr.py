@@ -344,6 +344,8 @@ def load_model(whisper_arch,
     if vad_model is not None:
         vad_model = vad_model
     else:
+        if device == "cuda":
+            device = f"{device}:{device_index}"
         vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
 
     return FasterWhisperPipeline(
