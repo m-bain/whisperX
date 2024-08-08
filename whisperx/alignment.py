@@ -57,7 +57,8 @@ DEFAULT_ALIGN_MODELS_HF = {
     "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
     "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
     "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
-    "hr": "classla/wav2vec2-large-slavic-parlaspeech-hr-lm",
+#    "hr": "classla/wav2vec2-large-slavic-parlaspeech-hr-lm",
+    "hr": "facebook/wav2vec2-base-hr-voxpopuli-v2",
 }
 
 
