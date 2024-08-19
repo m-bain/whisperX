@@ -55,6 +55,9 @@ DEFAULT_ALIGN_MODELS_HF = {
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
     "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
     "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
+    "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
+    "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
+    "hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
 }
 
 
