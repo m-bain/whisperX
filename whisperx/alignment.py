@@ -25,7 +25,6 @@ DEFAULT_ALIGN_MODELS_TORCH = {
     "en": "WAV2VEC2_ASR_BASE_960H",
     "fr": "VOXPOPULI_ASR_BASE_10K_FR",
     "de": "VOXPOPULI_ASR_BASE_10K_DE",
-    "es": "VOXPOPULI_ASR_BASE_10K_ES",
     "it": "VOXPOPULI_ASR_BASE_10K_IT",
 }
 
@@ -55,9 +54,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
     "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
     "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
-    "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
-    "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
-    "hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
+    "es": "facebook/wav2vec2-base-10k-voxpopuli-ft-es",
 }
 
 
@@ -106,6 +103,7 @@ def align(
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
     print_progress: bool = False,
+    preprocess: bool = True,
     combined_progress: bool = False,
 ) -> AlignedTranscriptionResult:
     """
@@ -124,6 +122,11 @@ def align(
     model_dictionary = align_model_metadata["dictionary"]
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
+
+    # Load align model Huggingface processor for audio feature extraction (Normalization)
+    if preprocess and model_type == 'huggingface':
+        processor = Wav2Vec2Processor.from_pretrained(
+            DEFAULT_ALIGN_MODELS_HF[model_lang])
 
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
@@ -225,11 +228,12 @@ def align(
             
         with torch.inference_mode():
             if model_type == "torchaudio":
-                emissions, _ = model(waveform_segment.to(device), lengths=lengths)
-            elif model_type == "huggingface":
                 emissions = model(waveform_segment.to(device)).logits
+            if preprocess:
+                inputs = processor(waveform_segment.squeeze(), sampling_rate=processor.sampling_rate, return_tensors="pt").to(device)
+                emissions = model(**inputs).logits
             else:
-                raise NotImplementedError(f"Align model of type {model_type} not supported.")
+                    emissions = model(waveform_segment.to(device)).logits
             emissions = torch.log_softmax(emissions, dim=-1)
 
         emission = emissions[0].cpu().detach()
@@ -334,8 +338,11 @@ def align(
                 aligned_subsegments[-1]["chars"] = curr_chars
 
         aligned_subsegments = pd.DataFrame(aligned_subsegments)
-        aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
-        aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
+        # fix nans of start/end
+        seq_timecode_vals = aligned_subsegments[["start", "end"]].values.ravel("C")
+        filled_seq_timecodes = interpolate_nans(pd.Series(seq_timecode_vals), method=interpolate_method)
+        aligned_subsegments["start"] = filled_seq_timecodes.iloc[::2].values
+        aligned_subsegments["end"] = filled_seq_timecodes.iloc[1::2].values
         # concatenate sentences with same timestamps
         agg_dict = {"text": " ".join, "words": "sum"}
         if model_lang in LANGUAGES_WITHOUT_SPACES:
