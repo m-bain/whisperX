@@ -346,6 +346,15 @@ def load_model(whisper_arch,
     else:
         vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
 
+    default_asr_options.update({
+        "log_prob_low_threshold": -1.0,
+        "multilingual": True,
+        "output_language": language,  # Automatically set based on provided language
+        "hotwords": []  # Optionally update this based on your needs
+    })
+
+    default_asr_options = faster_whisper.transcribe.TranscriptionOptions(**default_asr_options)
+
     return FasterWhisperPipeline(
         model=model,
         vad=vad_model,
