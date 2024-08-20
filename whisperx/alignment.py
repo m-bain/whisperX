@@ -107,6 +107,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
+    preprocess: bool = True,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -124,6 +125,11 @@ def align(
     model_dictionary = align_model_metadata["dictionary"]
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
+
+    # Load align model Huggingface processor for audio feature extraction (Normalization)
+    if preprocess and model_type == 'huggingface':
+        processor = Wav2Vec2Processor.from_pretrained(
+            DEFAULT_ALIGN_MODELS_HF[model_lang])
 
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
@@ -227,7 +233,11 @@ def align(
             if model_type == "torchaudio":
                 emissions, _ = model(waveform_segment.to(device), lengths=lengths)
             elif model_type == "huggingface":
-                emissions = model(waveform_segment.to(device)).logits
+                if preprocess:
+                    inputs = processor(waveform_segment.squeeze(), sampling_rate=processor.sampling_rate, return_tensors="pt").to(device)
+                    emissions = model(**inputs).logits
+                else:
+                    emissions = model(waveform_segment.to(device)).logits
             else:
                 raise NotImplementedError(f"Align model of type {model_type} not supported.")
             emissions = torch.log_softmax(emissions, dim=-1)
