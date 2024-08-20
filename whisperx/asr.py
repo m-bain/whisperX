@@ -171,7 +171,7 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False, suppress_numerals=None
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -203,8 +203,11 @@ class FasterWhisperPipeline(Pipeline):
                 self.tokenizer = faster_whisper.tokenizer.Tokenizer(self.model.hf_tokenizer,
                                                                     self.model.model.is_multilingual, task=task,
                                                                     language=language)
-                
-        if self.suppress_numerals:
+
+        if suppress_numerals == None or not isinstance(suppress_numerals, bool):
+            suppress_numerals = self.suppress_numerals
+
+        if suppress_numerals:
             previous_suppress_tokens = self.options.suppress_tokens
             numeral_symbol_tokens = find_numeral_symbol_tokens(self.tokenizer)
             print(f"Suppressing numeral and symbol tokens")
@@ -236,7 +239,7 @@ class FasterWhisperPipeline(Pipeline):
             self.tokenizer = None
 
         # revert suppressed tokens if suppress_numerals is enabled
-        if self.suppress_numerals:
+        if suppress_numerals:
             self.options = self.options._replace(suppress_tokens=previous_suppress_tokens)
 
         return {"segments": segments, "language": language}
