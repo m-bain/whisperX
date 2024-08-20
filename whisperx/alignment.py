@@ -334,8 +334,11 @@ def align(
                 aligned_subsegments[-1]["chars"] = curr_chars
 
         aligned_subsegments = pd.DataFrame(aligned_subsegments)
-        aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
-        aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
+        # fix nans of start/end
+        seq_timecode_vals = aligned_subsegments[["start", "end"]].values.ravel("C")
+        filled_seq_timecodes = interpolate_nans(pd.Series(seq_timecode_vals), method=interpolate_method)
+        aligned_subsegments["start"] = filled_seq_timecodes.iloc[::2].values
+        aligned_subsegments["end"] = filled_seq_timecodes.iloc[1::2].values
         # concatenate sentences with same timestamps
         agg_dict = {"text": " ".join, "words": "sum"}
         if model_lang in LANGUAGES_WITHOUT_SPACES:
