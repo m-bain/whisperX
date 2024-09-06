@@ -1,6 +1,7 @@
 import os
 import warnings
 from typing import List, Union, Optional, NamedTuple
+import time
 
 import ctranslate2
 import faster_whisper
@@ -207,7 +208,14 @@ class FasterWhisperPipeline(Pipeline):
         chunk_size=30,
         print_progress=False,
         combined_progress=False,
+        prnt_duration: bool = False,
+        prnt_segments: bool = False,
     ) -> TranscriptionResult:
+
+        # ================ function start time =================
+        start = time.time()
+        # =======================================================
+
         if isinstance(audio, str):
             audio = load_audio(audio)
 
@@ -284,6 +292,10 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]["end"], 3),
                 }
             )
+            if prnt_segments:
+                print(
+                    f'[{round(vad_segments[idx]["start"], 3)} - {round(vad_segments[idx]["end"], 3)} ({round(round(vad_segments[idx]["end"], 3)-round(vad_segments[idx]["start"], 3))})]: {text}'
+                )
 
         # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
@@ -293,6 +305,14 @@ class FasterWhisperPipeline(Pipeline):
         if self.suppress_numerals:
             self.options = self.options._replace(
                 suppress_tokens=previous_suppress_tokens
+            )
+
+        # ============== End time ==============
+        end = time.time()
+        if prnt_duration:
+            print(
+                "================= Transcription time: %f seconds ================="
+                % (end - start)
             )
 
         return {"segments": segments, "language": language}
@@ -331,7 +351,12 @@ def load_model(
     task="transcribe",
     download_root=None,
     threads=4,
+    prnt_duration=False,
 ):
+    # ================ function start time =================
+    start = time.time()
+    # =======================================================
+
     """Load a Whisper model for inference.
     Args:
         whisper_arch: str - The name of the Whisper model to load.
@@ -419,6 +444,14 @@ def load_model(
     else:
         vad_model = load_vad_model(
             torch.device(device), use_auth_token=None, **default_vad_options
+        )
+
+    # ============== End time ==============
+    end = time.time()
+    if prnt_duration:
+        print(
+            "================= Model loading time: %f seconds ================="
+            % (end - start)
         )
 
     return FasterWhisperPipeline(
