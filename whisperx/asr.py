@@ -213,7 +213,7 @@ class FasterWhisperPipeline(Pipeline):
     ) -> TranscriptionResult:
 
         # ================ function start time =================
-        start = time.time()
+        start_transcribe = time.time()
         # =======================================================
 
         if isinstance(audio, str):
@@ -225,6 +225,10 @@ class FasterWhisperPipeline(Pipeline):
                 f2 = int(seg["end"] * SAMPLE_RATE)
                 # print(f2-f1)
                 yield {"inputs": audio[f1:f2]}
+
+        # ================ function start time =================
+        start_vad = time.time()
+        # =======================================================
 
         vad_segments = self.vad_model(
             {
@@ -238,6 +242,15 @@ class FasterWhisperPipeline(Pipeline):
             onset=self._vad_params["vad_onset"],
             offset=self._vad_params["vad_offset"],
         )
+
+        # ============== End time ==============
+        end_vad = time.time()
+        if prnt_duration:
+            print(
+                "================= VAD time: %f seconds ================="
+                % (end_vad - start_vad)
+            )
+
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
@@ -308,11 +321,11 @@ class FasterWhisperPipeline(Pipeline):
             )
 
         # ============== End time ==============
-        end = time.time()
+        end_transcribe = time.time()
         if prnt_duration:
             print(
                 "================= Transcription time: %f seconds ================="
-                % (end - start)
+                % (end_transcribe - start_transcribe)
             )
 
         return {"segments": segments, "language": language}
