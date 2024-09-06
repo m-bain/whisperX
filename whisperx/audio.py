@@ -2,6 +2,7 @@ import os
 import subprocess
 from functools import lru_cache
 from typing import Optional, Union
+import time
 
 import numpy as np
 import torch
@@ -22,7 +23,11 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE):
+def load_audio(file: str, sr: int = SAMPLE_RATE, prnt_duration: bool = False):
+    # ================ function start time =================
+    start = time.time()
+    # =======================================================
+
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -62,10 +67,24 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
+    # ============== End time ==============
+    end = time.time()
+    if prnt_duration:
+        print(
+            "================= Audio loading time: %f seconds ================="
+            % (end - start)
+        )
+
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 
-def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
+def pad_or_trim(
+    array, length: int = N_SAMPLES, *, axis: int = -1, prnt_duration: bool = False
+):
+    # ================ function start time =================
+    start = time.time()
+    # =======================================================
+
     """
     Pad or trim the audio array to N_SAMPLES, as expected by the encoder.
     """
@@ -87,6 +106,14 @@ def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
             pad_widths = [(0, 0)] * array.ndim
             pad_widths[axis] = (0, length - array.shape[axis])
             array = np.pad(array, pad_widths)
+
+    # ============== End time ==============
+    end = time.time()
+    if prnt_duration:
+        print(
+            "================= Padding/Trimming time: %f seconds ================="
+            % (end - start)
+        )
 
     return array
 
