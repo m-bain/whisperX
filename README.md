@@ -259,7 +259,7 @@ Bug finding and pull requests are also highly appreciated to keep this project g
 
 * [ ] Add benchmarking code (TEDLIUM for spd/WER & word segmentation)
 
-* [ ] Allow silero-vad as alternative VAD option
+* [x] Allow silero-vad as alternative VAD option
 
 * [ ] Improve diarization (word level). *Harder than first thought...*
 
@@ -281,7 +281,9 @@ Borrows important alignment code from [PyTorch tutorial on forced alignment](htt
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 
 
-Valuable VAD & Diarization Models from [pyannote audio][https://github.com/pyannote/pyannote-audio]
+Valuable VAD & Diarization Models from:
+- [pyannote audio][https://github.com/pyannote/pyannote-audio]
+- [silero vad][https://github.com/snakers4/silero-vad]
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 
