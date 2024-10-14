@@ -29,6 +29,9 @@ class Vad:
         seg_idxs = []
         speaker_idxs = []
 
+        if not segments:
+            return []
+
         curr_start = segments[0].start
         for seg in segments:
             if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:

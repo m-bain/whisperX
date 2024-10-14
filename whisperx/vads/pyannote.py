@@ -3,6 +3,7 @@ import os
 import urllib
 from typing import Callable, Text, Union
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import torch
@@ -234,7 +235,7 @@ class Pyannote(Vad):
 
         model_bytes = open(model_fp, "rb").read()
         if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
-            raise RuntimeError(
+            warn(
                 "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
             )
 

@@ -1,3 +1,5 @@
 whisperx.egg-info/
 **/__pycache__/
 .ipynb_checkpoints
+build/
+dist/
