@@ -38,6 +38,7 @@ class SingleAlignedSegment(TypedDict):
     start: float
     end: float
     text: str
+    language: str
     words: List[SingleWordSegment]
     chars: Optional[List[SingleCharSegment]]
 

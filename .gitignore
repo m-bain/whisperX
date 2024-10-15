@@ -3,3 +3,4 @@ whisperx.egg-info/
 .ipynb_checkpoints
 build/
 dist/
+.vscode/

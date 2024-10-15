@@ -57,6 +57,7 @@ def cli():
 
     parser.add_argument("--suppress_tokens", type=str, default="-1", help="comma-separated list of token ids to suppress during sampling; '-1' will suppress most special characters except common punctuations")
     parser.add_argument("--suppress_numerals", action="store_true", help="whether to suppress numeric symbols and currency symbols during sampling, since wav2vec2 cannot align them correctly")
+    parser.add_argument("--detect_language_per_segment", action="store_true", help="Use this for multi language audio, if you want language detection to happen for every segment. ")
 
     parser.add_argument("--initial_prompt", type=str, default=None, help="optional text to provide as a prompt for the first window.")
     parser.add_argument("--condition_on_previous_text", type=str2bool, default=False, help="if True, provide the previous output of the model as a prompt for the next window; disabling may make the text inconsistent across windows, but the model becomes less prone to getting stuck in a failure loop")
@@ -175,7 +176,8 @@ def cli():
         audio = load_audio(audio_path)
         # >> VAD & ASR
         print(">>Performing transcription...")
-        result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress)
+        detect_language_per_segment = args.pop("detect_language_per_segment", False)
+        result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress, detect_language_per_segment=detect_language_per_segment)
         results.append((result, audio_path))
 
     # Unload Whisper and VAD

@@ -184,11 +184,13 @@ def align(
         t1 = segment["start"]
         t2 = segment["end"]
         text = segment["text"]
+        language = segment["language"]
 
         aligned_seg: SingleAlignedSegment = {
             "start": t1,
             "end": t2,
             "text": text,
+            "language": language,
             "words": [],
         }
 
@@ -324,6 +326,7 @@ def align(
                 "start": sentence_start,
                 "end": sentence_end,
                 "words": sentence_words,
+                "language": language
             })
 
             if return_char_alignments:
@@ -337,7 +340,7 @@ def align(
         aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
         aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
         # concatenate sentences with same timestamps
-        agg_dict = {"text": " ".join, "words": "sum"}
+        agg_dict = {"text": " ".join, "words": "sum", "language": "first"}
         if model_lang in LANGUAGES_WITHOUT_SPACES:
             agg_dict["text"] = "".join
         if return_char_alignments:

@@ -1,5 +1,5 @@
 import os
-from pprint import pprint
+import re
 from typing import List, NamedTuple, Optional, Union
 
 import ctranslate2
@@ -9,6 +9,7 @@ import torch
 from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
+from whisperx.utils import LANGUAGES
 import whisperx.vads
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
@@ -37,6 +38,8 @@ class WhisperModel(faster_whisper.WhisperModel):
         tokenizer: faster_whisper.tokenizer.Tokenizer,
         options: faster_whisper.transcribe.TranscriptionOptions,
         encoder_output=None,
+        detect_language_per_segment=False,
+        possible_languages: list[str] = ["<|en|>"],
     ):
 
         batch_size = features.shape[0]
@@ -47,14 +50,48 @@ class WhisperModel(faster_whisper.WhisperModel):
             initial_prompt_tokens = tokenizer.encode(initial_prompt)
             all_tokens.extend(initial_prompt_tokens)
         previous_tokens = all_tokens[prompt_reset_since:]
-        prompt = self.get_prompt(
-            tokenizer,
-            previous_tokens,
-            without_timestamps=options.without_timestamps,
-            prefix=options.prefix,
-        )
 
         encoder_output = self.encode(features)
+
+        def extract_language_code(text):
+            return re.search(r"<\|(.*?)\|>", text).group(1)
+
+        prompts = None
+        if detect_language_per_segment:
+
+            detected_languages = self.model.detect_language(encoder_output)
+
+            detected_languages = [
+                [x for x in y if x[0] in possible_languages] for y in detected_languages
+            ]
+
+            detected_languages = [inner_list[0] for inner_list in detected_languages]
+
+            lang_ids, lang_scores = zip(*detected_languages)
+            lang_ids = [extract_language_code(x) for x in lang_ids]
+
+            prompts_per_lang = {}
+
+            for lang_id in list(set(lang_ids)):
+                tokenizer.language = tokenizer.tokenizer.token_to_id("<|%s|>" % lang_id)
+                tokenizer.language_code = lang_id
+                prompts_per_lang[lang_id] = self.get_prompt(
+                    tokenizer,
+                    previous_tokens,
+                    without_timestamps=options.without_timestamps,
+                    prefix=options.prefix,
+                )
+
+            prompts = [prompts_per_lang[lang_id] for lang_id in lang_ids]
+
+        else:
+            prompt = self.get_prompt(
+                tokenizer,
+                previous_tokens,
+                without_timestamps=options.without_timestamps,
+                prefix=options.prefix,
+            )
+            lang_ids = [tokenizer.language_code] * batch_size
 
         max_initial_timestamp_index = int(
             round(options.max_initial_timestamp / self.time_precision)
@@ -62,7 +99,7 @@ class WhisperModel(faster_whisper.WhisperModel):
 
         result = self.model.generate(
             encoder_output,
-            [prompt] * batch_size,
+            prompts or [prompt] * batch_size,
             beam_size=options.beam_size,
             patience=options.patience,
             length_penalty=options.length_penalty,
@@ -73,7 +110,7 @@ class WhisperModel(faster_whisper.WhisperModel):
 
         tokens_batch = [x.sequences_ids[0] for x in result]
 
-        def decode_batch(tokens: List[List[int]]) -> str:
+        def decode_batch(tokens: List[List[int]]) -> List[str]:
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
@@ -81,8 +118,7 @@ class WhisperModel(faster_whisper.WhisperModel):
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
-
-        return text
+        return text, lang_ids, lang_scores
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
@@ -163,10 +199,18 @@ class FasterWhisperPipeline(Pipeline):
         return {"inputs": features}
 
     def _forward(self, model_inputs):
-        outputs = self.model.generate_segment_batched(
-            model_inputs["inputs"], self.tokenizer, self.options
+        outputs, lang_ids, lang_scores = self.model.generate_segment_batched(
+            model_inputs["inputs"],
+            self.tokenizer,
+            self.options,
+            detect_language_per_segment=self.detect_language_per_segment,
+            possible_languages=self.possible_languages,
         )
-        return {"text": outputs}
+        return {
+            "text": outputs,
+            "language": lang_ids,
+            "language_confidence": lang_scores,
+        }
 
     def postprocess(self, model_outputs):
         return model_outputs
@@ -209,6 +253,8 @@ class FasterWhisperPipeline(Pipeline):
         chunk_size=30,
         print_progress=False,
         combined_progress=False,
+        detect_language_per_segment=False,
+        possible_languages: List[str] = [],
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -238,6 +284,15 @@ class FasterWhisperPipeline(Pipeline):
             onset=self._vad_params["vad_onset"],
             offset=self._vad_params["vad_offset"],
         )
+
+        if not possible_languages:
+            possible_languages = LANGUAGES.keys()
+
+        self.possible_languages = [f"<|{x}|>" for x in possible_languages]
+        self.detect_language_per_segment = detect_language_per_segment
+        if self.detect_language_per_segment and not language:
+            language = "en"
+
         if self.tokenizer is None:
             if vad_segments:
                 first_segment = vad_segments[0]
@@ -276,7 +331,7 @@ class FasterWhisperPipeline(Pipeline):
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
-        
+
         for idx, out in enumerate(
             self.__call__(
                 data(audio, vad_segments),
@@ -298,6 +353,8 @@ class FasterWhisperPipeline(Pipeline):
                     "text": text,
                     "start": round(vad_segments[idx]["start"], 3),
                     "end": round(vad_segments[idx]["end"], 3),
+                    "language": out["language"],
+                    "language_confidence": out["language_confidence"],
                 }
             )
 
