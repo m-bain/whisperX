@@ -92,6 +92,7 @@ class WhisperModel(faster_whisper.WhisperModel):
                 prefix=options.prefix,
             )
             lang_ids = [tokenizer.language_code] * batch_size
+            lang_scores = None
 
         max_initial_timestamp_index = int(
             round(options.max_initial_timestamp / self.time_precision)

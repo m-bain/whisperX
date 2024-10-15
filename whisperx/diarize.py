@@ -33,6 +33,7 @@ class DiarizationPipeline:
 
 
 def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
+    unique_speakers = set()
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
@@ -47,6 +48,7 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
             # sum over speakers
             speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
             seg["speaker"] = speaker
+            unique_speakers.add(speaker)
         
         # assign speaker to words
         if 'words' in seg:
@@ -63,7 +65,9 @@ def assign_word_speakers(diarize_df, transcript_result, fill_nearest=False):
                         # sum over speakers
                         speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
                         word["speaker"] = speaker
-        
+
+    transcript_result["speakers"] = list(unique_speakers)
+
     return transcript_result            
 
 
