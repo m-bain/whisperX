@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whisperx"
+version = "3.1.1"
+description = "Time-Accurate Automatic Speech Recognition using Whisper."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Max Bain"}
+]
+license = {text = "MIT"}
+dependencies = [
+    "torch>=2",
+    "torchaudio>=2",
+    "faster-whisper==1.0.3",
+    "transformers",
+    "pandas",
+    "setuptools>=65",
+    "nltk",
+    "pyannote.audio==3.3.2"
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+whisperx = "whisperx.transcribe:cli"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
+
+[tool.setuptools]
+include-package-data = true
