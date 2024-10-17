@@ -284,6 +284,8 @@ class FasterWhisperPipeline(Pipeline):
             chunk_size,
             onset=self._vad_params["vad_onset"],
             offset=self._vad_params["vad_offset"],
+            min_duration_on=self._vad_params["vad_min_duration_on"],
+            min_duration_off=self._vad_params["vad_min_duration_off"],        
         )
 
         if not possible_languages:
@@ -489,6 +491,8 @@ def load_model(
         "chunk_size": 30,  # needed by silero since binarization happens before merge_chunks
         "vad_onset": 0.500,
         "vad_offset": 0.363,
+        "vad_min_duration_on": 0.0,
+        "vad_min_duration_off": 0.0,
     }
 
     if vad_options is not None:

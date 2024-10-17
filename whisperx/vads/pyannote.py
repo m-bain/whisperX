@@ -3,7 +3,7 @@ import os
 import urllib
 from typing import Callable, Text, Union
 from typing import Optional
-from warnings import warn
+import warnings
 
 import numpy as np
 import torch
@@ -23,7 +23,7 @@ VAD_SEGMENTATION_URL = "https://whisperx.s3.eu-west-2.amazonaws.com/model_weight
 
 class Binarize:
     """Binarize detection scores using hysteresis thresholding, with min-cut operation
-    to ensure not segments are longer than max_duration.
+    to ensure no segments are longer than max_duration.
 
     Parameters
     ----------
@@ -43,6 +43,7 @@ class Binarize:
         Defaults to 0s.
     max_duration: float
         The maximum length of an active segment, divides segment at timestamp with lowest score.
+
     Reference
     ---------
     Gregory Gelly and Jean-Luc Gauvain. "Minimum Word Error Training of
@@ -55,14 +56,14 @@ class Binarize:
     """
 
     def __init__(
-            self,
-            onset: float = 0.5,
-            offset: Optional[float] = None,
-            min_duration_on: float = 0.0,
-            min_duration_off: float = 0.0,
-            pad_onset: float = 0.0,
-            pad_offset: float = 0.0,
-            max_duration: float = float('inf')
+        self,
+        onset: float = 0.5,
+        offset: Optional[float] = None,
+        min_duration_on: float = 0.0,
+        min_duration_off: float = 0.0,
+        pad_onset: float = 0.0,
+        pad_offset: float = 0.0,
+        max_duration: float = float("inf"),
     ):
 
         super().__init__()
@@ -113,13 +114,17 @@ class Binarize:
                     if curr_duration > self.max_duration:
                         search_after = len(curr_scores) // 2
                         # divide segment
-                        min_score_div_idx = search_after + np.argmin(curr_scores[search_after:])
+                        min_score_div_idx = search_after + np.argmin(
+                            curr_scores[search_after:]
+                        )
                         min_score_t = curr_timestamps[min_score_div_idx]
-                        region = Segment(start - self.pad_onset, min_score_t + self.pad_offset)
+                        region = Segment(
+                            start - self.pad_onset, min_score_t + self.pad_offset
+                        )
                         active[region, k] = label
                         start = curr_timestamps[min_score_div_idx]
-                        curr_scores = curr_scores[min_score_div_idx + 1:]
-                        curr_timestamps = curr_timestamps[min_score_div_idx + 1:]
+                        curr_scores = curr_scores[min_score_div_idx + 1 :]
+                        curr_timestamps = curr_timestamps[min_score_div_idx + 1 :]
                     # switching from active to inactive
                     elif y < self.offset:
                         region = Segment(start - self.pad_onset, t + self.pad_offset)
@@ -144,10 +149,39 @@ class Binarize:
 
         # because of padding, some active regions might be overlapping: merge them.
         # also: fill same speaker gaps shorter than min_duration_off
-        if self.pad_offset > 0.0 or self.pad_onset > 0.0 or self.min_duration_off > 0.0:
-            if self.max_duration < float("inf"):
-                raise NotImplementedError(f"This would break current max_duration param")
+        if self.min_duration_off > 0.0:
             active = active.support(collar=self.min_duration_off)
+
+        # After applying min_duration_off, some segments might be longer than max_duration
+        # Reprocess those segments with min_duration_off set to 0
+        if self.min_duration_off > 0.0 and self.max_duration < float("inf"):
+            new_min_duration_off = (
+                self.min_duration_off / 2
+                if self.min_duration_off > 1.0
+                else max(0.0, self.min_duration_off - 0.5)
+            )
+            binarizer_no_min_off = Binarize(
+                onset=self.onset,
+                offset=self.offset,
+                min_duration_on=self.min_duration_on,
+                min_duration_off=new_min_duration_off,
+                pad_onset=self.pad_onset,
+                pad_offset=self.pad_offset,
+                max_duration=self.max_duration,
+            )
+            fixed_active = Annotation()
+            for segment, track in active.itertracks():
+                if segment.duration <= self.max_duration:
+                    fixed_active[segment, track] = active[segment, track]
+                else:
+                    segment_scores = scores.crop(
+                        segment, mode="strict", return_data=False
+                    )
+                    segment_active = binarizer_no_min_off(segment_scores)
+                    for seg, trk in segment_active.itertracks():
+                        fixed_active[seg, trk] = segment_active[seg, trk]
+
+            active = fixed_active
 
         # remove tracks shorter than min_duration_on
         if self.min_duration_on > 0:
@@ -160,14 +194,19 @@ class Binarize:
 
 class VoiceActivitySegmentation(VoiceActivityDetection):
     def __init__(
-            self,
-            segmentation: PipelineModel = "pyannote/segmentation",
-            fscore: bool = False,
-            use_auth_token: Union[Text, None] = None,
-            **inference_kwargs,
+        self,
+        segmentation: PipelineModel = "pyannote/segmentation",
+        fscore: bool = False,
+        use_auth_token: Union[Text, None] = None,
+        **inference_kwargs,
     ):
 
-        super().__init__(segmentation=segmentation, fscore=fscore, use_auth_token=use_auth_token, **inference_kwargs)
+        super().__init__(
+            segmentation=segmentation,
+            fscore=fscore,
+            use_auth_token=use_auth_token,
+            **inference_kwargs,
+        )
 
     def apply(self, file: AudioFile, hook: Optional[Callable] = None) -> Annotation:
         """Apply voice activity detection
@@ -207,7 +246,7 @@ class Pyannote(Vad):
 
     def __init__(self, device, use_auth_token=None, model_fp=None, **kwargs):
         print(">>Performing voice activity detection using Pyannote...")
-        super().__init__(kwargs['vad_onset'])
+        super().__init__(kwargs["vad_onset"])
 
         model_dir = torch.hub._get_torch_home()
         os.makedirs(model_dir, exist_ok=True)
@@ -217,13 +256,15 @@ class Pyannote(Vad):
             raise RuntimeError(f"{model_fp} exists and is not a regular file")
 
         if not os.path.isfile(model_fp):
-            with urllib.request.urlopen(VAD_SEGMENTATION_URL) as source, open(model_fp, "wb") as output:
+            with urllib.request.urlopen(VAD_SEGMENTATION_URL) as source, open(
+                model_fp, "wb"
+            ) as output:
                 with tqdm(
-                        total=int(source.info().get("Content-Length")),
-                        ncols=80,
-                        unit="iB",
-                        unit_scale=True,
-                        unit_divisor=1024,
+                    total=int(source.info().get("Content-Length")),
+                    ncols=80,
+                    unit="iB",
+                    unit_scale=True,
+                    unit_divisor=1024,
                 ) as loop:
                     while True:
                         buffer = source.read(8192)
@@ -234,17 +275,24 @@ class Pyannote(Vad):
                         loop.update(len(buffer))
 
         model_bytes = open(model_fp, "rb").read()
-        if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
-            warn(
+        if (
+            hashlib.sha256(model_bytes).hexdigest()
+            != VAD_SEGMENTATION_URL.split("/")[-2]
+        ):
+            warnings.warn(
                 "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
             )
 
         vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
-        hyperparameters = {"onset": kwargs['vad_onset'],
-                           "offset": kwargs['vad_offset'],
-                           "min_duration_on": 0.1,
-                           "min_duration_off": 0.1}
-        self.vad_pipeline = VoiceActivitySegmentation(segmentation=vad_model, device=torch.device(device))
+        hyperparameters = {
+            "onset": kwargs["vad_onset"],
+            "offset": kwargs["vad_offset"],
+            "min_duration_on": kwargs["vad_min_duration_on"],
+            "min_duration_off": kwargs["vad_min_duration_off"],
+        }
+        self.vad_pipeline = VoiceActivitySegmentation(
+            segmentation=vad_model, device=torch.device(device)
+        )
         self.vad_pipeline.instantiate(hyperparameters)
 
     def __call__(self, audio: AudioFile, **kwargs):
@@ -255,17 +303,28 @@ class Pyannote(Vad):
         return torch.from_numpy(audio).unsqueeze(0)
 
     @staticmethod
-    def merge_chunks(segments,
-                     chunk_size,
-                     onset: float = 0.5,
-                     offset: Optional[float] = None,
-                     ):
+    def merge_chunks(
+        segments,
+        chunk_size,
+        onset: float = 0.5,
+        offset: Optional[float] = None,
+        min_duration_on: float = 0.0,
+        min_duration_off: float = 0.0,
+    ):
         assert chunk_size > 0
-        binarize = Binarize(max_duration=chunk_size, onset=onset, offset=offset)
+        binarize = Binarize(
+            max_duration=chunk_size,
+            onset=onset,
+            offset=offset,
+            min_duration_on=min_duration_on,
+            min_duration_off=min_duration_off,
+        )
         segments = binarize(segments)
         segments_list = []
         for speech_turn in segments.get_timeline():
-            segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
+            segments_list.append(
+                SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN")
+            )
 
         if len(segments_list) == 0:
             print("No active speech found in audio")
