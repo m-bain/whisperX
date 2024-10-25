@@ -334,8 +334,7 @@ def load_model(whisper_arch,
 
     suppress_numerals = default_asr_options["suppress_numerals"]
     del default_asr_options["suppress_numerals"]
-    # **default_asr_options
-    default_asr_options = faster_whisper.transcribe.TranscriptionOptions()
+    default_asr_options = faster_whisper.transcribe.TranscriptionOptions(**default_asr_options)
 
     default_vad_options = {
         "vad_onset": 0.500,
