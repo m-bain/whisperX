@@ -307,6 +307,7 @@ def load_model(whisper_arch,
         "temperatures": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
         "compression_ratio_threshold": 2.4,
         "log_prob_threshold": -1.0,
+        "log_prob_low_threshold": None,
         "no_speech_threshold": 0.6,
         "condition_on_previous_text": False,
         "prompt_reset_on_temperature": 0.5,
@@ -319,20 +320,22 @@ def load_model(whisper_arch,
         "word_timestamps": False,
         "prepend_punctuations": "\"'“¿([{-",
         "append_punctuations": "\"'.。,，!！?？:：”)]}、",
+        "multilingual": model.model.is_multilingual,
+        "output_language": language, 
         "suppress_numerals": False,
         "max_new_tokens": None,
         "clip_timestamps": None,
         "hallucination_silence_threshold": None,
         "hotwords": None,
     }
-
+   
     if asr_options is not None:
         default_asr_options.update(asr_options)
 
     suppress_numerals = default_asr_options["suppress_numerals"]
     del default_asr_options["suppress_numerals"]
-
-    default_asr_options = faster_whisper.transcribe.TranscriptionOptions(**default_asr_options)
+    # **default_asr_options
+    default_asr_options = faster_whisper.transcribe.TranscriptionOptions()
 
     default_vad_options = {
         "vad_onset": 0.500,
