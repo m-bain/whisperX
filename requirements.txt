@@ -1,7 +1,5 @@
-torch>=2.5.0
-torchaudio>=2.5.0
 faster-whisper==1.0.3
-transformers~=4.45.2
+transformers~=4.46.0
 pandas~=2.2.3
 setuptools>=75.2.0
 nltk~=3.9.1
