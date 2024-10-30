@@ -242,13 +242,14 @@ class FasterWhisperPipeline(Pipeline):
         return {"segments": segments, "language": language}
 
 
-    def detect_language(self, audio: np.ndarray):
-        if audio.shape[0] < N_SAMPLES:
+    def detect_language(self, audio: np.ndarray, n_samples: Optional[int] = None):
+        n_samples = n_samples if n_samples else N_SAMPLES
+        if audio.shape[0] < n_samples:
             print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
         model_n_mels = self.model.feat_kwargs.get("feature_size")
-        segment = log_mel_spectrogram(audio[: N_SAMPLES],
+        segment = log_mel_spectrogram(audio[: n_samples],
                                       n_mels=model_n_mels if model_n_mels is not None else 80,
-                                      padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
+                                      padding=0 if audio.shape[0] >= n_samples else n_samples - audio.shape[0])
         encoder_output = self.model.encode(segment)
         results = self.model.model.detect_language(encoder_output)
         language_token, language_probability = results[0][0]
