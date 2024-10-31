@@ -67,7 +67,6 @@ class WhisperModel(faster_whisper.WhisperModel):
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
-            # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
@@ -75,10 +74,7 @@ class WhisperModel(faster_whisper.WhisperModel):
         return text
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
-        # When the model is running on multiple GPUs, the encoder output should be moved
-        # to the CPU since we don't know which GPU will handle the next job.
         to_cpu = self.model.device == "cuda" and len(self.model.device_index) > 1
-        # unsqueeze if batch size = 1
         if len(features.shape) == 2:
             features = np.expand_dims(features, 0)
         features = faster_whisper.transcribe.get_ctranslate2_storage(features)
@@ -161,7 +157,6 @@ class FasterWhisperPipeline(Pipeline):
         dataset = PipelineIterator(inputs, self.preprocess, preprocess_params)
         if "TOKENIZERS_PARALLELISM" not in os.environ:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
-        # TODO hack by collating feature_extractor and image_processor
 
         def stack(items):
             return {'inputs': torch.stack([x['inputs'] for x in items])}
@@ -171,8 +166,11 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False, prompt=None
     ) -> TranscriptionResult:
+        if prompt:
+            self.options = self.options._replace(initial_prompt=prompt)
+
         if isinstance(audio, str):
             audio = load_audio(audio)
 
@@ -180,7 +178,6 @@ class FasterWhisperPipeline(Pipeline):
             for seg in segments:
                 f1 = int(seg['start'] * SAMPLE_RATE)
                 f2 = int(seg['end'] * SAMPLE_RATE)
-                # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
@@ -231,16 +228,13 @@ class FasterWhisperPipeline(Pipeline):
                 }
             )
 
-        # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
             self.tokenizer = None
 
-        # revert suppressed tokens if suppress_numerals is enabled
         if self.suppress_numerals:
             self.options = self.options._replace(suppress_tokens=previous_suppress_tokens)
 
         return {"segments": segments, "language": language}
-
 
     def detect_language(self, audio: np.ndarray):
         if audio.shape[0] < N_SAMPLES:
