@@ -18,7 +18,7 @@ def generate_char_frame_sequence(char_data, null_token: str ='<NULL>', filter_no
     
     # Remove non-letters
     if filter_non_char:
-        char_data = [entry for entry in char_data in entry['char'] in string.ascii_lowercase]
+        char_data = [entry for entry in char_data if entry['char'] in string.ascii_lowercase]
     
     # Determine the total time range from the min start and max end
     min_time = int(min(entry['start'] for entry in char_data))

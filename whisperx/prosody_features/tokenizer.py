@@ -13,10 +13,10 @@ class CharLevelTokenizer:
         null_token (str): Token to assing for non-speech frames. Defaults to '\<NULL>'.
     """
 
-    def __init__(self, vocab: list, null_token: str = '<NULL>'):
+    def __init__(self, vocab: list = DEFAULT_CHARS, null_token: str = '<NULL>'):
         self.vocab = [null_token] + vocab
-        self.char_to_index = {char: idx for idx, char in enumerate(vocab)}
-        self.index_to_char = {idx: char for idx, char in enumerate(vocab)}
+        self.char_to_index = {char: idx for idx, char in enumerate(self.vocab)}
+        self.index_to_char = {idx: char for idx, char in enumerate(self.vocab)}
 
     def encode(self, chars: list) -> torch.Tensor:
         """
