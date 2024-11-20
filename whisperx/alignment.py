@@ -633,7 +633,7 @@ def align_for_prosody_features(
             start, end, score = None, None, None
             if cdx in segment["clean_cdx"]:
                 char_seg = char_segments[segment["clean_cdx"].index(cdx)]
-                start = char_seg.start + f1
+                start = char_seg.start + f1 # Frame index
                 end = char_seg.end + f1
                 score = round(char_seg.score, 3)
 
