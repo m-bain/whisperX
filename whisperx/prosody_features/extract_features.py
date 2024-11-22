@@ -19,7 +19,7 @@ def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
     # model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=model_dir)
 
     audio = whisperx.load_audio(audio_file)
-    result = model.transcribe(audio, batch_size=batch_size)
+    result = model.transcribe(audio, batch_size=batch_size, language='en')
 
     # delete model if low on GPU resources
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
@@ -54,7 +54,8 @@ if __name__ == "__main__":
                 # Perform alignment and generate char sequence feature
                 aligned_chars = get_aligned_chars(audio_file=full_path, device=device)
                 char_seq = generate_char_frame_sequence(aligned_chars)
-
+                
+                # Save
                 save_path = os.path.join(save_dir, file.replace('.wav', '.json'))
                 with open(save_path, "w") as save_file:
                     json.dump(char_seq, save_file)
