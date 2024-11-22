@@ -8,23 +8,18 @@ import tqdm
 
 MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
 
-def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
+def get_aligned_chars(
+    whisper_model, 
+    alignment_model,
+    alignmet_model_metadata, 
+    audio_file: str, 
+    device: str = 'cpu') -> List[dict]:
 
     batch_size = 16 # reduce if low on GPU mem
-    compute_type = "float32" # change to "int8" if low on GPU mem (may reduce accuracy)
-
-    # 1. Transcribe with original whisper (batched)
-    model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=MODEL_DIR)
 
     audio = whisperx.load_audio(audio_file)
-    result = model.transcribe(audio, batch_size=batch_size, language='en')
-
-    # delete model if low on GPU resources
-    # import gc; gc.collect(); torch.cuda.empty_cache(); del model
-
-    # 2. Align whisper output
-    model_a, metadata = whisperx.load_align_model(language_code='en', device=device)
-    result = whisperx.align_for_prosody_features(result["segments"], model_a, metadata, audio, device, return_char_alignments=True)
+    result = whisper_model.transcribe(audio, batch_size=batch_size, language='en')
+    result = whisperx.align_for_prosody_features(result["segments"], alignment_model, alignmet_model_metadata, audio, device, return_char_alignments=True)
 
     try:
         return result["segments"][0]["chars"]
@@ -36,6 +31,10 @@ if __name__ == "__main__":
 
     root = "/project/shrikann_35/nmehlman/vpc"
     device = "cuda"
+    
+    # Pre-load models
+    whisper_model = whisperx.load_model("large-v2", device)
+    alignment_model, alignmet_model_metadata = whisperx.load_align_model(language_code='en', device=device)
 
     for dirpath, dirnames, filenames in os.walk(root):
         
@@ -59,7 +58,12 @@ if __name__ == "__main__":
                     continue
 
                 # Perform alignment and generate char sequence feature
-                aligned_chars = get_aligned_chars(audio_file=full_path, device=device)
+                aligned_chars = get_aligned_chars(
+                    whisper_model=whisper_model,
+                    alignment_model=alignment_model,
+                    alignmet_model_metadata=alignmet_model_metadata,
+                    audio_file=full_path, 
+                    device=device)
                 
                 # Handels case where no audio is detected
                 if aligned_chars is None:
