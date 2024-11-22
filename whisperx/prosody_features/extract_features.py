@@ -27,7 +27,7 @@ def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result = whisperx.align_for_prosody_features(result["segments"], model_a, metadata, audio, device, return_char_alignments=True)
 
-    return result['char']
+    return result["segments"][0]["char"]
 
 if __name__ == "__main__":
 
