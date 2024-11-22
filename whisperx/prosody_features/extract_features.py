@@ -3,6 +3,7 @@ from typing import List
 import whisperx
 from whisperx.prosody_features.utils import generate_char_frame_sequence
 import gc 
+import json
 import tqdm
 
 def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
@@ -37,6 +38,11 @@ if __name__ == "__main__":
     for dirpath, dirnames, filenames in os.walk(root):
         
         if 'wav' in dirpath: 
+
+            save_dir = dirpath.replace('wav', 'char_feats')
+
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
             
             for file in tqdm.tqdm(
                 os.listdir(dirpath),
@@ -45,6 +51,12 @@ if __name__ == "__main__":
                 
                 full_path = os.path.join(dirpath, file)
 
+                # Perform alignment and generate char sequence feature
                 aligned_chars = get_aligned_chars(audio_file=full_path, device=device)
-
                 char_seq = generate_char_frame_sequence(aligned_chars)
+
+                save_path = os.path.join(save_dir, file.replace('.wav', '.json'))
+                with open(save_path, "w") as file:
+                    json.dump(char_seq)
+
+
