@@ -6,17 +6,15 @@ import gc
 import json
 import tqdm
 
+MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
+
 def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
 
     batch_size = 16 # reduce if low on GPU mem
     compute_type = "float32" # change to "int8" if low on GPU mem (may reduce accuracy)
 
     # 1. Transcribe with original whisper (batched)
-    model = whisperx.load_model("large-v2", device, compute_type=compute_type)
-
-    # save model to local path (optional)
-    # model_dir = "/path/"
-    # model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=model_dir)
+    model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=MODEL_DIR)
 
     audio = whisperx.load_audio(audio_file)
     result = model.transcribe(audio, batch_size=batch_size, language='en')
@@ -25,10 +23,14 @@ def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
 
     # 2. Align whisper output
-    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+    model_a, metadata = whisperx.load_align_model(language_code='en', device=device)
     result = whisperx.align_for_prosody_features(result["segments"], model_a, metadata, audio, device, return_char_alignments=True)
 
-    return result["segments"][0]["chars"]
+    try:
+        return result["segments"][0]["chars"]
+    except IndexError:
+        print('ERROR no speech detected')
+        return None
 
 if __name__ == "__main__":
 
@@ -46,17 +48,26 @@ if __name__ == "__main__":
             
             for file in tqdm.tqdm(
                 os.listdir(dirpath),
-                desc='extracting features'
+                desc=f'extracting features for {dirpath}'
             ): # For each audio file
                 
                 full_path = os.path.join(dirpath, file)
+                save_path = os.path.join(save_dir, file.replace('.wav', '.json'))
+                
+                # Skip previously generated files
+                if os.path.exists(save_path):
+                    continue
 
                 # Perform alignment and generate char sequence feature
                 aligned_chars = get_aligned_chars(audio_file=full_path, device=device)
+                
+                # Handels case where no audio is detected
+                if aligned_chars is None:
+                    continue
+                
                 char_seq = generate_char_frame_sequence(aligned_chars)
                 
                 # Save
-                save_path = os.path.join(save_dir, file.replace('.wav', '.json'))
                 with open(save_path, "w") as save_file:
                     json.dump(char_seq, save_file)
 
