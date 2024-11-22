@@ -1,0 +1,47 @@
+
+
+# Template PyTorch Lightning Config
+
+---
+random_seed: 42
+ckpt_path: null
+gpus: "0, 1, 2, 3"
+
+# Dataset options:
+dataset:
+  key: "value"
+
+# Dataloader options:
+dataloader:
+  batch_size: 16
+  num_workers: 4
+  train_frac: 0.8
+
+# Model options:
+lightning:
+  num_classes: 10
+  hparams: 
+    key: "value"
+  optimizer_params:
+    lr: 1e-4
+
+
+# Training options:
+trainer:
+  max_epochs: 1
+  val_check_interval: 1.0 # Must be >= 1 for iterable-type dataset
+  log_every_n_steps: 10    
+  sync_batchnorm: True
+  accelerator: "gpu"
+  devices: "auto"
+  deterministic: False
+  detect_anomaly: True
+  accumulate_grad_batches: 1
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "path"
+  name: "name"
+  version: null     # Automatic versioning if set to null (recommended)
+
+

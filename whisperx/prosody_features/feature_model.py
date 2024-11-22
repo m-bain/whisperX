@@ -2,6 +2,10 @@ import math
 import torch
 import torch.nn as nn
 from torch import Tensor
+from pytorch_lightning import LightningModule
+from torch.optim import Optimizer, Adam
+from typing import Any
+from torchmetrics import Accuracy
 
 class PositionalEncoding(nn.Module):
     """
@@ -40,7 +44,6 @@ class PositionalEncoding(nn.Module):
         # Add positional encodings
         x = x + self.pe[:seq_len].unsqueeze(0)  # Shape: [1, seq_len, d_model]
         return self.dropout(x)
-
 
 class ProsodyFeatureModel(nn.Module):
     """
@@ -94,3 +97,104 @@ class ProsodyFeatureModel(nn.Module):
         # Mean-pool along the sequence dimension
         z_mean = z.mean(dim=1)  # Shape: [batch_size, embedding_dim]
         return z_mean
+
+class ProsodySpeakerVerificationModel(LightningModule):
+
+    def __init__(self, 
+                num_classes: int, 
+                hparams: dict = {}, 
+                optimizer_params: dict = {},
+                ) -> None:
+
+        super().__init__()
+
+        # Save hyperparameters
+        self.save_hyperparameters(hparams)
+        self.optimizer_params = optimizer_params
+
+        # Define loss and metric functions
+        self.loss_fcn = nn.CrossEntropyLoss
+        self.metrics = {
+            "accuracy": Accuracy(task='multiclass', num_classes=num_classes)
+        }
+
+        # Define feature model and
+        self.feature_model = ProsodyFeatureModel(**hparams)
+        self.classifier = nn.Linear(in_features=hparams['embedding_dim'], out_features=num_classes)
+
+    def configure_optimizers(self) -> Optimizer:
+        """Configures optimizer
+
+        Returns:
+            optimizer (Optimizer): configured optimizer
+        """
+        opt = Adam(self.parameters(), **self.optimizer_params)
+        return opt
+
+    def forward(self, x: Tensor) -> Any:
+        """Forward pass function
+
+        Args:
+            x (Tensor): input
+
+        Returns:
+            y (Any): model output
+        """
+    
+        z = self.feature_model(x) 
+        y = self.classifier(z) 
+
+        return y 
+    
+    def training_step(self, batch: Any, batch_idx: int = 0) -> Any:
+        """Performs training step with loss computation and metric logging
+
+        Args:
+            batch (Any): batch of samples (feats,labs)
+            batch_idx (int, optional): Index of batch. Defaults to 0.
+
+        Returns:
+            loss (Any): batch loss
+        """
+
+        x, y_true = batch # Unpack batch
+
+        y_pred = self(x) # Forward pass
+
+        # Compute and log loss
+        loss = self.loss_fcn(y_pred, y_true)
+        self.log("train_loss", loss, sync_dist=True)
+
+        # Compute and log metrics
+        for metric_name, metric_fcn in self.metrics.items():
+            metric_val = metric_fcn(y_pred, y_true)
+            self.log("train_%s" % metric_name, metric_val, sync_dist=True)
+
+        return loss
+
+    def validation_step(self, batch: Any, batch_idx: int = 0) -> Any:
+
+        """Performs validation step with loss computation and metric logging
+
+        Args:
+            batch (Any): batch of samples
+            batch_idx (int, optional): Index of batch. Defaults to 0.
+
+        Returns:
+            loss (Any): batch loss
+        """
+
+        x, y_true = batch # Unpack batch
+
+        y_pred = self(x) # Forward pass
+
+        # Compute and log loss
+        loss = self.loss_fcn(y_pred, y_true)
+        self.log("val_loss", loss, sync_dist=True)
+
+        # Compute and log metrics
+        for metric_name, metric_fcn in self.metrics.items():
+            metric_val = metric_fcn(y_pred, y_true)
+            self.log("val_%s" % metric_name, metric_val, sync_dist=True)
+
+        return loss
