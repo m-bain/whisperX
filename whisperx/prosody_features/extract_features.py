@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 char_seq = generate_char_frame_sequence(aligned_chars)
 
                 save_path = os.path.join(save_dir, file.replace('.wav', '.json'))
-                with open(save_path, "w") as file:
-                    json.dump(char_seq)
+                with open(save_path, "w") as save_file:
+                    json.dump(char_seq, save_file)
 
 
