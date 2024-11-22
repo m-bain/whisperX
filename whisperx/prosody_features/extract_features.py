@@ -32,7 +32,7 @@ def get_aligned_chars(audio_file: str, device: str = 'cpu') -> List[dict]:
 if __name__ == "__main__":
 
     root = "/project/shrikann_35/nmehlman/vpc"
-    device = "cpu"
+    device = "cuda"
 
     for dirpath, dirnames, filenames in os.walk(root):
         
