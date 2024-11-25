@@ -27,7 +27,7 @@ if __name__ == "__main__":
     dataloaders = get_dataloaders(tokenizer=tokenizer, **config['dataset'], **config['dataloader'])
 
     # Create Lightning module
-    pl_model = ProsodySpeakerVerificationModel(num_speakers=20, **config["lightning"])
+    pl_model = ProsodySpeakerVerificationModel(**config["lightning"])
 
     # Create logger (logs are saved to /save_dir/name/version/):
     logger = TensorBoardLogger(**config["tensorboard"])

@@ -21,7 +21,7 @@ dataloader:
 
 # Model options:
 lightning:
-  num_classes: 10
+  num_speakers: 20
   hparams: 
     num_tokens: 28
     embedding_dim: 128
