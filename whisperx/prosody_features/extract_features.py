@@ -26,7 +26,6 @@ def get_aligned_chars(
         chars = result["segments"][0]["chars"]
         return chars
     except IndexError:
-        print('ERROR no speech detected')
         return None
 
 if __name__ == "__main__":
