@@ -21,6 +21,9 @@ def get_aligned_chars(
     result = whisper_model.transcribe(audio, batch_size=batch_size, language='en')
     result = whisperx.align_for_prosody_features(result["segments"], alignment_model, alignmet_model_metadata, audio, device, return_char_alignments=True)
 
+    if result in None: # Alignment failed:
+        return None
+    
     try:
         return result["segments"][0]["chars"]
     except IndexError:
@@ -35,6 +38,8 @@ if __name__ == "__main__":
     # Pre-load models
     whisper_model = whisperx.load_model("large-v2", device)
     alignment_model, alignmet_model_metadata = whisperx.load_align_model(language_code='en', device=device)
+
+    bad_files = []
 
     for dirpath, dirnames, filenames in os.walk(root):
         
@@ -65,8 +70,9 @@ if __name__ == "__main__":
                     audio_file=full_path, 
                     device=device)
                 
-                # Handels case where no audio is detected
+                # Handels error cases
                 if aligned_chars is None:
+                    bad_files.append(full_path)
                     continue
                 
                 char_seq = generate_char_frame_sequence(aligned_chars)
@@ -75,4 +81,6 @@ if __name__ == "__main__":
                 with open(save_path, "w") as save_file:
                     json.dump(char_seq, save_file)
 
-
+    print('BAD FILES:')
+    for file in bad_files:
+        print(file)

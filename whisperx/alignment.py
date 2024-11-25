@@ -618,7 +618,7 @@ def align_for_prosody_features(
 
         if path is None:
             print(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original...')
-            aligned_segments.append(aligned_seg)
+            aligned_segments.append(None)
             continue
 
         char_segments = merge_repeats(path, text_clean)
