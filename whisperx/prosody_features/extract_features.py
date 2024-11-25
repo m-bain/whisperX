@@ -22,7 +22,7 @@ def get_aligned_chars(
     result = whisper_model.transcribe(audio, batch_size=batch_size, language='en')
     result = whisperx.align_for_prosody_features(result["segments"], alignment_model, alignmet_model_metadata, audio, device, return_char_alignments=True)
 
-    if result in None: # Alignment failed:
+    if result is None: # Alignment failed:
         return None
     
     try:
