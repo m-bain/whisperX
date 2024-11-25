@@ -47,13 +47,20 @@ if __name__ == "__main__":
         default="cuda", 
         help="Device to use for model inference. Default: 'cuda'."
     )
+    parser.add_argument(
+        "--compute_type", 
+        type=str, 
+        default="float16", 
+        help="Type of compute format to use. Default: 'float16'."
+    )
     
     args = parser.parse_args()
     root = args.root
     device = args.device
+    compute_type = args.compute_type
     
     # Pre-load models
-    whisper_model = whisperx.load_model("large-v2", device)
+    whisper_model = whisperx.load_model("large-v2", device, compute_type=compute_type)
     alignment_model, alignmet_model_metadata = whisperx.load_align_model(language_code='en', device=device)
 
     bad_files = []
