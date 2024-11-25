@@ -5,6 +5,7 @@ from whisperx.prosody_features.utils import generate_char_frame_sequence
 import gc 
 import json
 import tqdm
+import argparse
 
 MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
 
@@ -32,8 +33,24 @@ def get_aligned_chars(
 
 if __name__ == "__main__":
 
-    root = "/project/shrikann_35/nmehlman/vpc"
-    device = "cuda"
+    # Argument parser setup
+    parser = argparse.ArgumentParser(description="Feature extraction script with alignment.")
+    parser.add_argument(
+        "--root", 
+        type=str, 
+        default="/project/shrikann_35/nmehlman/vpc", 
+        help="Root directory containing audio files. Default: '/project/shrikann_35/nmehlman/vpc'."
+    )
+    parser.add_argument(
+        "--device", 
+        type=str, 
+        default="cuda", 
+        help="Device to use for model inference. Default: 'cuda'."
+    )
+    
+    args = parser.parse_args()
+    root = args.root
+    device = args.device
     
     # Pre-load models
     whisper_model = whisperx.load_model("large-v2", device)
