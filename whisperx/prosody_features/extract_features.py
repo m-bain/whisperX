@@ -21,12 +21,10 @@ def get_aligned_chars(
     audio = whisperx.load_audio(audio_file)
     result = whisper_model.transcribe(audio, batch_size=batch_size, language='en')
     result = whisperx.align_for_prosody_features(result["segments"], alignment_model, alignmet_model_metadata, audio, device, return_char_alignments=True)
-
-    if result is None: # Alignment failed:
-        return None
     
     try:
-        return result["segments"][0]["chars"]
+        chars = result["segments"][0]["chars"]
+        return chars
     except IndexError:
         print('ERROR no speech detected')
         return None
