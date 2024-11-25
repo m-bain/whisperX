@@ -28,7 +28,7 @@ lightning:
     num_layers: 2
     dropout: 0.0
   optimizer_params:
-    lr: 1e-4
+    lr: 0.001
 
 
 # Training options:
