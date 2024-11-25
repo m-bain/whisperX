@@ -94,6 +94,7 @@ if __name__ == "__main__":
                 
                 # Handels error cases
                 if aligned_chars is None or aligned_chars == []:
+                    print('ERROR: failed to align file')
                     bad_files.append(full_path)
                     continue
                 
