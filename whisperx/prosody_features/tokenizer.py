@@ -3,6 +3,7 @@ import string
 
 DEFAULT_CHARS = list(string.ascii_lowercase)
 
+
 class CharLevelTokenizer:
     """
     A character-level tokenizer that converts text into sequences of character indices
@@ -13,7 +14,7 @@ class CharLevelTokenizer:
         null_token (str): Token to assing for non-speech frames. Defaults to '\<NULL>'.
     """
 
-    def __init__(self, vocab: list = DEFAULT_CHARS, null_token: str = '<NULL>'):
+    def __init__(self, vocab: list = DEFAULT_CHARS, null_token: str = "<NULL>"):
         self.vocab = [null_token] + vocab
         self.char_to_index = {char: idx for idx, char in enumerate(self.vocab)}
         self.index_to_char = {idx: char for idx, char in enumerate(self.vocab)}
@@ -31,7 +32,7 @@ class CharLevelTokenizer:
         try:
             indices = [self.char_to_index[char] for char in chars]
         except KeyError:
-            raise Exception('Invalid input token')
+            raise Exception("Invalid input token")
         return torch.tensor(indices, dtype=torch.long)
 
     def decode(self, indices: torch.Tensor) -> str:
@@ -44,7 +45,11 @@ class CharLevelTokenizer:
         Returns:
             str: The decoded string.
         """
-        return ''.join(self.index_to_char[idx.item()] for idx in indices if idx.item() in self.index_to_char)
+        return "".join(
+            self.index_to_char[idx.item()]
+            for idx in indices
+            if idx.item() in self.index_to_char
+        )
 
     def encode_batch(self, char_lists: list) -> torch.Tensor:
         """
@@ -56,7 +61,10 @@ class CharLevelTokenizer:
         Returns:
             torch.Tensor: A 2D tensor of indices representing the input characters.
         """
-        batch_indices = [[self.char_to_index[char] for char in chars if char in self.char_to_index] for chars in char_lists]
+        batch_indices = [
+            [self.char_to_index[char] for char in chars if char in self.char_to_index]
+            for chars in char_lists
+        ]
         return torch.tensor(batch_indices, dtype=torch.long)
 
     def decode_batch(self, batch_indices: torch.Tensor) -> list:
@@ -69,8 +77,14 @@ class CharLevelTokenizer:
         Returns:
             list: A list of decoded strings.
         """
-        return [''.join(self.index_to_char[idx.item()] for idx in indices if idx.item() in self.index_to_char) 
-                for indices in batch_indices]
+        return [
+            "".join(
+                self.index_to_char[idx.item()]
+                for idx in indices
+                if idx.item() in self.index_to_char
+            )
+            for indices in batch_indices
+        ]
 
     def add_special_tokens(self, special_tokens: list):
         """

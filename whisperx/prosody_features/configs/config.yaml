@@ -5,11 +5,13 @@
 ---
 random_seed: 42
 ckpt_path: null
-gpus: "0, 1, 2, 3"
+gpus: "all"
 
 # Dataset options:
 dataset:
-  key: "value"
+  root_path: "/project/shrikann_35/nmehlman/vpc"
+  system: "T10-2"
+  split: "libri_dev_trials_f_T10-2"
 
 # Dataloader options:
 dataloader:
