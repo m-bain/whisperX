@@ -93,7 +93,7 @@ if __name__ == "__main__":
                     device=device)
                 
                 # Handels error cases
-                if aligned_chars is None:
+                if aligned_chars is None or aligned_chars == []:
                     bad_files.append(full_path)
                     continue
                 
