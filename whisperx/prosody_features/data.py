@@ -133,6 +133,37 @@ class VPCDataset(Dataset):
 
         return tokens, speaker
 
+def collate_fn(batch: List[Tuple[torch.Tensor, int]]) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Collate function to pad sequences to the same length for batching.
+
+    Args:
+        batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of 
+                                                (sequence tensor, speaker ID).
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+            - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
+            - Speaker IDs (torch.Tensor) of shape (batch_size).
+    """
+    # Separate sequences and speaker IDs
+    sequences, speaker_ids = zip(*batch)
+
+    # Find the length of the longest sequence in the batch
+    max_seq_len = max(seq.size(0) for seq in sequences)
+
+    # Initialize a tensor for padded sequences with zeros
+    padded_sequences = torch.zeros(len(sequences), max_seq_len, dtype=torch.long)
+
+    # Copy each sequence into the padded tensor
+    for i, seq in enumerate(sequences):
+        padded_sequences[i, :seq.size(0)] = seq  # Copy the sequence up to its length
+
+    # Convert speaker IDs to a tensor
+    speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
+
+    return padded_sequences, speaker_ids
+
 
 def get_dataloaders(
     root_path: str,
@@ -170,9 +201,9 @@ def get_dataloaders(
 
         train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, **dataloader_kwargs)
-        val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, **dataloader_kwargs)
+        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
+        val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle,collate_fn=collate_fn, **dataloader_kwargs)
 
         return {"train": train_dataloader, "val": val_dataloader}
     else:  # Train on the full dataset
-        return DataLoader(full_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, **dataloader_kwargs)
+        return DataLoader(full_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)

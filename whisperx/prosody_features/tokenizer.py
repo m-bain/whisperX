@@ -7,15 +7,15 @@ DEFAULT_CHARS = list(string.ascii_lowercase)
 class CharLevelTokenizer:
     """
     A character-level tokenizer that converts text into sequences of character indices
-    and supports decoding indices back to text using PyTorch tensors.
+    and supports decoding indices back to text using PyTorch tensors. The zero token is reserved for padding, and is distinct from the null token.
 
     Args:
         vocab (list): A list containing all characters in the vocabulary.
-        null_token (str): Token to assing for non-speech frames. Defaults to '\<NULL>'.
+        null_token (str): Token to use for non-speech frames. Defaults to '\<NULL>'.
     """
 
     def __init__(self, vocab: list = DEFAULT_CHARS, null_token: str = "<NULL>"):
-        self.vocab = [null_token] + vocab
+        self.vocab = ["<PAD>", null_token] + vocab
         self.char_to_index = {char: idx for idx, char in enumerate(self.vocab)}
         self.index_to_char = {idx: char for idx, char in enumerate(self.vocab)}
 
