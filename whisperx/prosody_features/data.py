@@ -119,7 +119,7 @@ def get_dataloaders(
     num_workers: int = 1,
     shuffle: bool = True,
     **dataloder_kwargs,
-) -> DataLoader | Dict[str:DataLoader]:
+) -> DataLoader | Dict[str, DataLoader]:
 
     full_dataset = VPCDataset(
         root_path=root_path, tokenizer=tokenizer, system=system, split=split
