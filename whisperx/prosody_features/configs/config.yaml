@@ -11,7 +11,7 @@ gpus: "all"
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
   system: "T10-2"
-  split: "libri_dev_trials_f_T10-2"
+  split: "libri_dev_trials_f"
 
 # Dataloader options:
 dataloader:
