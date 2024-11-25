@@ -23,7 +23,10 @@ dataloader:
 lightning:
   num_classes: 10
   hparams: 
-    key: "value"
+    num_tokens: 28
+    embedding_dim: 128
+    num_layers: 2
+    dropout: 0.0
   optimizer_params:
     lr: 1e-4
 
@@ -34,16 +37,15 @@ trainer:
   val_check_interval: 1.0 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
-  accelerator: "gpu"
+  accelerator: "cpu"
   devices: "auto"
   deterministic: False
-  detect_anomaly: True
   accumulate_grad_batches: 1
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "path"
-  name: "name"
+  save_dir: "/home1/nmehlman/arts_vpc/logs"
+  name: "debug"
   version: null     # Automatic versioning if set to null (recommended)
 
 
