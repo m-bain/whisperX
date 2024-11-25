@@ -43,10 +43,13 @@ def generate_char_frame_sequence(
             entry for entry in char_data if entry["char"] in string.ascii_lowercase
         ]
 
-    # Determine the total time range from the min start and max end
-    min_time = int(min(entry["start"] for entry in char_data))
-    max_time = int(max(entry["end"] for entry in char_data))
-
+    try:
+        # Determine the total time range from the min start and max end
+        min_time = int(min(entry["start"] for entry in char_data))
+        max_time = int(max(entry["end"] for entry in char_data))
+    except ValueError:
+        return None
+        
     # Initialize the output list with the <NULL> token
     time_char_sequence = [null_token for _ in range(min_time, max_time)]
 

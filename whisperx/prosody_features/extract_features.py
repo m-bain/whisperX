@@ -112,6 +112,11 @@ if __name__ == "__main__":
                     continue
 
                 char_seq = generate_char_frame_sequence(aligned_chars)
+                
+                if char_seq is None:
+                    print("ERROR: failed to generate char sequence")
+                    bad_files.append(full_path)
+                    continue
 
                 # Save
                 with open(save_path, "w") as save_file:
