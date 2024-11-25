@@ -24,7 +24,7 @@ def load_yaml_config(file_path: str) -> dict:
 
 torch.set_warn_always(False)
 
-CONFIG_PATH = ""
+CONFIG_PATH = "config.yaml"
 
 if __name__ == "__main__":
 
