@@ -133,7 +133,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
         self.optimizer_params = optimizer_params
 
         # Define loss and metric functions
-        self.loss_fcn = nn.CrossEntropyLoss
+        self.loss_fcn = nn.CrossEntropyLoss()
         self.metrics = {
             "accuracy": Accuracy(task="multiclass", num_classes=num_classes)
         }
