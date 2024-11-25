@@ -1,5 +1,4 @@
 from whisperx.prosody_features.feature_model import ProsodySpeakerVerificationModel
-from nick_utils.nick_io import load_yaml_config
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 from whisperx.prosody_features.data import get_dataloaders
 import pytorch_lightning as pl
@@ -7,6 +6,21 @@ from pytorch_lightning import Trainer
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 import os
+import yaml
+
+def load_yaml_config(file_path: str) -> dict:
+    """Loads config from yaml file
+    Args:
+        file_path (str): path to config file
+
+    Returns:
+        config (dict): config data
+    """
+    with open( file_path, 'r' ) as file:
+        config = yaml.safe_load(file)
+
+    return config
+
 
 torch.set_warn_always(False)
 
