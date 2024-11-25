@@ -6,20 +6,7 @@ from pytorch_lightning import Trainer
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 import os
-import yaml
-
-def load_yaml_config(file_path: str) -> dict:
-    """Loads config from yaml file
-    Args:
-        file_path (str): path to config file
-
-    Returns:
-        config (dict): config data
-    """
-    with open( file_path, 'r' ) as file:
-        config = yaml.safe_load(file)
-
-    return config
+from whisperx.prosody_features.utils import load_yaml_config
 
 
 torch.set_warn_always(False)
