@@ -121,7 +121,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
 
     def __init__(
         self,
-        num_classes: int,
+        num_speakers: int,
         hparams: dict = {},
         optimizer_params: dict = {},
     ) -> None:
@@ -135,13 +135,13 @@ class ProsodySpeakerVerificationModel(LightningModule):
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
         self.metrics = {
-            "accuracy": Accuracy(task="multiclass", num_classes=num_classes)
+            "accuracy": Accuracy(task="multiclass", num_classes=num_speakers)
         }
 
         # Define feature model and
         self.feature_model = ProsodyFeatureModel(**hparams)
         self.classifier = nn.Linear(
-            in_features=hparams["embedding_dim"], out_features=num_classes
+            in_features=hparams["embedding_dim"], out_features=num_speakers
         )
 
     def configure_optimizers(self) -> Optimizer:
