@@ -1,6 +1,7 @@
 import string
 import yaml
 
+
 def load_yaml_config(file_path: str) -> dict:
     """Loads config from yaml file
     Args:
@@ -9,7 +10,7 @@ def load_yaml_config(file_path: str) -> dict:
     Returns:
         config (dict): config data
     """
-    with open( file_path, 'r' ) as file:
+    with open(file_path, "r") as file:
         config = yaml.safe_load(file)
 
     return config
@@ -49,7 +50,7 @@ def generate_char_frame_sequence(
         max_time = int(max(entry["end"] for entry in char_data))
     except ValueError:
         return None
-        
+
     # Initialize the output list with the <NULL> token
     time_char_sequence = [null_token for _ in range(min_time, max_time)]
 

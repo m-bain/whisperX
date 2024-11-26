@@ -31,7 +31,13 @@ class VPCDataset(Dataset):
         AssertionError: If the specified split is not valid.
     """
 
-    def __init__(self, root_path: str, tokenizer: CharLevelTokenizer, system: str = "all", split: str = "train-clean-360"):
+    def __init__(
+        self,
+        root_path: str,
+        tokenizer: CharLevelTokenizer,
+        system: str = "all",
+        split: str = "train-clean-360",
+    ):
         self.root_path = root_path
         self.system = system
         self.split = split
@@ -64,7 +70,9 @@ class VPCDataset(Dataset):
         Returns:
             Tuple[List[str], List[int]]: File paths and corresponding speaker labels.
         """
-        sys_data_dir = os.path.join(self.root_path, system, "data", f"{self.split}_{system}")
+        sys_data_dir = os.path.join(
+            self.root_path, system, "data", f"{self.split}_{system}"
+        )
         utt_to_speak_path = os.path.join(sys_data_dir, "utt2spk")
         feats_dir = os.path.join(sys_data_dir, "char_feats")
 
@@ -89,7 +97,9 @@ class VPCDataset(Dataset):
         Renumber speakers to ensure IDs are sequential and compute the total number of unique speakers.
         """
         unique_speakers = sorted(list(set(self.speakers)))
-        speaker_id_map = {old_id: i for i, old_id in enumerate(unique_speakers)}  # Map old IDs to new ones
+        speaker_id_map = {
+            old_id: i for i, old_id in enumerate(unique_speakers)
+        }  # Map old IDs to new ones
 
         # Update speaker IDs to be sequential
         self.speakers = [speaker_id_map[speaker] for speaker in self.speakers]
@@ -133,12 +143,15 @@ class VPCDataset(Dataset):
 
         return tokens, speaker
 
-def collate_fn(batch: List[Tuple[torch.Tensor, int]]) -> Tuple[torch.Tensor, torch.Tensor]:
+
+def collate_fn(
+    batch: List[Tuple[torch.Tensor, int]]
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Collate function to pad sequences to the same length for batching.
 
     Args:
-        batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of 
+        batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of
                                                 (sequence tensor, speaker ID).
 
     Returns:
@@ -157,7 +170,7 @@ def collate_fn(batch: List[Tuple[torch.Tensor, int]]) -> Tuple[torch.Tensor, tor
 
     # Copy each sequence into the padded tensor
     for i, seq in enumerate(sequences):
-        padded_sequences[i, :seq.size(0)] = seq  # Copy the sequence up to its length
+        padded_sequences[i, : seq.size(0)] = seq  # Copy the sequence up to its length
 
     # Convert speaker IDs to a tensor
     speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
@@ -193,7 +206,9 @@ def get_dataloaders(
     Returns:
         Union[DataLoader, Dict[str, DataLoader]]: A dict with "train" and (possibly) "val" DataLoaders.
     """
-    full_dataset = VPCDataset(root_path=root_path, tokenizer=tokenizer, system=system, split=split)
+    full_dataset = VPCDataset(
+        root_path=root_path, tokenizer=tokenizer, system=system, split=split
+    )
     total_speakers = full_dataset.total_speakers()
 
     if train_frac < 1.0:  # Create a validation split
@@ -203,15 +218,36 @@ def get_dataloaders(
         train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
         # Build dataloaders
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
-        val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle,collate_fn=collate_fn, **dataloader_kwargs)
-        
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            collate_fn=collate_fn,
+            **dataloader_kwargs,
+        )
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            collate_fn=collate_fn,
+            **dataloader_kwargs,
+        )
+
         # Store number of speakers for easy access
         train_dataloader.total_speakers = total_speakers
         val_dataloader.total_speakers = total_speakers
 
         return {"train": train_dataloader, "val": val_dataloader}
     else:  # Train on the full dataset
-        train_dataloader = DataLoader(full_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
+        train_dataloader = DataLoader(
+            full_dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            collate_fn=collate_fn,
+            **dataloader_kwargs,
+        )
         train_dataloader.total_speakers = total_speakers
         return {"train": train_dataloader}
