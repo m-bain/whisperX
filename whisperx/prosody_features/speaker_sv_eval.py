@@ -32,7 +32,9 @@ def extract_enrollment_embeddings(
         enumerate(embedding_dataloader), desc="extracting enrollment embeddings"
     ):  # For each sample
 
+        audio = audio.to(device)
         z = model.get_features(audio)
+        z = z.cpu()
 
         spk_dir = os.path.join(embedding_dir, f"speaker_{spk}")
         if not os.path.exists(spk_dir):  # Make directory if needed
