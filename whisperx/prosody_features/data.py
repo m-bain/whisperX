@@ -194,7 +194,7 @@ def get_dataloaders(
         Union[DataLoader, Dict[str, DataLoader]]: A dict with "train" and (possibly) "val" DataLoaders.
     """
     full_dataset = VPCDataset(root_path=root_path, tokenizer=tokenizer, system=system, split=split)
-    total_speakers = full_dataset.total_speakers
+    total_speakers = full_dataset.total_speakers()
 
     if train_frac < 1.0:  # Create a validation split
         train_size = int(train_frac * len(full_dataset))
