@@ -6,6 +6,9 @@ import gc
 import json
 import tqdm
 import argparse
+from whisperx.transcribe import load_model
+from whisperx.alignment import load_align_model, align_for_prosody_features
+from whisperx.audio import load_audio
 
 MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
 
@@ -20,9 +23,9 @@ def get_aligned_chars(
 
     batch_size = 16  # reduce if low on GPU mem
 
-    audio = whisperx.load_audio(audio_file)
+    audio = load_audio(audio_file)
     result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
-    result = whisperx.align_for_prosody_features(
+    result = align_for_prosody_features(
         result["segments"],
         alignment_model,
         alignmet_model_metadata,
@@ -69,8 +72,8 @@ if __name__ == "__main__":
     compute_type = args.compute_type
 
     # Pre-load models
-    whisper_model = whisperx.load_model("large-v2", device, compute_type=compute_type)
-    alignment_model, alignmet_model_metadata = whisperx.load_align_model(
+    whisper_model = load_model("large-v2", device, compute_type=compute_type)
+    alignment_model, alignmet_model_metadata = load_align_model(
         language_code="en", device=device
     )
 
