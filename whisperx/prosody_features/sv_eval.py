@@ -43,3 +43,4 @@ def extract_enrollment_embeddings(
         # Save
         save_path = os.path.join(spk_dir, f"sample_{i}.pt")
         torch.save(z, save_path)
+
