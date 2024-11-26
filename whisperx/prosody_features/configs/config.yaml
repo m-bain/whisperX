@@ -15,13 +15,12 @@ dataset:
 
 # Dataloader options:
 dataloader:
-  batch_size: 16
-  num_workers: 0
+  batch_size: 64
+  num_workers: 8
   train_frac: 0.8
 
 # Model options:
 lightning:
-  num_speakers: 20
   hparams: 
     num_tokens: 28
     embedding_dim: 128
@@ -37,7 +36,7 @@ trainer:
   val_check_interval: 1.0 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
-  accelerator: "cpu"
+  accelerator: "gpu"
   devices: "auto"
   deterministic: False
   accumulate_grad_batches: 1
@@ -45,7 +44,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts_vpc/logs"
-  name: "debug"
+  name: "debug_gpu"
   version: null     # Automatic versioning if set to null (recommended)
 
 
