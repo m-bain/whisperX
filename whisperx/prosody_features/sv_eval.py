@@ -82,42 +82,7 @@ def fit_and_score_plda(
     test_labels: torch.Tensor,
 ):
 
-    en_sgs = ["en" + str(i) for i in enroll_labels]
-    en_sets = np.array(en_sgs, dtype="|O")
-    en_s = np.array([None] * en_N)
-    en_stat0 = np.array([[1.0]] * en_N)
-    en_stat = StatObject_SB(
-        modelset=en_sets,
-        segset=en_sets,
-        start=en_s,
-        stop=en_s,
-        stat0=en_stat0,
-        stat1=en_xv,
-    )
-
-    # Test data (30 utterances)
-    te_N = 30
-    te_xv = np.random.rand(te_N, dim)
-    te_sgs = ["te" + str(i) for i in range(te_N)]
-    te_sets = np.array(te_sgs, dtype="|O")
-    te_s = np.array([None] * te_N)
-    te_stat0 = np.array([[1.0]] * te_N)
-    te_stat = StatObject_SB(
-        modelset=te_sets,
-        segset=te_sets,
-        start=te_s,
-        stop=te_s,
-        stat0=te_stat0,
-        stat1=te_xv,
-    )
-
-    # Create Ndx object for scoring
-    ndx = Ndx(models=en_sets, testsegs=te_sets)
-
-    # Perform PLDA scoring
-    scores_plda = fast_PLDA_scoring(
-        en_stat, te_stat, ndx, plda.mean, plda.F, plda.Sigma
-    )
+    pass
 
 
 def run_speaker_verification_eval(
