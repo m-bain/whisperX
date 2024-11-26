@@ -86,7 +86,7 @@ class ProsodyFeatureModel(nn.Module):
         # Transformer encoder
         self.encoder = nn.TransformerEncoder(
             encoder_layer=nn.TransformerEncoderLayer(
-                d_model=embedding_dim, nhead=8, dropout=dropout
+                d_model=embedding_dim, nhead=8, dropout=dropout, batch_first=True
             ),
             num_layers=num_layers,
         )
