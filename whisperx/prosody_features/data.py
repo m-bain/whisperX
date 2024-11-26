@@ -191,9 +191,10 @@ def get_dataloaders(
         **dataloader_kwargs: Additional arguments for DataLoader.
 
     Returns:
-        Union[DataLoader, Dict[str, DataLoader]]: DataLoader for training or a dict with "train" and "val" DataLoaders.
+        Union[DataLoader, Dict[str, DataLoader]]: A dict with "train" and (possibly) "val" DataLoaders.
     """
     full_dataset = VPCDataset(root_path=root_path, tokenizer=tokenizer, system=system, split=split)
+    total_speakers = full_dataset.total_speakers
 
     if train_frac < 1.0:  # Create a validation split
         train_size = int(train_frac * len(full_dataset))
@@ -201,9 +202,16 @@ def get_dataloaders(
 
         train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
+        # Build dataloaders
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
         val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle,collate_fn=collate_fn, **dataloader_kwargs)
+        
+        # Store number of speakers for easy access
+        train_dataloader.total_speakers = total_speakers
+        val_dataloader.total_speakers = total_speakers
 
         return {"train": train_dataloader, "val": val_dataloader}
     else:  # Train on the full dataset
-        return DataLoader(full_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
+        train_dataloader = DataLoader(full_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle, collate_fn=collate_fn, **dataloader_kwargs)
+        train_dataloader.total_speakers = total_speakers
+        return {"train": train_dataloader}

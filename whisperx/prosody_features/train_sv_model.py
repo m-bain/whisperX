@@ -25,7 +25,8 @@ if __name__ == "__main__":
     tokenizer = CharLevelTokenizer()
     assert tokenizer.vocab_size() == 28 # Sanity check
     dataloaders = get_dataloaders(tokenizer=tokenizer, **config['dataset'], **config['dataloader'])
-    num_speakers = dataloaders["train"].dataset.total_speakers # Needed to build model
+    
+    num_speakers = dataloaders["train"].total_speakers
     
     # Create Lightning module
     pl_model = ProsodySpeakerVerificationModel(num_speakers=num_speakers, **config["lightning"])
@@ -39,6 +40,6 @@ if __name__ == "__main__":
     trainer.fit(
         pl_model,
         train_dataloaders=dataloaders["train"],
-        val_dataloaders=dataloaders["val"],
+        val_dataloaders=dataloaders.get("val", None),
         ckpt_path=config["ckpt_path"],
     )

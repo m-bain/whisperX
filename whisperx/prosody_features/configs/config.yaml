@@ -43,7 +43,7 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts_vpc/logs"
+  save_dir: "/home1/nmehlman/arts_vpc/logs/tensorboard"
   name: "debug_gpu"
   version: null     # Automatic versioning if set to null (recommended)
 
