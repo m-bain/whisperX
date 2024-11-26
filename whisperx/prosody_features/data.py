@@ -230,7 +230,7 @@ def get_dataloaders(
             val_dataset,
             batch_size=batch_size,
             num_workers=num_workers,
-            shuffle=shuffle,
+            shuffle=False,
             collate_fn=collate_fn,
             **dataloader_kwargs,
         )
