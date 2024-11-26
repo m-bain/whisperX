@@ -11,6 +11,18 @@ def extract_enrollment_embeddings(
     embedding_dir: str,
     device: str = "cpu",
 ):
+    """
+    Extracts speaker embeddings from audio data and saves them to a directory.
+
+    Args:
+        ckpt_path (str): Path to the model checkpoint file.
+        embedding_dataloader (DataLoader): DataLoader providing audio data and speaker IDs.
+        embedding_dir (str): Directory where the extracted embeddings will be saved.
+        device (str): Device to run the model on ('cpu' or 'cuda').
+
+    Returns:
+        None
+    """
 
     model = ProsodySpeakerVerificationModel.load_from_checkpoint(
         ckpt_path, map_location=device
