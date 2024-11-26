@@ -134,7 +134,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
 
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
-        self.metrics = torch.ModuleDict(
+        self.metrics = torch.nn.ModuleDict(
             {"accuracy": Accuracy(task="multiclass", num_classes=num_speakers)}
         )
 
