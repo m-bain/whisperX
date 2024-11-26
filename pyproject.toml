@@ -7,7 +7,7 @@ name = "whisperx"
 version = "3.1.1"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Max Bain"}
 ]

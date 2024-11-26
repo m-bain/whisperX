@@ -40,7 +40,20 @@ This repository provides fast automatic speech recognition (70x realtime with la
 - 👯‍♂️ Multispeaker ASR using speaker diarization from [pyannote-audio](https://github.com/pyannote/pyannote-audio) (speaker ID labels) 
 - 🗣️ VAD preprocessing, reduces hallucination & batching with no WER degradation
 
-
+> #### WhisperX improvements
+>
+> This repository contains some improvements to WhisperX, necessary for my research. Ideally, these would be merged into the original repository. That repository seems unmaintained, and doesn't accept pull requests. You can track the [open pull request here](https://github.com/m-bain/whisperX/pull/900). 
+>
+>  - Silero VAD added from #888 
+>  - Diarization improvements from #590 
+>  - Unique speakers added to result (inspiration from #126)
+>  - **Option to detect language per segment, very useful for longer audio with frequent language switches.**
+>  - Changed `setup.py` to `pyproject.toml`
+>  - Added VAD min duration on and off parameters to PyAnnote. The current implementation splits even on sub>  -second pauses which is rather ineffective sometimes. 
+>  - Pyannote.audio bumped to 3.3.2
+>
+> **Multi-language audio handling**  
+> Greatly improves by adding the argument for language detection every 30 second chunk. Run it like this: `whisperx audio.mp3 --detect_language_per_segment`
 
 **Whisper** is an ASR model [developed by OpenAI](https://github.com/openai/whisper), trained on a large dataset of diverse audio. Whilst it does produces highly accurate transcriptions, the corresponding timestamps are at the utterance-level, not per word, and can be inaccurate by several seconds. OpenAI's whisper does not natively support batching.
 
@@ -82,15 +95,15 @@ See other methods [here.](https://pytorch.org/get-started/previous-versions/#v20
 
 ### 3. Install this repo
 
-`pip install git+https://github.com/m-bain/whisperx.git`
+`pip install git+https://github.com/cvl01/whisperx.git`
 
 If already installed, update package to most recent commit
 
-`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
+`pip install git+https://github.com/cvl01/whisperx.git --upgrade`
 
 If wishing to modify this package, clone and install in editable mode:
 ```
-$ git clone https://github.com/m-bain/whisperX.git
+$ git clone https://github.com/cvl01/whisperX.git
 $ cd whisperX
 $ pip install -e .
 ```
