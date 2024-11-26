@@ -152,15 +152,29 @@ class ProsodySpeakerVerificationModel(LightningModule):
         """
         opt = Adam(self.parameters(), **self.optimizer_params)
         return opt
+    
+    def get_features(self, x: Tensor) -> Tensor:
+        """Extracts hidden embeddings/features for sample x
+        
+        Args:
+            x (Tensor): input
 
-    def forward(self, x: Tensor) -> Any:
+        Returns:
+            z (Tensor): embeddings
+        """
+        with torch.no_grad():
+            z = self.feature_model(x)
+        
+        return z
+
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass function
 
         Args:
             x (Tensor): input
 
         Returns:
-            y (Any): model output
+            y (Tensor): model output
         """
 
         z = self.feature_model(x)
