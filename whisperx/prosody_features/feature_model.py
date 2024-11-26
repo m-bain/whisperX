@@ -134,9 +134,9 @@ class ProsodySpeakerVerificationModel(LightningModule):
 
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
-        self.metrics = {
-            "accuracy": Accuracy(task="multiclass", num_classes=num_speakers)
-        }
+        self.metrics = torch.ModuleDict(
+            {"accuracy": Accuracy(task="multiclass", num_classes=num_speakers)}
+        )
 
         # Define feature model and
         self.feature_model = ProsodyFeatureModel(**hparams)
@@ -153,14 +153,28 @@ class ProsodySpeakerVerificationModel(LightningModule):
         opt = Adam(self.parameters(), **self.optimizer_params)
         return opt
 
-    def forward(self, x: Tensor) -> Any:
+    def get_features(self, x: Tensor) -> Tensor:
+        """Extracts hidden embeddings/features for sample x
+
+        Args:
+            x (Tensor): input
+
+        Returns:
+            z (Tensor): embeddings
+        """
+        with torch.no_grad():
+            z = self.feature_model(x)
+
+        return z
+
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass function
 
         Args:
             x (Tensor): input
 
         Returns:
-            y (Any): model output
+            y (Tensor): model output
         """
 
         z = self.feature_model(x)
@@ -189,6 +203,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
 
         # Compute and log metrics
         for metric_name, metric_fcn in self.metrics.items():
+            metric_fcn = metric_fcn
             metric_val = metric_fcn(y_pred, y_true)
             self.log("train_%s" % metric_name, metric_val, sync_dist=True)
 

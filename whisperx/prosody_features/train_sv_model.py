@@ -23,13 +23,17 @@ if __name__ == "__main__":
 
     # Setup dataloaders
     tokenizer = CharLevelTokenizer()
-    assert tokenizer.vocab_size() == 28 # Sanity check
-    dataloaders = get_dataloaders(tokenizer=tokenizer, **config['dataset'], **config['dataloader'])
-    
+    assert tokenizer.vocab_size() == 28  # Sanity check
+    dataloaders = get_dataloaders(
+        tokenizer=tokenizer, **config["dataset"], **config["dataloader"]
+    )
+
     num_speakers = dataloaders["train"].total_speakers
-    
+
     # Create Lightning module
-    pl_model = ProsodySpeakerVerificationModel(num_speakers=num_speakers, **config["lightning"])
+    pl_model = ProsodySpeakerVerificationModel(
+        num_speakers=num_speakers, **config["lightning"]
+    )
 
     # Create logger (logs are saved to /save_dir/name/version/):
     logger = TensorBoardLogger(**config["tensorboard"])
