@@ -1,10 +1,11 @@
 from whisperx.prosody_features.feature_model import ProsodySpeakerVerificationModel
+from whisperx.prosody_features.utils import average_2d_by_labels
 from torch.utils.data import DataLoader
 import os
 import torch
 import tqdm
 from typing import Tuple
-from speechbrain.processing.PLDA_LDA import *
+import numpy as np
 
 
 def extract_enrollment_embeddings(
@@ -74,15 +75,23 @@ def maybe_load_or_generate_embeds(
 
     return embeds, labels
 
+def cosine_speaker_verification_eval(
+        enroll_embeds: torch.Tensor,
+        enroll_labels: torch.Tensor,
+        test_embeds: torch.Tensor,
+        test_labels: torch.Tensor
+    ):
 
-def fit_and_score_plda(
-    enroll_embeds: torch.Tensor,
-    enroll_labels: torch.Tensor,
-    test_embeds: torch.Tensor,
-    test_labels: torch.Tensor,
-):
+    # Average embeddings for each speaker
+    mean_enroll_embeds = average_2d_by_labels(enroll_embeds, enroll_labels, axis=0)
 
-    pass
+    # Compute similarity matrix of shape (N_test, N_spk)
+    mean_enroll_embeds /= np.linalg.norm(mean_enroll_embeds, axis=1, keepdims=True) # Normalize
+    test_embeds /=  np.linalg.norm(test_embeds, axis=1, keepdims=True)
+
+    sim_mtx = test_embeds @ mean_enroll_embeds.T
+
+    
 
 
 def run_speaker_verification_eval(
@@ -119,10 +128,5 @@ def run_speaker_verification_eval(
         device=device,
     )
 
-    plda = PLDA()
-
-    # Train the PLDA model
-    plda.train_plda(embeddings, speaker_ids)
-
     # Perform scoring with PLDA
-    scores = plda.score_plda(enrollment_embeddings, test_embeddings)
+    pass
