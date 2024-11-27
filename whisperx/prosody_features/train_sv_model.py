@@ -6,12 +6,13 @@ from pytorch_lightning import Trainer
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 import os
+import sys
 from whisperx.prosody_features.utils import load_yaml_config
 
 
 torch.set_warn_always(False)
 
-CONFIG_PATH = "configs/config.yaml"
+CONFIG_PATH = sys.arv[1]
 
 if __name__ == "__main__":
 
