@@ -4,7 +4,8 @@ import torch.nn as nn
 from torch import Tensor
 from pytorch_lightning import LightningModule
 from torch.optim import Optimizer, Adam
-from typing import Any
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from typing import Any, Dict
 from torchmetrics import Accuracy
 
 
@@ -124,6 +125,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
         num_speakers: int,
         hparams: dict = {},
         optimizer_params: dict = {},
+        scheduler_params: dict = {}
     ) -> None:
 
         super().__init__()
@@ -131,6 +133,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
         # Save hyperparameters
         self.save_hyperparameters(hparams)
         self.optimizer_params = optimizer_params
+        self.scheduler_params = scheduler_params
 
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
@@ -144,14 +147,22 @@ class ProsodySpeakerVerificationModel(LightningModule):
             in_features=hparams["embedding_dim"], out_features=num_speakers
         )
 
-    def configure_optimizers(self) -> Optimizer:
+    def configure_optimizers(self) -> Dict:
         """Configures optimizer
 
         Returns:
-            optimizer (Optimizer): configured optimizer
+            optimizer_dict (Dict): configured optimizer and lr scheduler
         """
-        opt = Adam(self.parameters(), **self.optimizer_params)
-        return opt
+        optimizer = Adam(self.parameters(), **self.optimizer_params)
+        scheduler = CosineAnnealingLR(optimizer=optimizer, **self.scheduler_params)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",  # 'step' or 'epoch'
+                "frequency": 1,       # Frequency of applying the scheduler
+            },
+        }
 
     def get_features(self, x: Tensor) -> Tensor:
         """Extracts hidden embeddings/features for sample x

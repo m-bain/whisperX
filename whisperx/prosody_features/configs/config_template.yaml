@@ -24,10 +24,13 @@ lightning:
   hparams: 
     num_tokens: 28
     embedding_dim: 128
-    num_layers: 2
+    num_layers: 1
     dropout: 0.0
   optimizer_params:
     lr: 0.001
+  scheduler_params:
+    T_max: 100
+    eta_min: 0.00001
 
 
 # Training options:
