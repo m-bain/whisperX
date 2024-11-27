@@ -12,7 +12,7 @@ from whisperx.prosody_features.utils import load_yaml_config
 
 torch.set_warn_always(False)
 
-CONFIG_PATH = sys.arv[1]
+CONFIG_PATH = sys.argv[1]
 
 if __name__ == "__main__":
 
