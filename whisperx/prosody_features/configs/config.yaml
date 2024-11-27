@@ -1,11 +1,11 @@
 
 
-# Template PyTorch Lightning Config
+# Basic training
 
 ---
 random_seed: 42
 ckpt_path: null
-gpus: "0"
+gpus: "0,1"
 
 # Dataset options:
 dataset:
