@@ -107,7 +107,7 @@ def maybe_load_or_generate_embeds(
 
     return embeds, labels
 
-def cosine_speaker_verification_eval(
+def cosine_speaker_verification(
     enroll_embeds: torch.Tensor,
     enroll_labels: torch.Tensor,
     test_embeds: torch.Tensor,
@@ -148,8 +148,7 @@ def run_speaker_verification_eval(
     device: str = "cpu",
     enroll_embed_dir: Union[str, None] = None,
     test_embed_dir: Union[str, None] = None,
-    save_embeds: bool = False,
-    **plda_kwargs,
+    save_embeds: bool = False
 ) -> float:
     """
     Runs the full speaker verification evaluation.
@@ -178,7 +177,28 @@ def run_speaker_verification_eval(
         model, test_dataloader, test_embed_dir, save_embeds, device
     )
 
-    eer = cosine_speaker_verification_eval(
+    eer = cosine_speaker_verification(
         enroll_embeds, enroll_labels, test_embeds, test_labels
     )
     return eer
+
+if __name__ == "__main__":
+
+    from whisperx.prosody_features.data import get_dataloaders
+    from whisperx.prosody_features.utils import load_yaml_config
+    import sys
+    
+    config_path = sys.argv[1]
+
+    config = load_yaml_config(config_path)
+
+    enroll_dataloader = get_dataloaders(**config_path['enroll_dataset'], **config['dataloader'])
+    test_dataloader = get_dataloaders(**config_path['test_dataset'], **config['dataloader'])
+
+    eer = run_speaker_verification_eval(
+        enroll_dataloader=enroll_dataloader,
+        test_dataloader=test_dataloader,
+        **config['eval']
+    )
+
+    print(f"EER: {eer:.4f}")
