@@ -143,6 +143,7 @@ def cosine_speaker_verification(
 
 def run_speaker_verification_eval(
     ckpt_path: str,
+    num_speakers: int, 
     enroll_dataloader: Union[DataLoader, None] = None,
     test_dataloader: Union[DataLoader, None] = None,
     device: str = "cpu",
@@ -155,6 +156,7 @@ def run_speaker_verification_eval(
 
     Args:
         ckpt_path (str): Path to the model checkpoint.
+        num_speakers (int): Number of speakers
         enroll_dataloader (Union[DataLoader, None]): Dataloader for enrollment data.
         test_dataloader (Union[DataLoader, None]): Dataloader for test data.
         device (str): Device to run the model on ('cpu' or 'cuda').
@@ -168,7 +170,7 @@ def run_speaker_verification_eval(
     """
     print('Loading Model')
     model = ProsodySpeakerVerificationModel.load_from_checkpoint(
-        ckpt_path, map_location=device
+        ckpt_path, map_location=device, num_speakers=num_speakers
     )
 
     print('Loading or generating embeddings')
