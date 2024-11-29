@@ -1,6 +1,6 @@
 import string
 import yaml
-
+import numpy as np
 
 def load_yaml_config(file_path: str) -> dict:
     """Loads config from yaml file
@@ -63,3 +63,28 @@ def generate_char_frame_sequence(
             time_char_sequence[t] = char if char.strip() else null_token
 
     return time_char_sequence
+
+import torch
+
+def average_2d_by_labels(data: torch.Tensor, labels: torch.Tensor, axis: int = 0) -> torch.Tensor:
+    """
+    Compute the average of 2D data grouped by unique labels along a specified axis.
+
+    Args:
+        data (torch.Tensor): 2D tensor of data values to be averaged.
+        labels (torch.Tensor): Tensor of labels for grouping (length matches the size of `data` along the specified axis).
+        axis (int): Axis along which to group and average (0 for rows, 1 for columns).
+
+    Returns:
+        grouped_means (torch.Tensor): 2D tensor with grouped averages along the specified axis.
+    """
+    if axis == 1:
+        data = data.T  # Transpose if grouping by columns
+    
+    unique_labels, inverse_indices = torch.unique(labels, return_inverse=True)
+    
+    grouped_means = torch.stack([
+        data[inverse_indices == i].mean(dim=0) for i in range(len(unique_labels))
+    ])
+    
+    return grouped_means.T if axis == 1 else grouped_means
