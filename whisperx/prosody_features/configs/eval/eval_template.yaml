@@ -4,7 +4,7 @@
 
 ---
 eval:
-  ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/first_train/version_3/checkpoints/epoch=499-step=3500.ckpt"
+  ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/first_train/version_4/checkpoints/epoch=80-step=567.ckpt"
   num_speakers: 20
   device: "cpu"
   enroll_embed_dir: "/project/shrikann_35/nmehlman/vpc/T10-2/data/libri_dev_enrolls_T10-2/embeds"
