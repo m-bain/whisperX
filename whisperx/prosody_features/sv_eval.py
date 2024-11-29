@@ -90,8 +90,8 @@ def maybe_load_or_generate_embeds(
     if embed_dir:
         print(f"Attempting to load saved embeddings from {embed_dir}")
         try:
-            embeds = torch.load(os.path.join(embed_dir, "embeds.pt"))
-            labels = torch.load(os.path.join(embed_dir, "labels.pt"))
+            embeds = torch.load(os.path.join(embed_dir, "embeds.pt"), weights_only=False)
+            labels = torch.load(os.path.join(embed_dir, "labels.pt"), weights_only=False)
         except FileNotFoundError:
             print(f"Saved embeddings NOT found in {embed_dir}")
             should_generate_embeds = True
