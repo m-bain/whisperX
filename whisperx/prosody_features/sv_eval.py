@@ -199,8 +199,8 @@ if __name__ == "__main__":
     config = load_yaml_config(config_path)
 
     tokenizer = CharLevelTokenizer()
-    enroll_dataloader = get_dataloaders(tokenizer=tokenizer, **config['enroll_dataset'], **config['dataloader'])
-    test_dataloader = get_dataloaders(tokenizer=tokenizer, **config['test_dataset'], **config['dataloader'])
+    enroll_dataloader = get_dataloaders(tokenizer=tokenizer, **config['enroll_dataset'], **config['dataloader'])["train"]
+    test_dataloader = get_dataloaders(tokenizer=tokenizer, **config['test_dataset'], **config['dataloader'])["train"]
 
     eer = run_speaker_verification_eval(
         enroll_dataloader=enroll_dataloader,
