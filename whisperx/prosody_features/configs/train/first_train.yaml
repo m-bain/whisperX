@@ -23,19 +23,20 @@ dataloader:
 lightning:
   hparams: 
     num_tokens: 28
-    embedding_dim: 128
+    embedding_dim: 32
     num_layers: 1
-    dropout: 0.0
+    dropout: 0.25
   optimizer_params:
     lr: 0.001
+    weight_decay: 0.0001
   scheduler_params:
-    T_max: 100
-    eta_min: 0.00001
+    T_max: 500
+    eta_min: 0.000001
 
 
 # Training options:
 trainer:
-  max_epochs: 100
+  max_epochs: 500
   val_check_interval: 1.0 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
