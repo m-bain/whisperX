@@ -189,14 +189,16 @@ if __name__ == "__main__":
 
     from whisperx.prosody_features.data import get_dataloaders
     from whisperx.prosody_features.utils import load_yaml_config
+    from whisperx.prosody_features.tokenizer import CharLevelTokenizer
     import sys
     
     config_path = sys.argv[1]
 
     config = load_yaml_config(config_path)
 
-    enroll_dataloader = get_dataloaders(**config['enroll_dataset'], **config['dataloader'])
-    test_dataloader = get_dataloaders(**config['test_dataset'], **config['dataloader'])
+    tokenizer = CharLevelTokenizer()
+    enroll_dataloader = get_dataloaders(tokenizer=tokenizer, **config['enroll_dataset'], **config['dataloader'])
+    test_dataloader = get_dataloaders(tokenizer=tokenizer, **config['test_dataset'], **config['dataloader'])
 
     eer = run_speaker_verification_eval(
         enroll_dataloader=enroll_dataloader,
