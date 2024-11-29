@@ -166,10 +166,12 @@ def run_speaker_verification_eval(
     Returns:
         float: Equal Error Rate (EER).
     """
+    print('Loading Model')
     model = ProsodySpeakerVerificationModel.load_from_checkpoint(
         ckpt_path, map_location=device
     )
 
+    print('Loading or generating embeddings')
     enroll_embeds, enroll_labels = maybe_load_or_generate_embeds(
         model, enroll_dataloader, enroll_embed_dir, save_embeds, device
     )
@@ -177,6 +179,7 @@ def run_speaker_verification_eval(
         model, test_dataloader, test_embed_dir, save_embeds, device
     )
 
+    print('Running EER computation')
     eer = cosine_speaker_verification(
         enroll_embeds, enroll_labels, test_embeds, test_labels
     )
@@ -192,8 +195,8 @@ if __name__ == "__main__":
 
     config = load_yaml_config(config_path)
 
-    enroll_dataloader = get_dataloaders(**config_path['enroll_dataset'], **config['dataloader'])
-    test_dataloader = get_dataloaders(**config_path['test_dataset'], **config['dataloader'])
+    enroll_dataloader = get_dataloaders(**config['enroll_dataset'], **config['dataloader'])
+    test_dataloader = get_dataloaders(**config['test_dataset'], **config['dataloader'])
 
     eer = run_speaker_verification_eval(
         enroll_dataloader=enroll_dataloader,
