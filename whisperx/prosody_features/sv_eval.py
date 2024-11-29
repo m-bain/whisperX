@@ -36,7 +36,7 @@ def EER(positive_scores: torch.Tensor, negative_scores: torch.Tensor) -> Tuple[f
     EER = (final_FAR + final_FRR) / 2
     return float(EER), float(thresholds[min_index])
 
-def extract_enrollment_embeddings(
+def extract_embeddings(
     model: ProsodySpeakerVerificationModel,
     dataloader: DataLoader,
     device: str = "cpu",
@@ -54,7 +54,7 @@ def extract_enrollment_embeddings(
     """
     embeds, labels = [], []
 
-    for audio, spk in tqdm.tqdm(dataloader, desc="Extracting enrollment embeddings"):
+    for audio, spk in tqdm.tqdm(dataloader, desc="Extracting embeddings"):
         audio = audio.to(device)
         z = model.get_features(audio).cpu()
 
@@ -98,7 +98,7 @@ def maybe_load_or_generate_embeds(
 
     if should_generate_embeds:
         assert dataloader is not None, "Dataloader must be provided to generate embeddings."
-        embeds, labels = extract_enrollment_embeddings(model, dataloader, device)
+        embeds, labels = extract_embeddings(model, dataloader, device)
 
     if should_save:
         assert embed_dir is not None, "Embed directory must be specified to save embeddings."
