@@ -131,7 +131,8 @@ class ProsodySpeakerVerificationModel(LightningModule):
         super().__init__()
 
         # Save hyperparameters
-        self.save_hyperparameters(hparams)
+        self.save_hyperparameters()
+
         self.optimizer_params = optimizer_params
         self.scheduler_params = scheduler_params
 
