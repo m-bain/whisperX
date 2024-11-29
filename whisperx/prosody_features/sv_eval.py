@@ -4,15 +4,43 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import tqdm
-from typing import Tuple
-import numpy as np
+from typing import Tuple, Union
 
+def EER(positive_scores: torch.Tensor, negative_scores: torch.Tensor) -> Tuple[float, float]:
+    """
+    Computes the Equal Error Rate (EER) and the corresponding threshold.
+
+    Args:
+        positive_scores (torch.Tensor): Scores for positive samples.
+        negative_scores (torch.Tensor): Scores for negative samples.
+
+    Returns:
+        Tuple[float, float]: The EER and the threshold.
+    """
+    thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
+    thresholds = torch.unique(thresholds)
+
+    # Adding intermediate thresholds
+    intermediate_thresholds = (thresholds[:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
+
+    min_index, final_FRR, final_FAR = 0, 0, 0
+
+    for i, cur_thresh in enumerate(thresholds):
+        FRR = (positive_scores <= cur_thresh).sum().float() / positive_scores.shape[0]
+        FAR = (negative_scores > cur_thresh).sum().float() / negative_scores.shape[0]
+
+        if abs(FAR - FRR) < abs(final_FAR - final_FRR) or i == 0:
+            min_index, final_FRR, final_FAR = i, FRR.item(), FAR.item()
+
+    EER = (final_FAR + final_FRR) / 2
+    return float(EER), float(thresholds[min_index])
 
 def extract_enrollment_embeddings(
     model: ProsodySpeakerVerificationModel,
     dataloader: DataLoader,
     device: str = "cpu",
-):
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Extracts speaker embeddings from audio data.
 
@@ -22,111 +50,135 @@ def extract_enrollment_embeddings(
         device (str): Device to run the model on ('cpu' or 'cuda').
 
     Returns:
-        None
+        Tuple[torch.Tensor, torch.Tensor]: Speaker embeddings and labels.
     """
-
     embeds, labels = [], []
 
-    for i, (audio, spk) in tqdm.tqmd(
-        enumerate(dataloader), desc="extracting enrollment embeddings"
-    ):  # For each sample
-
+    for audio, spk in tqdm.tqdm(dataloader, desc="Extracting enrollment embeddings"):
         audio = audio.to(device)
         z = model.get_features(audio).cpu()
 
         embeds.append(z)
         labels.append(spk)
 
-    embeds = torch.concat(embeds, 0)
-    labels = torch.concat(labels, 0)
-
+    embeds = torch.cat(embeds, 0)
+    labels = torch.cat(labels, 0)
     return embeds, labels
-
 
 def maybe_load_or_generate_embeds(
     model: ProsodySpeakerVerificationModel,
-    dataloader: DataLoader | None = None,
-    embed_dir: str | None = None,
+    dataloader: Union[DataLoader, None] = None,
+    embed_dir: Union[str, None] = None,
     should_save: bool = False,
     device: str = "cpu",
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Loads or generates embeddings based on availability.
 
+    Args:
+        model (ProsodySpeakerVerificationModel): Pretrained model.
+        dataloader (Union[DataLoader, None]): DataLoader for generating embeddings.
+        embed_dir (Union[str, None]): Directory containing saved embeddings.
+        should_save (bool): Whether to save generated embeddings.
+        device (str): Device to run the model on ('cpu' or 'cuda').
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Embeddings and labels.
+    """
     should_generate_embeds = embed_dir is None
 
-    if embed_dir:  # Try to load pre-saved embeddings
+    if embed_dir:
         print(f"Attempting to load saved embeddings from {embed_dir}")
         try:
             embeds = torch.load(os.path.join(embed_dir, "embeds.pt"))
             labels = torch.load(os.path.join(embed_dir, "labels.pt"))
-        except FileNotFoundError:  # Embeddings not found
+        except FileNotFoundError:
             print(f"Saved embeddings NOT found in {embed_dir}")
             should_generate_embeds = True
 
-    if should_generate_embeds:  # Get embeddings from model
-        assert dataloader is not None, "no dataloader provided"
-        embeds, labels = extract_enrollment_embeddings(
-            model=model, dataloader=dataloader, device=device
-        )
+    if should_generate_embeds:
+        assert dataloader is not None, "Dataloader must be provided to generate embeddings."
+        embeds, labels = extract_enrollment_embeddings(model, dataloader, device)
 
     if should_save:
-        assert embed_dir is not None, "embed_dir is required to save embeddings"
+        assert embed_dir is not None, "Embed directory must be specified to save embeddings."
         torch.save(embeds, os.path.join(embed_dir, "embeds.pt"))
         torch.save(labels, os.path.join(embed_dir, "labels.pt"))
 
     return embeds, labels
 
 def cosine_speaker_verification_eval(
-        enroll_embeds: torch.Tensor,
-        enroll_labels: torch.Tensor,
-        test_embeds: torch.Tensor,
-        test_labels: torch.Tensor
-    ):
+    enroll_embeds: torch.Tensor,
+    enroll_labels: torch.Tensor,
+    test_embeds: torch.Tensor,
+    test_labels: torch.Tensor,
+) -> float:
+    """
+    Evaluates speaker verification using cosine similarity.
 
-    # Average embeddings for each speaker
+    Args:
+        enroll_embeds (torch.Tensor): Enrollment embeddings.
+        enroll_labels (torch.Tensor): Enrollment labels.
+        test_embeds (torch.Tensor): Test embeddings.
+        test_labels (torch.Tensor): Test labels.
+
+    Returns:
+        float: Equal Error Rate (EER).
+    """
     mean_enroll_embeds = average_2d_by_labels(enroll_embeds, enroll_labels, axis=0)
 
-    # Compute similarity matrix of shape (N_test, N_spk)
-    mean_enroll_embeds /= np.linalg.norm(mean_enroll_embeds, axis=1, keepdims=True) # Normalize
-    test_embeds /=  np.linalg.norm(test_embeds, axis=1, keepdims=True)
+    mean_enroll_embeds /= torch.norm(mean_enroll_embeds, dim=1, keepdim=True)
+    test_embeds /= torch.norm(test_embeds, dim=1, keepdim=True)
 
     sim_mtx = test_embeds @ mean_enroll_embeds.T
 
-    
+    pos_mask = torch.zeros_like(sim_mtx)
+    pos_mask[torch.arange(len(sim_mtx)), test_labels] = 1
 
+    pos_scores = sim_mtx[pos_mask > 0]
+    neg_scores = sim_mtx[pos_mask == 0]
+
+    eer, _ = EER(pos_scores, neg_scores)
+    return eer
 
 def run_speaker_verification_eval(
     ckpt_path: str,
-    enroll_dataloader: DataLoader | None = None,
-    test_dataloader: DataLoader | None = None,
+    enroll_dataloader: Union[DataLoader, None] = None,
+    test_dataloader: Union[DataLoader, None] = None,
     device: str = "cpu",
-    enroll_embed_dir: str | None = None,
-    test_embed_dir: str | None = None,
+    enroll_embed_dir: Union[str, None] = None,
+    test_embed_dir: Union[str, None] = None,
     save_embeds: bool = False,
     **plda_kwargs,
-):
+) -> float:
+    """
+    Runs the full speaker verification evaluation.
 
-    # Load pre-trained model from checkpoint
+    Args:
+        ckpt_path (str): Path to the model checkpoint.
+        enroll_dataloader (Union[DataLoader, None]): Dataloader for enrollment data.
+        test_dataloader (Union[DataLoader, None]): Dataloader for test data.
+        device (str): Device to run the model on ('cpu' or 'cuda').
+        enroll_embed_dir (Union[str, None]): Directory for enrollment embeddings.
+        test_embed_dir (Union[str, None]): Directory for test embeddings.
+        save_embeds (bool): Whether to save embeddings.
+        **plda_kwargs: Additional arguments for PLDA evaluation.
+
+    Returns:
+        float: Equal Error Rate (EER).
+    """
     model = ProsodySpeakerVerificationModel.load_from_checkpoint(
         ckpt_path, map_location=device
     )
 
-    # Get enrollment embeddings
     enroll_embeds, enroll_labels = maybe_load_or_generate_embeds(
-        model=model,
-        dataloader=enroll_dataloader,
-        embed_dir=enroll_embed_dir,
-        should_save=save_embeds,
-        device=device,
+        model, enroll_dataloader, enroll_embed_dir, save_embeds, device
     )
-
-    # Get test embeddings
     test_embeds, test_labels = maybe_load_or_generate_embeds(
-        model=model,
-        dataloader=test_dataloader,
-        embed_dir=test_embed_dir,
-        should_save=save_embeds,
-        device=device,
+        model, test_dataloader, test_embed_dir, save_embeds, device
     )
 
-    # Perform scoring with PLDA
-    pass
+    eer = cosine_speaker_verification_eval(
+        enroll_embeds, enroll_labels, test_embeds, test_labels
+    )
+    return eer
