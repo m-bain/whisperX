@@ -100,13 +100,18 @@ if __name__ == "__main__":
                     continue
 
                 # Perform alignment and generate char sequence feature
-                aligned_chars = get_aligned_chars(
-                    whisper_model=whisper_model,
-                    alignment_model=alignment_model,
-                    alignmet_model_metadata=alignmet_model_metadata,
-                    audio_file=full_path,
-                    device=device,
-                )
+                try: 
+                    aligned_chars = get_aligned_chars(
+                        whisper_model=whisper_model,
+                        alignment_model=alignment_model,
+                        alignmet_model_metadata=alignmet_model_metadata,
+                        audio_file=full_path,
+                        device=device,
+                    )
+                except:
+                    print("ERROR: failed to align file")
+                    bad_files.append(full_path)
+                    continue
 
                 # Handels error cases
                 if aligned_chars is None or aligned_chars == []:
