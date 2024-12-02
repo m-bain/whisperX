@@ -1,7 +1,7 @@
 import os
 from typing import List
 import whisperx
-from whisperx.prosody_features.utils import generate_char_frame_sequence
+from whisperx.prosody_features.utils import generate_char_frame_sequence, parse_file_to_dict
 import gc
 import json
 import tqdm
@@ -26,6 +26,7 @@ def get_aligned_chars(
     audio = load_audio(audio_file)
     result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
     
+    breakpoint()
     result = align_for_prosody_features(
         result["segments"],
         alignment_model,
@@ -35,11 +36,10 @@ def get_aligned_chars(
         return_char_alignments=True,
     )
 
-    try:
-        chars = result["char_segments"]
-        return chars
-    except IndexError:
-        return None
+    chars = result["char_segments"]
+    
+    return chars
+   
 
 
 if __name__ == "__main__":
@@ -67,13 +67,23 @@ if __name__ == "__main__":
         help="Type of compute format to use. Default: 'float16'.",
     )
 
+    parser.add_argument(
+        '--use_true_transcripts', 
+        action='store_true', 
+        help='Use ground-truth transcripts rather than Whipser predictions'
+    )
+
+
     args = parser.parse_args()
     root = args.root
     device = args.device
     compute_type = args.compute_type
+    use_true_transcripts = args.use_true_transcripts
 
     # Pre-load models
-    whisper_model = load_model("large-v2", device, compute_type=compute_type)
+    if not use_true_transcripts:
+        whisper_model = load_model("large-v2", device, compute_type=compute_type)
+
     alignment_model, alignmet_model_metadata = load_align_model(
         language_code="en", device=device
     )
@@ -85,6 +95,9 @@ if __name__ == "__main__":
         if "wav" in dirpath:
 
             save_dir = dirpath.replace("wav", "char_feats")
+            text_path = dirpath.replace("wav", "text")
+
+            text_dict = parse_file_to_dict(text_path)
 
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
