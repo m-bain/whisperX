@@ -25,6 +25,7 @@ def get_aligned_chars(
 
     audio = load_audio(audio_file)
     result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
+    
     result = align_for_prosody_features(
         result["segments"],
         alignment_model,
@@ -35,6 +36,7 @@ def get_aligned_chars(
     )
 
     try:
+        print(len(result["segments"]))
         chars = result["segments"][0]["chars"]
         return chars
     except IndexError:
