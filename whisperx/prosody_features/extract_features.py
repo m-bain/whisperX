@@ -36,8 +36,7 @@ def get_aligned_chars(
     )
 
     try:
-        chars = result["segments"][0]["chars"]
-        breakpoint()
+        chars = result["char_segments"]
         return chars
     except IndexError:
         return None
