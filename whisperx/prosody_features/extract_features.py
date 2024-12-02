@@ -36,7 +36,6 @@ def get_aligned_chars(
     )
 
     try:
-        print(len(result["segments"]))
         chars = result["segments"][0]["chars"]
         return chars
     except IndexError:

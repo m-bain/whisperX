@@ -722,7 +722,11 @@ def align_for_prosody_features(
 
     # create word_segments list
     word_segments: List[SingleWordSegment] = []
+    char_segments = []
     for segment in aligned_segments:
         word_segments += segment["words"]
+        char_segments += segment["chars"]
+
+    print(char_segments)
 
     return {"segments": aligned_segments, "word_segments": word_segments}
