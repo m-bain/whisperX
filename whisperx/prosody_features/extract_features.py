@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
                 # Skip previously generated files
                 if os.path.exists(save_path):
-                    continue
+                    pass #continue
 
                 # Perform alignment and generate char sequence feature
                 try: 
@@ -109,6 +109,7 @@ if __name__ == "__main__":
                         audio_file=full_path,
                         device=device,
                     )
+                    breakpoint()
                 except:
                     print("ERROR: failed to align file")
                     bad_files.append(full_path)
