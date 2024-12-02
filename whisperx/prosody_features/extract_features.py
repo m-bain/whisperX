@@ -26,7 +26,6 @@ def get_aligned_chars(
     audio = load_audio(audio_file)
     result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
     
-    breakpoint()
     result = align_for_prosody_features(
         result["segments"],
         alignment_model,
