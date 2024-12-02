@@ -140,7 +140,7 @@ class ProsodyFeatureModel(nn.Module):
             mask = create_local_attention_mask(n=self.local_attn_mask, seq_len=seq_len)
         else:
             mask = None
-
+            
         # Encode sequences using Transformer encoder
         z = self.encoder(embeds_pe, mask=mask)  # Shape: [batch_size, seq_len, embedding_dim]
 
