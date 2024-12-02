@@ -2,6 +2,29 @@ import string
 import yaml
 import numpy as np
 
+def parse_file_to_dict(file_path):
+    """
+    Parses a file to create a dictionary mapping from ID to text.
+
+    Args:
+        file_path (str): Path to the file to parse.
+
+    Returns:
+        id_to_text (dict): Dictionary mapping IDs to corresponding text.
+    """
+    id_to_text = {}
+    
+    with open(file_path, 'r') as file:
+        for line in file:
+            # Strip leading/trailing whitespaces
+            line = line.strip()
+            if line:  # Skip empty lines
+                # Split the line into ID and text
+                id, text = line.split(' ', 1)
+                id_to_text[id] = text
+    
+    return id_to_text
+
 def load_yaml_config(file_path: str) -> dict:
     """Loads config from yaml file
     Args:
