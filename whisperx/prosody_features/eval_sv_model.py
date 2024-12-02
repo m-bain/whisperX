@@ -6,6 +6,7 @@ import torch
 import tqdm
 from typing import Tuple, Union
 
+# Coppied from https://speechbrain.readthedocs.io/en/latest/_modules/speechbrain/utils/metric_stats.html#EER
 def EER(positive_scores: torch.Tensor, negative_scores: torch.Tensor) -> Tuple[float, float]:
     """
     Computes the Equal Error Rate (EER) and the corresponding threshold.
@@ -54,7 +55,7 @@ def extract_embeddings(
     """
     embeds, labels = [], []
 
-    for audio, spk in tqdm.tqdm(dataloader, desc="Extracting embeddings"):
+    for audio, spk in tqdm.tqdm(dataloader, desc="Extracting embeddings"): # For each batch
         audio = audio.to(device)
         z = model.get_features(audio).cpu()
 
@@ -89,10 +90,10 @@ def maybe_load_or_generate_embeds(
 
     if embed_dir:
         print(f"Attempting to load saved embeddings from {embed_dir}")
-        try:
+        try: # Try to locate saved embeddings
             embeds = torch.load(os.path.join(embed_dir, "embeds.pt"), weights_only=False)
             labels = torch.load(os.path.join(embed_dir, "labels.pt"), weights_only=False)
-        except FileNotFoundError:
+        except FileNotFoundError: # Not found, need to generate
             print(f"Saved embeddings NOT found in {embed_dir}")
             should_generate_embeds = True
 
@@ -100,7 +101,7 @@ def maybe_load_or_generate_embeds(
         assert dataloader is not None, "Dataloader must be provided to generate embeddings."
         embeds, labels = extract_embeddings(model, dataloader, device)
 
-    if should_save:
+    if should_save: # Save embeddings for future loading
         assert embed_dir is not None, "Embed directory must be specified to save embeddings."
         torch.save(embeds, os.path.join(embed_dir, "embeds.pt"))
         torch.save(labels, os.path.join(embed_dir, "labels.pt"))
@@ -125,11 +126,13 @@ def cosine_speaker_verification(
     Returns:
         float: Equal Error Rate (EER).
     """
-    mean_enroll_embeds = average_2d_by_labels(enroll_embeds, enroll_labels, axis=0)
-
+    mean_enroll_embeds = average_2d_by_labels(enroll_embeds, enroll_labels, axis=0) # Find average embedding for each speaker
+    
+    # Normalize
     mean_enroll_embeds /= torch.norm(mean_enroll_embeds, dim=1, keepdim=True)
     test_embeds /= torch.norm(test_embeds, dim=1, keepdim=True)
 
+    # Compute cosine similiaty
     sim_mtx = test_embeds @ mean_enroll_embeds.T
 
     pos_mask = torch.zeros_like(sim_mtx)
@@ -139,6 +142,7 @@ def cosine_speaker_verification(
     neg_scores = sim_mtx[pos_mask == 0]
 
     eer, _ = EER(pos_scores, neg_scores)
+    
     return eer
 
 def run_speaker_verification_eval(

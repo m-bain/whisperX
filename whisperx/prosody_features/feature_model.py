@@ -8,6 +8,28 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from typing import Any, Dict
 from torchmetrics import Accuracy
 
+def create_local_attention_mask(seq_len, n):
+    """
+    Creates a local attention mask allowing each token to attend only to
+    tokens within +/- n positions.
+
+    Args:
+        seq_len (int): Length of the sequence.
+        n (int): Number of tokens to the left and right a token can attend to.
+
+    Returns:
+        attention_mask (torch.Tensor): Attention mask of shape (seq_len, seq_len).
+    """
+    # Initialize a full attention mask (seq_len x seq_len)
+    mask = torch.ones(seq_len, seq_len, dtype=torch.bool)
+    
+    # Fill the mask to allow only local attention
+    for i in range(seq_len):
+        mask[i, max(0, i-n):min(seq_len, i+n+1)] = 0  # Allow +/- n tokens
+    
+    attention_mask = mask.float() * -1e9 # Make additive
+    
+    return attention_mask 
 
 class PositionalEncoding(nn.Module):
     """
@@ -61,6 +83,7 @@ class ProsodyFeatureModel(nn.Module):
         embedding_dim (int): Dimension of the embedding space. Defaults to 128.
         num_layers (int): Number of layers in the Transformer encoder. Defaults to 2.
         dropout (float): Dropout rate applied to embeddings and encoder. Defaults to 0.0.
+        local_attn_mask (int): Size of models local attention field. Defaults to None (full sequence).
     """
 
     def __init__(
@@ -69,12 +92,14 @@ class ProsodyFeatureModel(nn.Module):
         embedding_dim: int = 128,
         num_layers: int = 2,
         dropout: float = 0.0,
+        local_attn_mask: int | None = None
     ):
         super().__init__()
         self.num_tokens = num_tokens
         self.embedding_dim = embedding_dim
         self.num_layers = num_layers
         self.dropout = dropout
+        self.local_attn_mask = local_attn_mask
 
         # Embedding layer
         self.embedding = nn.Embedding(
@@ -110,8 +135,14 @@ class ProsodyFeatureModel(nn.Module):
             embeds
         )  # Shape: [batch_size, seq_len, embedding_dim]
 
+        if self.local_attn_mask:
+            _, seq_len, _ = embeds_pe.shape
+            mask = create_local_attention_mask(n=self.local_attn_mask, seq_len=seq_len)
+        else:
+            mask = None
+
         # Encode sequences using Transformer encoder
-        z = self.encoder(embeds_pe)  # Shape: [batch_size, seq_len, embedding_dim]
+        z = self.encoder(embeds_pe, mask=mask)  # Shape: [batch_size, seq_len, embedding_dim]
 
         # Mean-pool along the sequence dimension
         z_mean = z.mean(dim=1)  # Shape: [batch_size, embedding_dim]
