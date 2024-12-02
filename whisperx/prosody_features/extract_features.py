@@ -37,6 +37,7 @@ def get_aligned_chars(
 
     try:
         chars = result["segments"][0]["chars"]
+        breakpoint()
         return chars
     except IndexError:
         return None
@@ -109,7 +110,6 @@ if __name__ == "__main__":
                         audio_file=full_path,
                         device=device,
                     )
-                    breakpoint()
                 except:
                     print("ERROR: failed to align file")
                     bad_files.append(full_path)
