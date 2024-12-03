@@ -43,7 +43,7 @@ trainer:
   accelerator: "gpu"
   devices: "auto"
   strategy: "ddp"
-  num_nodes: 2
+  num_nodes: 1
   deterministic: False
   accumulate_grad_batches: 1
 
