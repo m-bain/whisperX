@@ -14,14 +14,8 @@ torch.set_warn_always(False)
 
 CONFIG_PATH = sys.argv[1]
 
-if __name__ == "__main__":
-
-    # Load config, and perform general setup
-    config = load_yaml_config(CONFIG_PATH)
-    os.environ["CUDA_VISIBLE_DEVICES"] = config["gpus"]
-    if config["random_seed"]:
-        pl.seed_everything(config["random_seed"], workers=True)
-
+def main(config):
+    
     # Setup dataloaders
     tokenizer = CharLevelTokenizer()
     assert tokenizer.vocab_size() == 28  # Sanity check
@@ -30,7 +24,7 @@ if __name__ == "__main__":
     )
 
     num_speakers = dataloaders["train"].total_speakers
-
+    
     # Create Lightning module
     pl_model = ProsodySpeakerVerificationModel(
         num_speakers=num_speakers, **config["lightning"]
@@ -48,3 +42,15 @@ if __name__ == "__main__":
         val_dataloaders=dataloaders.get("val", None),
         ckpt_path=config["ckpt_path"],
     )
+     
+
+if __name__ == "__main__":
+
+    # Load config, and perform general setup
+    config = load_yaml_config(CONFIG_PATH)
+    
+    #os.environ["CUDA_VISIBLE_DEVICES"] = config["gpus"]
+    if config["random_seed"]:
+        pl.seed_everything(config["random_seed"], workers=True)
+
+    main(config)
