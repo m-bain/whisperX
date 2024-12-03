@@ -23,15 +23,16 @@ dataloader:
 lightning:
   hparams: 
     num_tokens: 28
-    embedding_dim: 256
-    num_layers: 4
+    embedding_dim: 128
+    d_model: 512
+    num_layers: 6
     dropout: 0.1
   optimizer_params:
-    lr: 0.001
+    lr: 0.0005
     weight_decay: 0.0
   scheduler_params:
     T_max: 500
-    eta_min: 0.000001
+    eta_min: 0.0
 
 
 # Training options:
