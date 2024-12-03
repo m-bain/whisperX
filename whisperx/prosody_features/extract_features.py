@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
                 # Skip previously generated files
                 if os.path.exists(save_path):
-                    pass #continue
+                    continue
 
                 # Perform alignment and generate char sequence feature
                 try: 
