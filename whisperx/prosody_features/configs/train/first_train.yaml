@@ -44,6 +44,7 @@ trainer:
   devices: "auto"
   strategy: "ddp"
   num_nodes: 1
+  overfit_batches: 1
   deterministic: False
   accumulate_grad_batches: 1
 
