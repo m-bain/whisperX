@@ -10,8 +10,8 @@ gpus: "0,1"
 # Dataset options:
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
-  system: "T10-2"
-  split: "libri_dev_trials_f"
+  system: "all"
+  split: "train-clean-360"
 
 # Dataloader options:
 dataloader:
@@ -48,7 +48,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts_vpc/logs/tensorboard"
-  name: "first_train"
+  name: "test_on_all_systems"
   version: null     # Automatic versioning if set to null (recommended)
 
 
