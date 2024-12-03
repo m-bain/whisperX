@@ -184,7 +184,7 @@ class ProsodySpeakerVerificationModel(LightningModule):
         # Define feature model and
         self.feature_model = ProsodyFeatureModel(**hparams)
         self.classifier = nn.Linear(
-            in_features=hparams["embedding_dim"], out_features=num_speakers
+            in_features=hparams["d_model"], out_features=num_speakers
         )
 
     def configure_optimizers(self) -> Dict:
