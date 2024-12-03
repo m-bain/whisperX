@@ -25,10 +25,10 @@ lightning:
     num_tokens: 28
     embedding_dim: 32
     num_layers: 1
-    dropout: 0.25
+    dropout: 0.0
   optimizer_params:
     lr: 0.001
-    weight_decay: 0.0001
+    weight_decay: 0.0
   scheduler_params:
     T_max: 500
     eta_min: 0.000001
@@ -48,7 +48,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts_vpc/logs/tensorboard"
-  name: "test_on_all_systems"
+  name: "larger_data_test"
   version: null     # Automatic versioning if set to null (recommended)
 
 
