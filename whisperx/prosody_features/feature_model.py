@@ -81,6 +81,7 @@ class ProsodyFeatureModel(nn.Module):
     Args:
         num_tokens (int): Number of unique tokens in the vocabulary.
         embedding_dim (int): Dimension of the embedding space. Defaults to 128.
+        d_model (int): dimension for transformer model. Defaults to 512
         num_layers (int): Number of layers in the Transformer encoder. Defaults to 2.
         dropout (float): Dropout rate applied to embeddings and encoder. Defaults to 0.0.
         local_attn_mask (int): Size of models local attention field. Defaults to None (full sequence).
@@ -90,6 +91,7 @@ class ProsodyFeatureModel(nn.Module):
         self,
         num_tokens: int,
         embedding_dim: int = 128,
+        d_model: int = 512,
         num_layers: int = 2,
         dropout: float = 0.0,
         local_attn_mask: int | None = None
@@ -97,6 +99,7 @@ class ProsodyFeatureModel(nn.Module):
         super().__init__()
         self.num_tokens = num_tokens
         self.embedding_dim = embedding_dim
+        self.d_model = d_model
         self.num_layers = num_layers
         self.dropout = dropout
         self.local_attn_mask = local_attn_mask
@@ -108,6 +111,8 @@ class ProsodyFeatureModel(nn.Module):
 
         # Positional encoding layer
         self.pos_encoding = PositionalEncoding(d_model=embedding_dim, dropout=dropout)
+        
+        self.linear = nn.Linear(in_features=embedding_dim, out_features=d_model)
 
         # Transformer encoder
         self.encoder = nn.TransformerEncoder(
@@ -131,10 +136,13 @@ class ProsodyFeatureModel(nn.Module):
         """
         # Embed tokens and apply positional encoding
         embeds = self.embedding(x)  # Shape: [batch_size, seq_len, embedding_dim]
+        
         embeds_pe = self.pos_encoding(
             embeds
         )  # Shape: [batch_size, seq_len, embedding_dim]
 
+        embeds_pe = self.linear(embeds_pe) # Shape: [batch_size, seq_len, d_model]
+        
         if self.local_attn_mask:
             _, seq_len, _ = embeds_pe.shape
             mask = create_local_attention_mask(n=self.local_attn_mask, seq_len=seq_len)
