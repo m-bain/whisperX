@@ -10,7 +10,7 @@ gpus: "0,1"
 # Dataset options:
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
-  system: "all"
+  system: "T10-2"
   split: "train-clean-360"
 
 # Dataloader options:
