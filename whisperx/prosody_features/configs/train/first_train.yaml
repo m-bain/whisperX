@@ -41,7 +41,7 @@ trainer:
   log_every_n_steps: 10    
   sync_batchnorm: True
   accelerator: "gpu"
-  devices: 4
+  devices: 2
   deterministic: False
   accumulate_grad_batches: 1
 
