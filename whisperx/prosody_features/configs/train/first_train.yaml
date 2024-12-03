@@ -40,7 +40,7 @@ trainer:
   val_check_interval: 1.0 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
-  accelerator: "gpu"
+  accelerator: "ddp"
   devices: "auto"
   num_nodes: 2
   deterministic: False
