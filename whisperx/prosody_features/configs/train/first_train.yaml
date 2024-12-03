@@ -15,7 +15,7 @@ dataset:
 
 # Dataloader options:
 dataloader:
-  batch_size: 64
+  batch_size: 128
   num_workers: 4
   train_frac: 0.8
 
@@ -25,7 +25,7 @@ lightning:
     num_tokens: 28
     embedding_dim: 128
     d_model: 512
-    num_layers: 6
+    num_layers: 3
     dropout: 0.1
   optimizer_params:
     lr: 0.0005
