@@ -7,6 +7,16 @@ from whisperx.prosody_features.data import get_dataloaders
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 import tqdm
 
+SYSTEMS = ("B3", "B4", "B5", "T10-2", "T12-5", "T25-1", "T8-5")
+SPLITS = (
+    "libri_dev_enrolls",
+    "libri_test_enrolls",
+    "libri_dev_trials_f",
+    "libri_test_trials_f",
+    "libri_dev_trials_m",
+    "libri_test_trials_m",
+)
+
 
 def extract_and_save_embeddings(
     model_checkpoint: str,
@@ -61,31 +71,30 @@ if __name__ == "__main__":
     print("Loading configuration...")
     config = load_yaml_config(config_path)
 
-    # Extract system-specific configuration
-    system = config["dataset"]["system"]
-    assert system != "all", "System cannot be 'all'. Please specify a valid system."
+    for system in SYSTEMS:
+        
+        print(f'--- {system} ---')
+        os.mkdir(os.path.join(config["output_dir"], system))
 
-    os.mkdir(os.path.join(config["output_dir"], system))
+        for split in VALID_SPLITS:
 
-    for split in VALID_SPLITS:
+            print(f'--- {split} ---')
 
-        print(f'--- {split} ---')
+            # Prepare output directory
+            split_output_dir = os.path.join(config["output_dir"], system, split)
 
-        # Prepare output directory
-        split_output_dir = os.path.join(config["output_dir"], system, split)
+            tokenizer = CharLevelTokenizer()
 
-        tokenizer = CharLevelTokenizer()
+            # Get dataloaders
+            dataloaders = get_dataloaders(
+                tokenizer=tokenizer, return_id=True, system=system, split=split, **config["dataset"], **config["dataloader"]
+            )
+            dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
 
-        # Get dataloaders
-        dataloaders = get_dataloaders(
-            tokenizer=tokenizer, return_id=True, split=split, **config["dataset"], **config["dataloader"]
-        )
-        dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
-
-        # Extract and save embeddings
-        extract_and_save_embeddings(
-            model_checkpoint=config["ckpt_path"],
-            dataloader=dataloader,
-            output_dir=split_output_dir,
-            device=device,
-        )
+            # Extract and save embeddings
+            #extract_and_save_embeddings(
+            #    model_checkpoint=config["ckpt_path"],
+            #    dataloader=dataloader,
+            #    output_dir=split_output_dir,
+            #    device=device,
+            #)

@@ -39,10 +39,10 @@ class PositionalEncoding(nn.Module):
     Args:
         d_model (int): Dimension of the embedding space.
         dropout (float): Dropout rate applied to the positional encoding. Defaults to 0.1.
-        max_len (int): Maximum length of sequences supported. Defaults to 1000.
+        max_len (int): Maximum length of sequences supported. Defaults to 5000.
     """
 
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 1000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 

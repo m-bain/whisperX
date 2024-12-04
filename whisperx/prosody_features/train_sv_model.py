@@ -36,7 +36,7 @@ def main(config):
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val_accuracy",                          
-        dirpath=f"{logger.log_dir}",     # Save in the logger's directory
+        dirpath=f"{logger.log_dir}/checkpoints",     # Save in the logger's directory
         filename="best_model",                       
         save_top_k=1,                               
         mode="min"                                   
