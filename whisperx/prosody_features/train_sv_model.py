@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 import os
 import sys
 from whisperx.prosody_features.utils import load_yaml_config
@@ -33,8 +34,16 @@ def main(config):
     # Create logger (logs are saved to /save_dir/name/version/):
     logger = TensorBoardLogger(**config["tensorboard"])
 
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_accuracy",                          
+        dirpath=f"{logger.log_dir()}/checkpoints",     # Save in the logger's directory
+        filename="best_model",                       
+        save_top_k=1,                               
+        mode="min"                                   
+    )
+
     # Make trainer
-    trainer = Trainer(logger=logger, **config["trainer"])
+    trainer = Trainer(logger=logger, callbacks=[checkpoint_callback], **config["trainer"])
 
     trainer.fit(
         pl_model,
