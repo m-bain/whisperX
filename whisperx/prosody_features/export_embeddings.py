@@ -61,7 +61,6 @@ def extract_and_save_embeddings(
 if __name__ == "__main__":
     
     import sys
-    from whisperx.prosody_features.data import VALID_SPLITS
 
     device = "cuda"
 
@@ -76,7 +75,7 @@ if __name__ == "__main__":
         print(f'--- {system} ---')
         os.mkdir(os.path.join(config["output_dir"], system))
 
-        for split in VALID_SPLITS:
+        for split in SPLITS:
 
             print(f'--- {split} ---')
 
