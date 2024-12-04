@@ -4,16 +4,15 @@
 
 ---
 
-ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/larger_data_test/version_13/checkpoints/epoch=4-step=5.ckpt"
+ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/main_fit/version_0/checkpoints/epoch=11-step=54600.ckpt"
 output_dir: "/project/shrikann_35/nmehlman/vpc/embeds/"
   
 # Dataset options:
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
-  system: "B4"
 
 # Dataloader options:
 dataloader:
   batch_size: 128
-  num_workers: 0
+  num_workers: 4
   train_frac: 1.0
