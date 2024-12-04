@@ -38,22 +38,15 @@ def extract_and_save_embeddings(
 
     # Extract embeddings
     print("Extracting embeddings...")
-    embeddings, ids = [], []
-    for audio, id in tqdm.tqdm(dataloader, desc="Processing batches"):
+    for audio, ids in tqdm.tqdm(dataloader, desc="Processing batches"):
+        
         audio = audio.to(device)
-        features = model.get_features(audio).cpu()
-        embeddings.append(features)
-        ids.append(id)
+        embeddings = model.get_features(audio).cpu()
 
-    # Combine and save embeddings
-    embeddings = torch.cat(embeddings, dim=0)
-    ids = torch.cat(ids, dim=0)
-
-    for embed, id in tqdm.tqdm(zip(embeddings, ids), total=len(ids), desc="Saving embeddings"):
-        torch.save(embed, os.path.join(output_dir, f"{id.item()}.pt"))
+        for embed, id in tqdm.tqdm(zip(embeddings, ids), total=len(ids), desc="Saving embeddings"):
+            torch.save(embed, os.path.join(output_dir, f"{id.item()}.pt"))
 
     print(f"Embeddings successfully saved to {output_dir}")
-
 
 if __name__ == "__main__":
     import sys
