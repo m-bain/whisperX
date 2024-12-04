@@ -27,7 +27,7 @@ def extract_and_save_embeddings(
         None: Saves the embeddings and labels to the output directory.
     """
     # Ensure the output directory exists
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir)
 
     # Load the model
     print("Loading model...")
@@ -49,9 +49,11 @@ def extract_and_save_embeddings(
     print(f"Embeddings successfully saved to {output_dir}")
 
 if __name__ == "__main__":
+    
     import sys
+    from whisperx.prosody_features.data import VALID_SPLITS
 
-    device = "cpu"
+    device = "cuda"
 
     # Load configuration
     config_path = sys.argv[1]
@@ -63,21 +65,27 @@ if __name__ == "__main__":
     system = config["dataset"]["system"]
     assert system != "all", "System cannot be 'all'. Please specify a valid system."
 
-    # Prepare output directory
-    output_dir = os.path.join(config["output_dir"], system)
+    os.mkdir(os.path.join(config["output_dir"], system))
 
-    tokenizer = CharLevelTokenizer()
+    for split in VALID_SPLITS:
 
-    # Get dataloaders
-    dataloaders = get_dataloaders(
-        tokenizer=tokenizer, return_id=True, **config["dataset"], **config["dataloader"]
-    )
-    dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
+        print(f'--- {split} ---')
 
-    # Extract and save embeddings
-    extract_and_save_embeddings(
-        model_checkpoint=config["ckpt_path"],
-        dataloader=dataloader,
-        output_dir=output_dir,
-        device=device,
-    )
+        # Prepare output directory
+        split_output_dir = os.path.join(config["output_dir"], system, split)
+
+        tokenizer = CharLevelTokenizer()
+
+        # Get dataloaders
+        dataloaders = get_dataloaders(
+            tokenizer=tokenizer, return_id=True, split=split, **config["dataset"], **config["dataloader"]
+        )
+        dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
+
+        # Extract and save embeddings
+        extract_and_save_embeddings(
+            model_checkpoint=config["ckpt_path"],
+            dataloader=dataloader,
+            output_dir=split_output_dir,
+            device=device,
+        )
