@@ -44,7 +44,7 @@ def extract_and_save_embeddings(
         embeddings = model.get_features(audio).cpu()
 
         for embed, id in zip(embeddings, ids):
-            torch.save(embed, os.path.join(output_dir, f"{id.item()}.pt"))
+            torch.save(embed, os.path.join(output_dir, f"{id}.pt"))
 
     print(f"Embeddings successfully saved to {output_dir}")
 
