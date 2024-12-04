@@ -146,7 +146,7 @@ class VPCDataset(Dataset):
         tokens = self.tokenizer.encode(char_seq)
 
         if len(tokens) > 5000:
-            print('WARNING: truncating token sequence (exceeds max lenght)')
+            print('WARNING: truncating token sequence (exceeds max length)')
             tokens = tokens[:5000]
 
         if self.return_id:
@@ -239,7 +239,7 @@ def get_dataloaders(
         )
         val_dataloader = DataLoader(
             val_dataset,
-            batch_size=batch_size,
+            batch_size=32,
             num_workers=num_workers,
             shuffle=False,
             collate_fn=collate_fn,
