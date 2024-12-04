@@ -266,3 +266,11 @@ def get_dataloaders(
         )
         train_dataloader.total_speakers = total_speakers
         return {"train": train_dataloader}
+
+if __name__ == "__main__":
+    
+    tokenizer = CharLevelTokenizer()
+    dataset = VPCDataset(root_path="/project/shrikann_35/nmehlman/vpc")
+
+    for sample, _ in dataset:
+        print(len(sample))
