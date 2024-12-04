@@ -62,7 +62,7 @@ if __name__ == "__main__":
     
     import sys
 
-    device = "cpu"
+    device = "cuda"
 
     # Load configuration
     config_path = sys.argv[1]
@@ -91,9 +91,9 @@ if __name__ == "__main__":
             dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
 
             # Extract and save embeddings
-            #extract_and_save_embeddings(
-            #    model_checkpoint=config["ckpt_path"],
-            #    dataloader=dataloader,
-            #    output_dir=split_output_dir,
-            #    device=device,
-            #)
+            extract_and_save_embeddings(
+                model_checkpoint=config["ckpt_path"],
+                dataloader=dataloader,
+                output_dir=split_output_dir,
+                device=device,
+            )
