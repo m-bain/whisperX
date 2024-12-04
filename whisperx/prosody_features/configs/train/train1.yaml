@@ -10,7 +10,7 @@ gpus: "0,1"
 # Dataset options:
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
-  system: "T10-2"
+  system: "all"
   split: "train-clean-360"
 
 # Dataloader options:
@@ -25,11 +25,12 @@ lightning:
     num_tokens: 28
     embedding_dim: 128
     d_model: 512
-    num_layers: 3
-    dropout: 0.1
+    num_layers: 2
+    dropout: 0.2
+    local_attn_mask: 20
   optimizer_params:
-    lr: 0.001
-    weight_decay: 0.0
+    lr: 0.0001
+    weight_decay: 0.0001
   scheduler_params:
     T_max: 500
     eta_min: 0.0
@@ -52,7 +53,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts_vpc/logs/tensorboard"
-  name: "larger_data_test"
+  name: "main_fit"
   version: null     # Automatic versioning if set to null (recommended)
 
 
