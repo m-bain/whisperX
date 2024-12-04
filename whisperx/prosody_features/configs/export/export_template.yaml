@@ -10,11 +10,11 @@ output_dir: "/project/shrikann_35/nmehlman/vpc/embeds/"
 # Dataset options:
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
-  system: "T10-2"
+  system: "B4"
   split: "train-clean-360"
 
 # Dataloader options:
 dataloader:
-  batch_size: 64
+  batch_size: 128
   num_workers: 0
   train_frac: 1.0

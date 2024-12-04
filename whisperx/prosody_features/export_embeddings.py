@@ -58,7 +58,7 @@ def extract_and_save_embeddings(
 if __name__ == "__main__":
     import sys
 
-    device = "cpu"
+    device = "cuda"
 
     # Load configuration
     config_path = sys.argv[1]
