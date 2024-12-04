@@ -4,7 +4,7 @@
 
 ---
 
-ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/first_train/version_4/checkpoints/epoch=80-step=567.ckpt"
+ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/larger_data_test/version_10/checkpoints/epoch=140-step=91650.ckpt"
 output_dir: "/project/shrikann_35/nmehlman/vpc/embeds/"
   
 # Dataset options:
