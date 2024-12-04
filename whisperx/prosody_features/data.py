@@ -141,6 +141,10 @@ class VPCDataset(Dataset):
         char_seq = json.load(open(path))
         tokens = self.tokenizer.encode(char_seq)
 
+        if len(tokens) > 5000:
+            print('WARNING: truncating token sequence (exceeds max lenght)')
+            tokens = tokens[:5000]
+
         return tokens, speaker
 
 
