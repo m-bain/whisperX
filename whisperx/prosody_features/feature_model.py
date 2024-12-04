@@ -145,7 +145,7 @@ class ProsodyFeatureModel(nn.Module):
         
         if self.local_attn_mask:
             _, seq_len, _ = embeds_pe.shape
-            mask = create_local_attention_mask(n=self.local_attn_mask, seq_len=seq_len)
+            mask = create_local_attention_mask(n=self.local_attn_mask, seq_len=seq_len).cuda()
         else:
             mask = None
             
