@@ -11,7 +11,7 @@ output_dir: "/project/shrikann_35/nmehlman/vpc/embeds/"
 dataset:
   root_path: "/project/shrikann_35/nmehlman/vpc"
   system: "T10-2"
-  split: "train-clean-100"
+  split: "train-clean-360"
 
 # Dataloader options:
 dataloader:
