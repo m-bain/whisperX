@@ -185,6 +185,7 @@ def collate_fn(
 
     # Convert speaker IDs to a tensor
     if isinstance(speaker_ids[0], str):
+        breakpoint()
         return speaker_ids
     else:
         speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
