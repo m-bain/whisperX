@@ -43,7 +43,7 @@ def extract_and_save_embeddings(
         audio = audio.to(device)
         embeddings = model.get_features(audio).cpu()
 
-        for embed, id in tqdm.tqdm(zip(embeddings, ids), total=len(ids), desc="Saving embeddings"):
+        for embed, id in zip(embeddings, ids):
             torch.save(embed, os.path.join(output_dir, f"{id.item()}.pt"))
 
     print(f"Embeddings successfully saved to {output_dir}")
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     # Get dataloaders
     dataloaders = get_dataloaders(
-        tokenizer=tokenizer, **config["dataset"], **config["dataloader"]
+        tokenizer=tokenizer, return_id=True, **config["dataset"], **config["dataloader"]
     )
     dataloader = dataloaders["train"]  # Assuming "train" contains the relevant data
 

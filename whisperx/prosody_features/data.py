@@ -194,6 +194,7 @@ def get_dataloaders(
     tokenizer: CharLevelTokenizer,
     system: str,
     split: str,
+    return_id: bool = False,
     train_frac: float = 1.0,
     batch_size: int = 16,
     num_workers: int = 1,
@@ -218,7 +219,7 @@ def get_dataloaders(
         Union[DataLoader, Dict[str, DataLoader]]: A dict with "train" and (possibly) "val" DataLoaders.
     """
     full_dataset = VPCDataset(
-        root_path=root_path, tokenizer=tokenizer, system=system, split=split
+        root_path=root_path, tokenizer=tokenizer, system=system, split=split, return_id=return_id
     )
     total_speakers = full_dataset.total_speakers()
 
