@@ -139,7 +139,7 @@ class VPCDataset(Dataset):
         """
         path, speaker = self.paths[index], self.speakers[index]
 
-        id = path.split('/')[-1].replace('json', '')
+        id = path.split('/')[-1].replace('.json', '')
 
         # Load character sequence and tokenize
         char_seq = json.load(open(path))
@@ -185,8 +185,7 @@ def collate_fn(
 
     # Convert speaker IDs to a tensor
     if isinstance(speaker_ids[0], str):
-        breakpoint()
-        return speaker_ids
+        return [id for id in speaker_ids]
     else:
         speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
 
