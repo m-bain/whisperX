@@ -27,7 +27,7 @@ lightning:
     d_model: 512
     num_layers: 2
     dropout: 0.2
-    local_attn_mask: 20
+    #local_attn_mask: 20
   optimizer_params:
     lr: 0.0001
     weight_decay: 0.0001
