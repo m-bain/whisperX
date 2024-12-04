@@ -184,7 +184,10 @@ def collate_fn(
         padded_sequences[i, : seq.size(0)] = seq  # Copy the sequence up to its length
 
     # Convert speaker IDs to a tensor
-    speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
+    if isinstance(speaker_ids[0], str):
+        return speaker_ids
+    else:
+        speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
 
     return padded_sequences, speaker_ids
 
