@@ -53,7 +53,7 @@ if __name__ == "__main__":
     import sys
     from whisperx.prosody_features.data import VALID_SPLITS
 
-    device = "cuda"
+    device = "cpu"
 
     # Load configuration
     config_path = sys.argv[1]
