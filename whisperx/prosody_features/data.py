@@ -16,6 +16,7 @@ VALID_SPLITS = (
     "libri_test_trials_m",
 )
 
+MAX_SAMPLE_LENGTH = 1000
 
 class VPCDataset(Dataset):
     """
@@ -145,9 +146,9 @@ class VPCDataset(Dataset):
         char_seq = json.load(open(path))
         tokens = self.tokenizer.encode(char_seq)
 
-        if len(tokens) > 5000:
-            print('WARNING: truncating token sequence (exceeds max length)')
-            tokens = tokens[:5000]
+        if len(tokens) > MAX_SAMPLE_LENGTH:
+            print(f'WARNING: truncating token sequence (exceeds max length {MAX_SAMPLE_LENGTH})')
+            tokens = tokens[:MAX_SAMPLE_LENGTH]
 
         if self.return_id:
             return tokens, id
