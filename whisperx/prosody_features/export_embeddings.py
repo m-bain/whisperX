@@ -12,7 +12,7 @@ def extract_and_save_embeddings(
     model_checkpoint: str,
     dataloader: DataLoader,
     output_dir: str,
-    device: str = "cpu"
+    device: str = "cuda"
 ):
     """
     Extracts embeddings using a pre-trained model and saves them to a specified directory.
