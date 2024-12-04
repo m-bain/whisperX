@@ -1,0 +1,20 @@
+
+
+# Speaker Verification Evaluation
+
+---
+
+ckpt_path: "/home1/nmehlman/arts_vpc/logs/tensorboard/first_train/version_4/checkpoints/epoch=80-step=567.ckpt"
+output_dir: "/project/shrikann_35/nmehlman/vpc/embeds/"
+  
+# Dataset options:
+dataset:
+  root_path: "/project/shrikann_35/nmehlman/vpc"
+  system: "T10-2"
+  split: "train-clean-100"
+
+# Dataloader options:
+dataloader:
+  batch_size: 64
+  num_workers: 0
+  train_frac: 1.0

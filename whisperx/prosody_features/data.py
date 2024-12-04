@@ -37,11 +37,13 @@ class VPCDataset(Dataset):
         tokenizer: CharLevelTokenizer,
         system: str = "all",
         split: str = "train-clean-360",
+        return_id: bool = False
     ):
         self.root_path = root_path
         self.system = system
         self.split = split
         self.tokenizer = tokenizer
+        self.return_id = return_id
 
         # Validate the split
         assert split in VALID_SPLITS, f"Invalid split. Must be one of {VALID_SPLITS}"
@@ -137,6 +139,8 @@ class VPCDataset(Dataset):
         """
         path, speaker = self.paths[index], self.speakers[index]
 
+        id = path.split('/')[-1].replace('json', '')
+
         # Load character sequence and tokenize
         char_seq = json.load(open(path))
         tokens = self.tokenizer.encode(char_seq)
@@ -145,7 +149,10 @@ class VPCDataset(Dataset):
             print('WARNING: truncating token sequence (exceeds max lenght)')
             tokens = tokens[:5000]
 
-        return tokens, speaker
+        if self.return_id:
+            return tokens, id
+        else:
+            return tokens, speaker
 
 
 def collate_fn(
