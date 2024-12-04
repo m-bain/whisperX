@@ -270,7 +270,7 @@ def get_dataloaders(
 if __name__ == "__main__":
     
     tokenizer = CharLevelTokenizer()
-    dataset = VPCDataset(root_path="/project/shrikann_35/nmehlman/vpc")
+    dataset = VPCDataset(root_path="/project/shrikann_35/nmehlman/vpc", tokenizer=tokenizer)
 
     for sample, _ in dataset:
         print(len(sample))
