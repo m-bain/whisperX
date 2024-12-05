@@ -23,12 +23,16 @@ def find_numeral_symbol_tokens(tokenizer):
     return numeral_symbol_tokens
 
 
-class WhisperModel(faster_whisper.WhisperModel(local_files_only = True)):
+class WhisperModel(faster_whisper.WhisperModel):
     """
     FasterWhisperModel provides batched inference for faster-whisper.
     Currently only works in non-timestamp mode and fixed prompt for all samples in batch.
     """
 
+    def __init__(self, local_files_only: bool = True, *args, **kwargs):
+        # Добавляем новый параметр и передаем его родительскому классу
+        self.local_files_only = local_files_only
+        super().__init__(*args, **kwargs)
 
 
     def generate_segment_batched(
