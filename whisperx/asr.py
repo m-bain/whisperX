@@ -29,10 +29,10 @@ class WhisperModel(faster_whisper.WhisperModel):
     Currently only works in non-timestamp mode and fixed prompt for all samples in batch.
     """
 
-    def __init__(self, local_files_only: bool = True, *args, **kwargs):
-        # Добавляем новый параметр и передаем его родительскому классу
+    def __init__(self, model_size_or_path: str, local_files_only: bool = True, *args, **kwargs):
+        # Добавляем новый параметр и передаем его в родительский класс
         self.local_files_only = local_files_only
-        super().__init__(*args, **kwargs)
+        super().__init__(model_size_or_path, *args, **kwargs)
 
 
     def generate_segment_batched(
