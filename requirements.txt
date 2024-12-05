@@ -1,5 +1,6 @@
 torch>=2
 torchaudio>=2
+ctranslate2==4.4.0
 faster-whisper==1.1.0
 transformers
 pandas
