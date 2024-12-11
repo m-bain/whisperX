@@ -15,7 +15,7 @@ charset-normalizer==3.4.0
 click==8.1.7
 coloredlogs==15.0.1
 colorlog==6.9.0
-contourpy==1.3.1
+contourpy==1.3.0
 ctranslate2==4.3.1
 cycler==0.12.1
 decorator==5.1.1
@@ -57,12 +57,12 @@ mdurl==0.1.2
 mpmath==1.3.0
 msgpack==1.1.0
 multidict==6.1.0
-networkx==3.4.2
+networkx==3.2.1
 nltk==3.9.1
 numba==0.60.0
 numpy==2.0.2
 omegaconf==2.3.0
-onnxruntime==1.20.1
+onnxruntime==1.19.2
 optuna==4.1.0
 packaging==24.2
 pandas==2.2.3
@@ -96,7 +96,7 @@ ruamel.yaml==0.18.6
 ruamel.yaml.clib==0.2.12
 safetensors==0.4.5
 scikit-learn==1.5.2
-scipy==1.14.1
+scipy==1.13.1
 semver==3.0.2
 sentencepiece==0.2.0
 setuptools==75.6.0
