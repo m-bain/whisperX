@@ -60,7 +60,7 @@ multidict==6.1.0
 networkx==3.2.1
 nltk==3.9.1
 numba==0.60.0
-numpy==2.0.2
+numpy==1.26.4
 omegaconf==2.3.0
 onnxruntime==1.19.2
 optuna==4.1.0
