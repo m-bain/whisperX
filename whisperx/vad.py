@@ -26,7 +26,7 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
     os.makedirs(model_dir, exist_ok = True)
     if model_fp is None:
         # Dynamically resolve the path to the model file
-        model_fp = os.path.join(vad_dir, "..", "models", "pytorch_model.bin")
+        model_fp = os.path.join(vad_dir, "assets", "pytorch_model.bin")
         model_fp = os.path.abspath(model_fp)  # Ensure the path is absolute
     else:
         model_fp = os.path.abspath(model_fp)  # Ensure any provided path is absolute
