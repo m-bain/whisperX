@@ -199,6 +199,7 @@ print(result["segments"]) # segments are now assigned speaker IDs
 
 ## Demos 🚀
 
+[![Replicate (large-v3](https://img.shields.io/static/v1?label=Replicate+WhisperX+large-v3&message=Demo+%26+Cloud+API&color=blue)](https://replicate.com/victor-upmeet/whisperx) 
 [![Replicate (large-v2](https://img.shields.io/static/v1?label=Replicate+WhisperX+large-v2&message=Demo+%26+Cloud+API&color=blue)](https://replicate.com/daanelson/whisperx) 
 [![Replicate (medium)](https://img.shields.io/static/v1?label=Replicate+WhisperX+medium&message=Demo+%26+Cloud+API&color=blue)](https://replicate.com/carnifexer/whisperx) 
 
@@ -215,14 +216,14 @@ To reduce GPU memory requirements, try any of the following (2. & 3. can affect 
 
 Transcription differences from openai's whisper:
 1. Transcription without timestamps. To enable single pass batching, whisper inference is performed `--without_timestamps True`, this ensures 1 forward pass per sample in the batch. However, this can cause discrepancies the default whisper output.
-2. VAD-based segment transcription, unlike the buffered transcription of openai's. In Wthe WhisperX paper we show this reduces WER, and enables accurate batched inference
+2. VAD-based segment transcription, unlike the buffered transcription of openai's. In the WhisperX paper we show this reduces WER, and enables accurate batched inference
 3.  `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
 
 - Transcript words which do not contain characters in the alignment models dictionary e.g. "2014." or "£13.60" cannot be aligned and therefore are not given a timing.
 - Overlapping speech is not handled particularly well by whisper nor whisperx
-- Diarization is far from perfect (working on this with custom model v4 -- see contact me).
+- Diarization is far from perfect
 - Language specific wav2vec2 model is needed
 
 
@@ -266,7 +267,7 @@ Bug finding and pull requests are also highly appreciated to keep this project g
 <h2 align="left" id="contact">Contact/Support 📇</h2>
 
 
-Contact maxhbain@gmail.com for queries. WhisperX v4 development is underway with with siginificantly improved diarization. To support v4 and get early access, get in touch.
+Contact maxhbain@gmail.com for queries.
 
 <a href="https://www.buymeacoffee.com/maxhbain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
@@ -280,7 +281,7 @@ Borrows important alignment code from [PyTorch tutorial on forced alignment](htt
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 
 
-Valuable VAD & Diarization Models from [pyannote audio][https://github.com/pyannote/pyannote-audio]
+Valuable VAD & Diarization Models from [pyannote audio](https://github.com/pyannote/pyannote-audio)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 
