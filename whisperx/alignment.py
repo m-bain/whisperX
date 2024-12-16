@@ -58,9 +58,10 @@ DEFAULT_ALIGN_MODELS_HF = {
     "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
     "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
     "hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
+    "ro": "gigant/romanian-wav2vec2",
     "eu": "stefan-it/wav2vec2-large-xlsr-53-basque",
     "gl": "ifrz/wav2vec2-large-xlsr-galician",
-    "ka": "xsway/wav2vec2-large-xlsr-georgian"
+    "ka": "xsway/wav2vec2-large-xlsr-georgian",
 }
 
 
