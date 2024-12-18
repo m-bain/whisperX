@@ -1,5 +1,5 @@
 import math
-from conjunctions import get_conjunctions, get_comma
+from .conjunctions import get_conjunctions, get_comma
 from typing import TextIO
 
 def normal_round(n):
@@ -23,7 +23,7 @@ def format_timestamp(seconds: float, is_vtt: bool = False):
     milliseconds -= seconds * 1_000
 
     separator = '.' if is_vtt else ','
-    
+
     hours_marker = f"{hours:02d}:"
     return (
         f"{hours_marker}{minutes:02d}:{seconds:02d}{separator}{milliseconds:03d}"
@@ -78,7 +78,7 @@ class SubtitlesProcessor:
         subtitles = []
         for i, segment in enumerate(self.segments):
             next_segment_start_time = self.segments[i + 1]['start'] if i + 1 < len(self.segments) else None
-            
+
             if advanced_splitting:
 
                 split_points = self.determine_advanced_split_points(segment, next_segment_start_time)
@@ -138,10 +138,10 @@ class SubtitlesProcessor:
 
         return split_points
 
-    
+
     def generate_subtitles_from_split_points(self, segment, split_points, next_start_time=None):
         subtitles = []
-        
+
         words = segment.get('words', segment['text'].split())
         total_word_count = len(words)
         total_time = segment['end'] - segment['start']
@@ -152,7 +152,7 @@ class SubtitlesProcessor:
 
             fragment_words = words[start_idx:split_point + 1]
             current_word_count = len(fragment_words)
-            
+
 
             if isinstance(fragment_words[0], dict):
                 start_time = fragment_words[0]['start']
@@ -173,14 +173,14 @@ class SubtitlesProcessor:
                 'end': end_time,
                 'text': fragment if not isinstance(fragment_words[0], dict) else prefix.join(word['word'] for word in fragment_words)
             })
-            
+
             start_idx = split_point + 1
 
         # Handle the last fragment
         if start_idx < len(words):
             fragment_words = words[start_idx:]
             current_word_count = len(fragment_words)
-            
+
             if isinstance(fragment_words[0], dict):
                 start_time = fragment_words[0]['start']
                 end_time = fragment_words[-1]['end']
@@ -198,13 +198,13 @@ class SubtitlesProcessor:
                 'end': end_time if end_time is not None else segment['end'],
                 'text': fragment if not isinstance(fragment_words[0], dict) else prefix.join(word['word'] for word in fragment_words)
             })
-            
+
         return subtitles
-    
+
 
 
     def save(self, filename="subtitles.srt", advanced_splitting=True):
-        
+
         subtitles = self.process_segments(advanced_splitting)
 
         def write_subtitle(file, idx, start_time, end_time, text):
@@ -216,7 +216,7 @@ class SubtitlesProcessor:
         with open(filename, 'w', encoding='utf-8') as file:
             if self.is_vtt:
                 file.write("WEBVTT\n\n")
-            
+
             if advanced_splitting:
                 for idx, subtitle in enumerate(subtitles, 1):
                     start_time = format_timestamp(subtitle['start'], self.is_vtt)
