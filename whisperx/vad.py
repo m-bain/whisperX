@@ -279,7 +279,7 @@ def merge_chunks(
         segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
 
     if len(segments_list) == 0:
-        print("No active speech found in audio")
+        print("No active speech found in audio.")
         return []
     # assert segments_list, "segments_list is empty."
     # Make sur the starting point is the start of the segment.
