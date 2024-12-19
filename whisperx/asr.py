@@ -290,7 +290,8 @@ def load_model(whisper_arch,
                          device_index=device_index,
                          compute_type=compute_type,
                          download_root=download_root,
-                         cpu_threads=threads)
+                         cpu_threads=threads,
+                         num_workers=6)
     if language is not None:
         tokenizer = faster_whisper.tokenizer.Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
