@@ -216,7 +216,7 @@ To reduce GPU memory requirements, try any of the following (2. & 3. can affect 
 
 Transcription differences from openai's whisper:
 1. Transcription without timestamps. To enable single pass batching, whisper inference is performed `--without_timestamps True`, this ensures 1 forward pass per sample in the batch. However, this can cause discrepancies the default whisper output.
-2. VAD-based segment transcription, unlike the buffered transcription of openai's. In Wthe WhisperX paper we show this reduces WER, and enables accurate batched inference
+2. VAD-based segment transcription, unlike the buffered transcription of openai's. In the WhisperX paper we show this reduces WER, and enables accurate batched inference
 3.  `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
@@ -281,7 +281,7 @@ Borrows important alignment code from [PyTorch tutorial on forced alignment](htt
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 
 
-Valuable VAD & Diarization Models from [pyannote audio][https://github.com/pyannote/pyannote-audio]
+Valuable VAD & Diarization Models from [pyannote audio](https://github.com/pyannote/pyannote-audio)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 
