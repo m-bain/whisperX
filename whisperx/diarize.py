@@ -3,8 +3,50 @@ import pandas as pd
 from pyannote.audio import Pipeline
 from typing import Optional, Union
 import torch
+from typing import Any, Mapping, Optional, Text
 
 from .audio import load_audio, SAMPLE_RATE
+
+
+class ProgressHook:
+    """Hook to show progress of each internal step
+
+    Example
+    -------
+    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
+    with ProgressHook() as hook:
+       output = pipeline(file, hook=hook)
+    """
+
+    def __init__(self, hidden: bool = False):
+        self.hidden = hidden
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return
+
+    def __call__(
+        self,
+        step_name: Text,
+        step_artifact: Any,
+        file: Optional[Mapping] = None,
+        total: Optional[int] = None,
+        completed: Optional[int] = None,
+    ):
+        if self.hidden:
+            return
+
+        if completed is None:
+            completed = total = 1
+
+        if not hasattr(self, "step_name") or step_name != self.step_name:
+            self.step_name = step_name
+            print(">>Performing diarization " + step_name + "...")
+
+        percent = completed / total *100
+        print("Progress: " + str(round(percent, 2)) + "%...")
 
 
 class DiarizationPipeline:
@@ -18,14 +60,15 @@ class DiarizationPipeline:
             device = torch.device(device)
         self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
-    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None):
+    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None, print_progress=False):
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio_data = {
             'waveform': torch.from_numpy(audio[None, :]),
             'sample_rate': SAMPLE_RATE
         }
-        segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers)
+        with ProgressHook(not print_progress) as hook:
+            segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers, hook=hook)
         diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
