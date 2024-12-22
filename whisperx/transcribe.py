@@ -112,6 +112,7 @@ def cli():
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
     return_embeddings: bool = args.pop("return_embeddings")
+    
     print_progress: bool = args.pop("print_progress")
 
     if args["language"] is not None:
