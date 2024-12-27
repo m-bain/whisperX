@@ -53,11 +53,15 @@ DEFAULT_ALIGN_MODELS_HF = {
     "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
     "ca": "softcatala/wav2vec2-large-xlsr-catala",
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
-    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
-    "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
+    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal-v2",
+    "nn": "NbAiLab/nb-wav2vec2-1b-nynorsk",
     "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
     "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
     "hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
+    "ro": "gigant/romanian-wav2vec2",
+    "eu": "stefan-it/wav2vec2-large-xlsr-53-basque",
+    "gl": "ifrz/wav2vec2-large-xlsr-galician",
+    "ka": "xsway/wav2vec2-large-xlsr-georgian",
 }
 
 
