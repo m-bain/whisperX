@@ -1,10 +1,29 @@
-This is a fork of the original [whisperX](https://github.com/m-bain/whisperx) repository.
+<h1 align="center">WhisperX</h1>
 
-## Changes
+<p align="center">
+  <a href="https://github.com/m-bain/whisperX/stargazers">
+    <img src="https://img.shields.io/github/stars/m-bain/whisperX.svg?colorA=orange&colorB=orange&logo=github"
+         alt="GitHub stars">
+  </a>
+  <a href="https://github.com/m-bain/whisperX/issues">
+        <img src="https://img.shields.io/github/issues/m-bain/whisperx.svg"
+             alt="GitHub issues">
+  </a>
+  <a href="https://github.com/m-bain/whisperX/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/m-bain/whisperX.svg"
+             alt="GitHub license">
+  </a>
+  <a href="https://arxiv.org/abs/2303.00747">
+        <img src="http://img.shields.io/badge/Arxiv-2303.00747-B31B1B.svg"
+             alt="ArXiv paper">
+  </a>
+  <a href="https://twitter.com/intent/tweet?text=&url=https%3A%2F%2Fgithub.com%2Fm-bain%2FwhisperX">
+  <img src="https://img.shields.io/twitter/url/https/github.com/m-bain/whisperX.svg?style=social" alt="Twitter">
+  </a>      
+</p>
 
-- Added support for emitting progress events.
-- Improved alignments.
 
+<img width="1216" align="center" alt="whisperx-arch" src="figures/pipeline.png">
 
 
 <!-- <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy + quality via forced phoneme alignment and voice-activity based batching for fast inference.</p> -->
@@ -58,6 +77,9 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 ### 2. Install PyTorch, e.g. for Linux and Windows CUDA11.8:
 
 `conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
+
+For version 2.5.0 of pytoch:
+`conda install pytorch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 pytorch-cuda=12.4 -c pytorch -c nvidia`
 
 See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
