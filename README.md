@@ -78,6 +78,9 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 `conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
 
+For version 2.5.0 of pytoch:
+`conda install pytorch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 pytorch-cuda=12.4 -c pytorch -c nvidia`
+
 See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
 ### 3. Install this repo

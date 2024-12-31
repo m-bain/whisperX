@@ -2,6 +2,7 @@ import argparse
 import gc
 import os
 import warnings
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -12,6 +13,58 @@ from .audio import load_audio
 from .diarize import DiarizationPipeline, assign_word_speakers
 from .utils import (LANGUAGES, TO_LANGUAGE_CODE, get_writer, optional_float,
                     optional_int, str2bool)
+
+
+def transcribe(
+    model: "Whisper",
+    audio: Union[str, np.ndarray, torch.Tensor],
+    device: Optional[Union[str, torch.device]] = None,
+    batch_size: int = 16,
+    compute_type: Optional[str] = "float16",
+    language: Optional[str] = None,
+    task: Optional[str] = None,
+    combined_progress: bool = False,
+    print_progress: bool = False,
+    progress_callback: Optional[Callable[[float], None]] = None,  # Add this line
+    **decode_options
+):
+    """
+    Transcribe an audio file using Whisper
+
+    Parameters:
+    ... (other parameters remain unchanged)
+    progress_callback: Optional callback function to report progress
+
+    Returns:
+    A dictionary containing the resulting text ("text") and segment-level details ("segments"), and
+    the spoken language ("language"), which is detected when `decode_options["language"]` is None.
+    """
+
+    # ... (previous code remains unchanged)
+
+    mel = mel.to(model.device)
+    segments = []
+    total_segments = len(mel)
+    for i in range(0, mel.shape[0], batch_size):
+        if print_progress or progress_callback:  # Modify this line
+            base_progress = ((i + 1) / total_segments) * 100
+            percent_complete = (base_progress / 2) if combined_progress else base_progress
+            if print_progress:
+                print(f"Progress: {percent_complete:.2f}%...")
+            if progress_callback:
+                progress_callback(percent_complete)  # Add this line
+
+        mel_segment = mel[i:i + batch_size]
+        segment_result = model.decode(mel_segment, **decode_options)
+        segments.extend(segment_result)
+
+    # ... (rest of the function remains unchanged)
+
+    return {
+        "text": transcript,
+        "segments": segments,
+        "language": language,
+    }
 
 
 def cli():
