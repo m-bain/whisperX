@@ -278,7 +278,7 @@ def load_model(whisper_arch,
         language: str - The language of the model. (use English for now)
         model: Optional[WhisperModel] - The WhisperModel instance to use.
         download_root: Optional[str] - The root directory to download the model to.
-        local_files_only: Optional[bool] - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
+        local_files_only: bool - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
         threads: int - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
     Returns:
         A Whisper pipeline.
