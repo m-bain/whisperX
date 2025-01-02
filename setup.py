@@ -16,7 +16,7 @@ setup(
     python_requires=">=3.9, <3.13",
     author="Max Bain",
     url="https://github.com/m-bain/whisperx",
-    license="MIT",
+    license="BSD-2-Clause",
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
         str(r)
