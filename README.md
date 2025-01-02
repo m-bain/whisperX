@@ -23,7 +23,7 @@
 </p>
 
 
-<img width="1216" align="center" alt="whisperx-arch" src="figures/pipeline.png">
+<img width="1216" align="center" alt="whisperx-arch" src="https://raw.githubusercontent.com/m-bain/whisperX/refs/heads/main/figures/pipeline.png">
 
 
 <!-- <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy + quality via forced phoneme alignment and voice-activity based batching for fast inference.</p> -->

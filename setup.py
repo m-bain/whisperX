@@ -1,15 +1,18 @@
 import os
-import platform
 
 import pkg_resources
 from setuptools import find_packages, setup
+
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name="whisperx",
     py_modules=["whisperx"],
     version="3.2.0",
     description="Time-Accurate Automatic Speech Recognition using Whisper.",
-    readme="README.md",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     python_requires=">=3.9, <3.13",
     author="Max Bain",
     url="https://github.com/m-bain/whisperx",
