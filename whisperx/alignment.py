@@ -3,7 +3,7 @@ Forced Alignment with Whisper
 C. Max Bain
 """
 from dataclasses import dataclass
-from typing import Iterable, Union, List
+from typing import Iterable, Optional, Union, List
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,7 @@ DEFAULT_ALIGN_MODELS_HF = {
 }
 
 
-def load_align_model(language_code, device, model_name=None, model_dir=None):
+def load_align_model(language_code: str, device: str, model_name: Optional[str] = None, model_dir=None):
     if model_name is None:
         # use default model
         if language_code in DEFAULT_ALIGN_MODELS_TORCH:
