@@ -107,7 +107,7 @@ class FasterWhisperPipeline(Pipeline):
         model: WhisperModel,
         vad: VoiceActivitySegmentation,
         vad_params: dict,
-        options: NamedTuple,
+        options: TranscriptionOptions,
         tokenizer: Optional[Tokenizer] = None,
         device: Union[int, str, "torch.device"] = -1,
         framework="pt",
