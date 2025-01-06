@@ -1,19 +1,21 @@
 import hashlib
 import os
 import urllib
-from typing import Callable, Optional, Text, Union
+from typing import Callable, Text, Union
+from typing import Optional
 
 import numpy as np
-import pandas as pd
 import torch
 from pyannote.audio import Model
 from pyannote.audio.core.io import AudioFile
 from pyannote.audio.pipelines import VoiceActivityDetection
 from pyannote.audio.pipelines.utils import PipelineModel
-from pyannote.core import Annotation, Segment, SlidingWindowFeature
+from pyannote.core import Annotation, SlidingWindowFeature
+from pyannote.core import Segment
 from tqdm import tqdm
 
-from .diarize import Segment as SegmentX
+from whisperx.diarize import Segment as SegmentX
+from whisperx.vad_models.vad import Vad
 
 # deprecated
 VAD_SEGMENTATION_URL = "https://whisperx.s3.eu-west-2.amazonaws.com/model_weights/segmentation/0b5b3216d60a2d32fc086b47ea8c67589aaeb26b7e07fcbe620d6d0b83e209ea/pytorch_model.bin"
@@ -235,73 +237,72 @@ class VoiceActivitySegmentation(VoiceActivityDetection):
 
         return segmentations
 
+class Pyannote(Vad):
 
-def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_duration_on=0.0):
+    def __init__(self, device, use_auth_token=None, model_fp=None, **kwargs):
+        print(">>Performing voice activity detection using Pyannote...")
+        super().__init__(kwargs['vad_onset'])
 
-    active = Annotation()
-    for k, vad_t in enumerate(vad_arr):
-        region = Segment(vad_t[0] - pad_onset, vad_t[1] + pad_offset)
-        active[region, k] = 1
+        model_dir = torch.hub._get_torch_home()
+        os.makedirs(model_dir, exist_ok=True)
+        if model_fp is None:
+            model_fp = os.path.join(model_dir, "whisperx-vad-segmentation.bin")
+        if os.path.exists(model_fp) and not os.path.isfile(model_fp):
+            raise RuntimeError(f"{model_fp} exists and is not a regular file")
 
+        if not os.path.isfile(model_fp):
+            with urllib.request.urlopen(VAD_SEGMENTATION_URL) as source, open(model_fp, "wb") as output:
+                with tqdm(
+                        total=int(source.info().get("Content-Length")),
+                        ncols=80,
+                        unit="iB",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                ) as loop:
+                    while True:
+                        buffer = source.read(8192)
+                        if not buffer:
+                            break
 
-    if pad_offset > 0.0 or pad_onset > 0.0 or min_duration_off > 0.0:
-        active = active.support(collar=min_duration_off)
-    
-    # remove tracks shorter than min_duration_on
-    if min_duration_on > 0:
-        for segment, track in list(active.itertracks()):
-            if segment.duration < min_duration_on:
-                    del active[segment, track]
-    
-    active = active.for_json()
-    active_segs = pd.DataFrame([x['segment'] for x in active['content']])
-    return active_segs
+                        output.write(buffer)
+                        loop.update(len(buffer))
 
-def merge_chunks(
-    segments,
-    chunk_size,
-    onset: float = 0.5,
-    offset: Optional[float] = None,
-):
-    """
-    Merge operation described in paper
-    """
-    curr_end = 0
-    merged_segments = []
-    seg_idxs = []
-    speaker_idxs = []
+        model_bytes = open(model_fp, "rb").read()
+        if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
+            raise RuntimeError(
+                "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
+            )
 
-    assert chunk_size > 0
-    binarize = Binarize(max_duration=chunk_size, onset=onset, offset=offset)
-    segments = binarize(segments)
-    segments_list = []
-    for speech_turn in segments.get_timeline():
-        segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
+        vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
+        hyperparameters = {"onset": kwargs['vad_onset'],
+                           "offset": kwargs['vad_offset'],
+                           "min_duration_on": 0.1,
+                           "min_duration_off": 0.1}
+        self.vad_pipeline = VoiceActivitySegmentation(segmentation=vad_model, device=torch.device(device))
+        self.vad_pipeline.instantiate(hyperparameters)
 
-    if len(segments_list) == 0:
-        print("No active speech found in audio")
-        return []
-    # assert segments_list, "segments_list is empty."
-    # Make sur the starting point is the start of the segment.
-    curr_start = segments_list[0].start
+    def __call__(self, audio: AudioFile, **kwargs):
+        return self.vad_pipeline(audio)
 
-    for seg in segments_list:
-        if seg.end - curr_start > chunk_size and curr_end-curr_start > 0:
-            merged_segments.append({
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })
-            curr_start = seg.start
-            seg_idxs = []
-            speaker_idxs = []
-        curr_end = seg.end
-        seg_idxs.append((seg.start, seg.end))
-        speaker_idxs.append(seg.speaker)
-    # add final
-    merged_segments.append({ 
-                "start": curr_start,
-                "end": curr_end,
-                "segments": seg_idxs,
-            })    
-    return merged_segments
+    @staticmethod
+    def preprocess_audio(audio):
+        return torch.from_numpy(audio).unsqueeze(0)
+
+    @staticmethod
+    def merge_chunks(segments,
+                     chunk_size,
+                     onset: float = 0.5,
+                     offset: Optional[float] = None,
+                     ):
+        assert chunk_size > 0
+        binarize = Binarize(max_duration=chunk_size, onset=onset, offset=offset)
+        segments = binarize(segments)
+        segments_list = []
+        for speech_turn in segments.get_timeline():
+            segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
+
+        if len(segments_list) == 0:
+            print("No active speech found in audio")
+            return []
+        assert segments_list, "segments_list is empty."
+        return Vad.merge_chunks(segments_list, chunk_size, onset, offset)

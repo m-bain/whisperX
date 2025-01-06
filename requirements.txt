@@ -6,3 +6,6 @@ transformers
 pandas
 setuptools>=65
 nltk
+pyannote.audio>=3.3.1
+numpy
+tqdm

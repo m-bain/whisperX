@@ -13,7 +13,8 @@ from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from .types import SingleSegment, TranscriptionResult
-from .vad import VoiceActivitySegmentation, load_vad_model, merge_chunks
+from .vad_models.pyannote import VoiceActivitySegmentation, load_vad_model
+from .vad_models import Vad
 
 
 def find_numeral_symbol_tokens(tokenizer):
@@ -208,7 +209,7 @@ class FasterWhisperPipeline(Pipeline):
                 yield {'inputs': audio[f1:f2]}
 
         vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
-        vad_segments = merge_chunks(
+        vad_segments = Vad.merge_chunks(
             vad_segments,
             chunk_size,
             onset=self._vad_params["vad_onset"],
