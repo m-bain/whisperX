@@ -1,6 +1,5 @@
 import os
-import warnings
-from typing import List, NamedTuple, Optional, Union
+from typing import List, Optional, Union
 
 import ctranslate2
 import faster_whisper
@@ -13,7 +12,8 @@ from transformers.pipelines.pt_utils import PipelineIterator
 
 from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from .types import SingleSegment, TranscriptionResult
-from .vad_models.pyannote import VoiceActivitySegmentation, load_vad_model
+from .vad_models.pyannote import VoiceActivitySegmentation, Pyannote
+from .vad_models.silero import Silero
 from .vad_models import Vad
 
 
@@ -208,8 +208,17 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
-        vad_segments = Vad.merge_chunks(
+        # Pre-process audio and merge chunks as defined by the respective VAD child class
+        # In case vad_model is manually assigned (see 'load_model') follow the functionality of pyannote toolkit
+        if issubclass(type(self.vad_model), Vad):
+            waveform = self.vad_model.preprocess_audio(audio)
+            merge_chunks =  self.vad_model.merge_chunks
+        else:
+            waveform = Pyannote.preprocess_audio(audio)
+            merge_chunks = Pyannote.merge_chunks
+
+        vad_segments = self.vad_model({"waveform": waveform, "sample_rate": SAMPLE_RATE})
+        vad_segments = merge_chunks(
             vad_segments,
             chunk_size,
             onset=self._vad_params["vad_onset"],
@@ -297,6 +306,7 @@ def load_model(
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
     vad_model: Optional[VoiceActivitySegmentation] = None,
+    vad_method: Optional[str] = 'silero',
     vad_options: Optional[dict] = None,
     model: Optional[WhisperModel] = None,
     task="transcribe",
@@ -374,6 +384,7 @@ def load_model(
     default_asr_options = TranscriptionOptions(**default_asr_options)
 
     default_vad_options = {
+        "chunk_size": 30,
         "vad_onset": 0.500,
         "vad_offset": 0.363
     }
@@ -382,9 +393,14 @@ def load_model(
         default_vad_options.update(vad_options)
 
     if vad_model is not None:
+        print("Use manually assigned vad_model. vad_method is ignored.")
         vad_model = vad_model
     else:
-        vad_model = load_vad_model(torch.device(device), use_auth_token=None, **default_vad_options)
+        match vad_method:
+            case "silero":
+                vad_model = Silero(**default_vad_options)
+            case "pyannote" | _:
+                vad_model = Pyannote(torch.device(device), use_auth_token=None, **default_vad_options)
 
     return FasterWhisperPipeline(
         model=model,
