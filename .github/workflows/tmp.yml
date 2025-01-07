@@ -26,6 +26,10 @@ jobs:
         run: |
           pip install whisperx
 
+      - name: Print packages
+        run: |
+          pip list
+
       - name: Test import
         run: |
           python -c "import whisperx; print('Successfully imported whisperx')"
