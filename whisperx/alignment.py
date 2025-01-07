@@ -57,15 +57,19 @@ DEFAULT_ALIGN_MODELS_HF = {
     "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
     "ca": "softcatala/wav2vec2-large-xlsr-catala",
     "ml": "gvs/wav2vec2-large-xlsr-malayalam",
-    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
-    "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
+    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal-v2",
+    "nn": "NbAiLab/nb-wav2vec2-1b-nynorsk",
     "sk": "comodoro/wav2vec2-xls-r-300m-sk-cv8",
     "sl": "anton-l/wav2vec2-large-xlsr-53-slovenian",
     "hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
+    "ro": "gigant/romanian-wav2vec2",
+    "eu": "stefan-it/wav2vec2-large-xlsr-53-basque",
+    "gl": "ifrz/wav2vec2-large-xlsr-galician",
+    "ka": "xsway/wav2vec2-large-xlsr-georgian",
 }
 
 
-def load_align_model(language_code, device, model_name=None, model_dir=None):
+def load_align_model(language_code: str, device: str, model_name: Optional[str] = None, model_dir=None):
     if model_name is None:
         # use default model
         if language_code in DEFAULT_ALIGN_MODELS_TORCH:
@@ -85,8 +89,8 @@ def load_align_model(language_code, device, model_name=None, model_dir=None):
         align_dictionary = {c.lower(): i for i, c in enumerate(labels)}
     else:
         try:
-            processor = Wav2Vec2Processor.from_pretrained(model_name)
-            align_model = Wav2Vec2ForCTC.from_pretrained(model_name)
+            processor = Wav2Vec2Processor.from_pretrained(model_name, cache_dir=model_dir)
+            align_model = Wav2Vec2ForCTC.from_pretrained(model_name, cache_dir=model_dir)
         except Exception as e:
             print(e)
             print(f"Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models")
