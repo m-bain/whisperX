@@ -1,6 +1,7 @@
 import os
 import warnings
 from typing import List, NamedTuple, Optional, Union
+from dataclasses import replace
 
 import ctranslate2
 import faster_whisper
@@ -240,7 +241,7 @@ class FasterWhisperPipeline(Pipeline):
             print(f"Suppressing numeral and symbol tokens")
             new_suppressed_tokens = numeral_symbol_tokens + self.options.suppress_tokens
             new_suppressed_tokens = list(set(new_suppressed_tokens))
-            self.options = self.options._replace(suppress_tokens=new_suppressed_tokens)
+            self.options = replace(self.options, suppress_tokens=new_suppressed_tokens)
 
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
@@ -269,7 +270,7 @@ class FasterWhisperPipeline(Pipeline):
 
         # revert suppressed tokens if suppress_numerals is enabled
         if self.suppress_numerals:
-            self.options = self.options._replace(suppress_tokens=previous_suppress_tokens)
+            self.options = replace(self.options, suppress_tokens=previous_suppress_tokens)
 
         return {"segments": segments, "language": language}
 
