@@ -10,8 +10,15 @@ from .alignment import align, load_align_model
 from .asr import load_model
 from .audio import load_audio
 from .diarize import DiarizationPipeline, assign_word_speakers
-from .utils import (LANGUAGES, TO_LANGUAGE_CODE, get_writer, optional_float,
-                    optional_int, str2bool)
+from .types import AlignedTranscriptionResult, TranscriptionResult
+from .utils import (
+    LANGUAGES,
+    TO_LANGUAGE_CODE,
+    get_writer,
+    optional_float,
+    optional_int,
+    str2bool,
+)
 
 
 def cli():
@@ -87,6 +94,7 @@ def cli():
     device: str = args.pop("device")
     device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
+    verbose: bool = args.pop("verbose")
 
     # model_flush: bool = args.pop("model_flush")
     os.makedirs(output_dir, exist_ok=True)
@@ -94,7 +102,7 @@ def cli():
     align_model: str = args.pop("align_model")
     interpolate_method: str = args.pop("interpolate_method")
     no_align: bool = args.pop("no_align")
-    task : str = args.pop("task")
+    task: str = args.pop("task")
     if task == "translate":
         # translation cannot be aligned
         no_align = True
@@ -173,7 +181,13 @@ def cli():
         audio = load_audio(audio_path)
         # >> VAD & ASR
         print(">>Performing transcription...")
-        result = model.transcribe(audio, batch_size=batch_size, chunk_size=chunk_size, print_progress=print_progress)
+        result: TranscriptionResult = model.transcribe(
+            audio,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            print_progress=print_progress,
+            verbose=verbose,
+        )
         results.append((result, audio_path))
 
     # Unload Whisper and VAD
@@ -200,7 +214,16 @@ def cli():
                     print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
                     align_model, align_metadata = load_align_model(result["language"], device)
                 print(">>Performing alignment...")
-                result = align(result["segments"], align_model, align_metadata, input_audio, device, interpolate_method=interpolate_method, return_char_alignments=return_char_alignments, print_progress=print_progress)
+                result: AlignedTranscriptionResult = align(
+                    result["segments"],
+                    align_model,
+                    align_metadata,
+                    input_audio,
+                    device,
+                    interpolate_method=interpolate_method,
+                    return_char_alignments=return_char_alignments,
+                    print_progress=print_progress,
+                )
 
             results.append((result, audio_path))
 

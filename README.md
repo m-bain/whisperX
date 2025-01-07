@@ -23,7 +23,7 @@
 </p>
 
 
-<img width="1216" align="center" alt="whisperx-arch" src="figures/pipeline.png">
+<img width="1216" align="center" alt="whisperx-arch" src="https://raw.githubusercontent.com/m-bain/whisperX/refs/heads/main/figures/pipeline.png">
 
 
 <!-- <p align="left">Whisper-Based Automatic Speech Recognition (ASR) with improved timestamp accuracy + quality via forced phoneme alignment and voice-activity based batching for fast inference.</p> -->
@@ -80,20 +80,39 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
 
-### 3. Install this repo
+### 3. Install WhisperX
 
-`pip install git+https://github.com/m-bain/whisperx.git`
+You have several installation options:
 
-If already installed, update package to most recent commit
+#### Option A: Stable Release (recommended)
+Install the latest stable version from PyPI:
 
-`pip install git+https://github.com/m-bain/whisperx.git --upgrade`
-
-If wishing to modify this package, clone and install in editable mode:
+```bash
+pip install whisperx
 ```
-$ git clone https://github.com/m-bain/whisperX.git
-$ cd whisperX
-$ pip install -e .
+
+#### Option B: Development Version
+Install the latest development version directly from GitHub (may be unstable):
+
+```bash
+pip install git+https://github.com/m-bain/whisperx.git
 ```
+
+If already installed, update to the most recent commit:
+
+```bash
+pip install git+https://github.com/m-bain/whisperx.git --upgrade
+```
+
+#### Option C: Development Mode
+If you wish to modify the package, clone and install in editable mode:
+```bash
+git clone https://github.com/m-bain/whisperX.git
+cd whisperX
+pip install -e .
+```
+
+> **Note**: The development version may contain experimental features and bugs. Use the stable PyPI release for production environments.
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
@@ -216,7 +235,7 @@ To reduce GPU memory requirements, try any of the following (2. & 3. can affect 
 
 Transcription differences from openai's whisper:
 1. Transcription without timestamps. To enable single pass batching, whisper inference is performed `--without_timestamps True`, this ensures 1 forward pass per sample in the batch. However, this can cause discrepancies the default whisper output.
-2. VAD-based segment transcription, unlike the buffered transcription of openai's. In Wthe WhisperX paper we show this reduces WER, and enables accurate batched inference
+2. VAD-based segment transcription, unlike the buffered transcription of openai's. In the WhisperX paper we show this reduces WER, and enables accurate batched inference
 3.  `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
@@ -281,7 +300,7 @@ Borrows important alignment code from [PyTorch tutorial on forced alignment](htt
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 
 
-Valuable VAD & Diarization Models from [pyannote audio][https://github.com/pyannote/pyannote-audio]
+Valuable VAD & Diarization Models from [pyannote audio](https://github.com/pyannote/pyannote-audio)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 
