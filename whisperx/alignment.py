@@ -104,7 +104,6 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
 
     return align_model, align_metadata
 
-@staticmethod
 def align_backtrack(
     transcript: Iterable[SingleSegment],
     model_lang: str,
