@@ -1,5 +1,6 @@
 import argparse
 import gc
+import multiprocessing
 import os
 import warnings
 
@@ -200,8 +201,11 @@ def cli():
                     print(f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language...")
                     align_model, align_metadata = load_align_model(result["language"], device)
                 print(">>Performing alignment...")
-                result = align(result["segments"], align_model, align_metadata, input_audio, device, interpolate_method=interpolate_method, return_char_alignments=return_char_alignments, print_progress=print_progress)
-
+                ctx = multiprocessing.get_context("spawn")
+                # create a process pool to run the whisper backprop in parallel
+                with ctx.Pool(processes=1) as pool:
+                    async_result = align(result["segments"], align_model, align_metadata, input_audio, device, interpolate_method=interpolate_method, return_char_alignments=return_char_alignments, print_progress=print_progress, pool=pool)
+                    result = async_result.get(60)
             results.append((result, audio_path))
 
         # Unload align model
