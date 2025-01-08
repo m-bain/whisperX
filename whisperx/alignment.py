@@ -98,16 +98,7 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 def split_words_into_segments(words: List[dict], gap_threshold: float = 2.0) -> List[List[dict]]:
-    """
-    Kelime listesini zaman boşluklarına göre segmentlere ayırır.
     
-    Args:
-        words: Kelime listesi
-        gap_threshold: İki kelime arasındaki maksimum izin verilen boşluk süresi (saniye)
-        
-    Returns:
-        List[List[dict]]: Segmentlere ayrılmış kelime grupları
-    """
     if not words:
         return []
         
@@ -115,7 +106,6 @@ def split_words_into_segments(words: List[dict], gap_threshold: float = 2.0) -> 
     current_segment = []
     
     for word in words:
-        # "start" ve "end" anahtarlarının varlığını kontrol et
         if "start" not in word or "end" not in word:
             continue
             
@@ -124,7 +114,6 @@ def split_words_into_segments(words: List[dict], gap_threshold: float = 2.0) -> 
             continue
             
         try:
-            # Şu anki kelime ile bir önceki kelime arasındaki boşluğu hesapla
             prev_word = current_segment[-1]
             if "end" not in prev_word or "start" not in word:
                 continue
@@ -134,19 +123,15 @@ def split_words_into_segments(words: List[dict], gap_threshold: float = 2.0) -> 
             gap_duration = current_word_start - prev_word_end
             
             if gap_duration >= gap_threshold:
-                # Yeni bir segment başlat
                 if current_segment:  # Boş segment eklemeyi önle
                     segments.append(current_segment)
                 current_segment = [word]
-            else:
-                # Mevcut segmente ekle
+            els
                 current_segment.append(word)
         except Exception as e:
-            print(f"Hata oluştu: {e}")
-            print(f"Problemli kelime: {word}")
+            print(f"Error occured: {e} at {word}")
             continue
-    
-    # Son segmenti ekle
+
     if current_segment:
         segments.append(current_segment)
         
