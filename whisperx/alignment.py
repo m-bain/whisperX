@@ -543,7 +543,7 @@ def backtrack_beam(trellis, emission, tokens, blank_id=0, beam_width=5):
             break
 
     if not beams:
-        raise ValueError("No valid path found")
+        return None
 
     best_beam = beams[0]
     t = best_beam.time_index
