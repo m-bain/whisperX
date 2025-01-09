@@ -1,8 +1,56 @@
-whisperx.egg-info/
-**/__pycache__/
-.ipynb_checkpoints
-
-# Virtual environment
+# Python virtual environment
 venv/
 env/
 .venv/
+
+# Python Bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python egg-info
+*.egg-info/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# WhisperX-specific files
+whisperx/assets/.locks/
+whisperx/assets/models--Systran--faster-whisper-tiny.en/
+
+# Log files
+*.log
+
+# Environment configuration
+.env
+*.env
+
+# VSCode settings
+.vscode/
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+
+# Distribution / Packaging
+dist/
+build/
+*.egg
+*.egg-info/
+*.tar.gz
+
+# PyInstaller
+*.spec
+
+# Test coverage / output
+.coverage
+coverage.xml
+*.coveragerc
+tox/
+.nox/
+*.hypothesis/
+
+# Docker related files
+docker-compose.override.yml
+docker-compose.yml
