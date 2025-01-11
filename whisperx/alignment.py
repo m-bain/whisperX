@@ -282,7 +282,11 @@ def align_backtrack(
         traceback.print_exc()
         raise
     print(f"Backtracking done for sample {debug_id}")
-    return {"segments": aligned_segments, "word_segments": word_segments}
+    time_token_error = compute_alignment_errors_from_time_tokens(path, emission, tokens, 0.3, 60)
+    lyric_token_error = compute_alignment_errors_from_lyric_tokens(path, emission, tokens, 0.3, 300)
+    print(f"Calculated errors for sample {debug_id}")
+    return {"segments": aligned_segments, "word_segments": word_segments, "lyric_token_error": lyric_token_error, "time_token_error": time_token_error, "tokens": tokens_list[0], "model_dict": model_dictionary}
+
 
 def align(
     transcript: Iterable[SingleSegment],
@@ -418,6 +422,7 @@ def align(
         emission_list,
         blank_id_list,
         tokens_list,
+        model_dictionary,
         waveform_segment_sizes_list,
         interpolate_method,
         return_char_alignments,
@@ -500,6 +505,108 @@ def backtrack(trellis, emission, tokens, blank_id=0):
         # failed
         return None
     return path[::-1]
+
+def compute_alignment_errors_from_lyric_tokens(
+    path: np.ndarray,
+    emission: np.ndarray,
+    tokens: np.ndarray,
+    prob_threshold: float,
+    window_size: int
+) -> List[int]:
+    """
+    Compute an error iterating over each token in the lyrics text, and checking the emission matrix for a high probability instance
+    of that token within a nearby window of time indices. If the token is not found in the window, then it is accumulated as an error.
+
+    This handles cases where the lyrics text has content that is not detected in audio.
+    """
+    emission_exp = np.exp(emission)
+    # NOTE: the first character means no match, zero it out
+    emission_exp[:, 0] = 0
+    above_threshold_mask = emission_exp > prob_threshold
+
+    # Build a list of detected tokens per time index
+    detected_tokens_per_time_index = []
+    for time_index in range(emission_exp.shape[0]):
+        tokens_at_time = np.nonzero(above_threshold_mask[time_index])[0]
+        detected_tokens_per_time_index.append(tokens_at_time)
+    # Build a list of time indices per token index
+    time_indices_per_token_index = [[] for _ in range(tokens.shape[0])]
+    for p in path:
+        time_indices_per_token_index[p.token_index].append(p.time_index)
+
+    error = []
+    for token_inx in range(tokens.shape[0]):
+        # Find a window of times around this token's mean time
+        times_for_token = time_indices_per_token_index[token_inx]
+        if not times_for_token:
+            # No time indices for this token, consider it an error
+            error.append(1)
+            continue
+        avg_time = int(np.mean(times_for_token))
+        nearby_time_indices = np.arange(avg_time - window_size // 2, avg_time + window_size // 2)
+        nearby_time_indices = np.clip(nearby_time_indices, 0, emission.shape[0] - 1)
+
+        # Find the tokens at these times
+        nearby_tokens = {token for j in nearby_time_indices for token in detected_tokens_per_time_index[j]}
+
+        # If the token is not in the nearby tokens, then it is an error
+        is_match = tokens[token_inx] in nearby_tokens
+        if not is_match:
+            error.append(1)
+        else:
+            error.append(0)
+
+    return error
+
+def compute_alignment_errors_from_time_tokens(path: np.ndarray, emission: np.ndarray, tokens: np.ndarray, prob_threshold: float, window_size: int) -> T.Tuple[float, float]:
+    """
+    Compute an error iterating over each time index in the emission matrix and looking for high probability tokens. We
+    look at the output alignment path to see if any of the tokens for that time index are present in the nearby window of
+    time indices. If not, then we detected a sound in the audio that doesn't appear in the text. This could be because
+    of a model error or spelling/pronunciation difference, or could be a real error in the alignment.
+
+    This should cases where the audio has content that is not detected in the lyrics text (missing text).
+    """
+    error = []
+    emission_exp = np.exp(emission)
+
+    # NOTE: the first character means no match, zero it out
+    emission_exp[:, 0] = 0
+
+    # Compute the token vocab value for each time index
+    tokens_per_time = [[] for _ in range(emission.shape[0])]
+    for p in path:
+        tokens_per_time[p.time_index].append(tokens[p.token_index])
+
+    for i in range(emission.shape[0]):
+        probs = emission_exp[i]
+
+        above_threshold_mask = probs > prob_threshold
+        vocab_values = np.nonzero(above_threshold_mask)[0]
+        vocab_probs = probs[vocab_values]
+
+        if len(vocab_values) == 0:
+            error.append(0)
+            continue
+
+        nearby_time_indices = np.arange(i - window_size // 2, i + window_size // 2)
+        nearby_time_indices = np.clip(nearby_time_indices, 0, emission.shape[0] - 1)
+        nearby_tokens = {token for j in nearby_time_indices for token in tokens_per_time[j]}
+
+        is_match = any(token in nearby_tokens for token in vocab_values)
+
+        # path_slice = path[i-(window_size//2):i+(window_size//2)]
+        # tokens = set(p.token_index for p in path_slice)
+        # is_in_path = np.any(v in tokens for v in vocab_values)
+
+        if not is_match:
+            # TODO: we can include the probability of the token in the error calculation
+            error.append(max(vocab_probs))
+        else:
+            error.append(0)
+
+    return error
+
 
 # Merge the labels
 @dataclass
