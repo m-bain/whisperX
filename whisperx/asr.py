@@ -397,11 +397,12 @@ def load_model(
         print("Use manually assigned vad_model. vad_method is ignored.")
         vad_model = vad_model
     else:
-        match vad_method:
-            case "silero":
-                vad_model = whisperx.vads.Silero(**default_vad_options)
-            case "pyannote" | _:
-                vad_model = whisperx.vads.Pyannote(torch.device(device), use_auth_token=None, **default_vad_options)
+        if vad_method == "silero":
+            vad_model = whisperx.vads.Silero(**default_vad_options)
+        elif vad_method == "pyannote":
+            vad_model = whisperx.vads.Pyannote(torch.device(device), use_auth_token=None, **default_vad_options)
+        else:
+            raise ValueError(f"Invalid vad_method: {vad_method}")
 
     return FasterWhisperPipeline(
         model=model,
