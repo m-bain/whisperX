@@ -76,9 +76,9 @@ GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be inst
 
 ### 2. Install PyTorch, e.g. for Linux and Windows CUDA11.8:
 
-`conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
+`conda install pytorch==2.5.0 torchaudio==2.5.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
 
-See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
+See other methods [here.](https://pytorch.org/get-started/previous-versions/#v250)
 
 ### 3. Install WhisperX
 
