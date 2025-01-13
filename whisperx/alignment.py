@@ -1,4 +1,4 @@
-""""
+"""
 Forced Alignment with Whisper
 C. Max Bain
 """
@@ -14,7 +14,6 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from .audio import SAMPLE_RATE, load_audio
 from .utils import interpolate_nans
 from .types import AlignedTranscriptionResult, SingleSegment, SingleAlignedSegment, SingleWordSegment
-import nltk
 from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
 
 PUNKT_ABBREVIATIONS = ['dr', 'vs', 'mr', 'mrs', 'prof']
@@ -194,6 +193,7 @@ def align(
             "end": t2,
             "text": text,
             "words": [],
+            "chars": None,
         }
 
         if return_char_alignments:
