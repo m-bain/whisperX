@@ -230,7 +230,7 @@ def align(
             continue
 
         text_clean = "".join(segment_data[sdx]["clean_char"])
-        tokens = [model_dictionary[c] for c in text_clean]
+        tokens = [model_dictionary.get(c, -1) for c in text_clean]
 
         f1 = int(t1 * SAMPLE_RATE)
         f2 = int(t2 * SAMPLE_RATE)
