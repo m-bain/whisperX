@@ -305,7 +305,7 @@ def load_model(
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
     vad_model = None,
-    vad_method = None,
+    vad_method: str = "pyannote",
     vad_options: Optional[dict] = None,
     model: Optional[WhisperModel] = None,
     task="transcribe",
@@ -399,7 +399,7 @@ def load_model(
     else:
         if vad_method == "silero":
             vad_model = whisperx.vads.Silero(**default_vad_options)
-        elif vad_method == "pyannote" or not vad_method:
+        elif vad_method == "pyannote":
             vad_model = whisperx.vads.Pyannote(torch.device(device), use_auth_token=None, **default_vad_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
