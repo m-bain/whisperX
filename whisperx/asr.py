@@ -1,6 +1,5 @@
 import os
-import warnings
-from typing import List, NamedTuple, Optional, Union
+from typing import List, Optional, Union
 from dataclasses import replace
 
 import ctranslate2
@@ -304,8 +303,8 @@ def load_model(
     compute_type="float16",
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
-    vad_model = None,
-    vad_method = None,
+    vad_model: Optional[Vad]= None,
+    vad_method: Optional[str] = None,
     vad_options: Optional[dict] = None,
     model: Optional[WhisperModel] = None,
     task="transcribe",
@@ -318,7 +317,7 @@ def load_model(
         whisper_arch - The name of the Whisper model to load.
         device - The device to load the model on.
         compute_type - The compute type to use for the model.
-        vad_method: str - The vad method to use. vad_model has higher priority if is not None.
+        vad_method - The vad method to use. vad_model has higher priority if is not None.
         options - A dictionary of options to use for the model.
         language - The language of the model. (use English for now)
         model - The WhisperModel instance to use.
