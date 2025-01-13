@@ -79,7 +79,7 @@ def assign_word_speakers(
 
 
 class Segment:
-    def __init__(self, start, end, speaker=None):
+    def __init__(self, start:int, end:int, speaker:Optional[str]=None):
         self.start = start
         self.end = end
         self.speaker = speaker

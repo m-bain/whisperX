@@ -241,7 +241,7 @@ class SubtitlesWriter(ResultWriter):
             line_count = 1
             # the next subtitle to yield (a list of word timings with whitespace)
             subtitle: list[dict] = []
-            times = []
+            times: list[tuple] = []
             last = result["segments"][0]["start"]
             for segment in result["segments"]:
                 for i, original_timing in enumerate(segment["words"]):
