@@ -306,6 +306,9 @@ def align(
         char_segments_arr = pd.DataFrame(char_segments_arr)
 
         aligned_subsegments = []
+        # sentecen offset in senconds to fix subtitle overlaps
+        sentence_start_offset = 0.03
+        sentence_end_offset = -0.02
         # assign sentence_idx to each character index
         char_segments_arr["sentence-idx"] = None
         for sdx2, (sstart, send) in enumerate(segment_data[sdx]["sentence_spans"]):
@@ -313,9 +316,9 @@ def align(
             char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send), "sentence-idx"] = sdx2
 
             sentence_text = text[sstart:send]
-            sentence_start = curr_chars["start"].min()
+            sentence_start = curr_chars["start"].min() + sentence_start_offset
             end_chars = curr_chars[curr_chars["char"] != ' ']
-            sentence_end = end_chars["end"].max()
+            sentence_end = end_chars["end"].max() + sentence_end_offset
             sentence_words = []
 
             for word_idx in curr_chars["word-idx"].unique():
@@ -335,9 +338,9 @@ def align(
                 word_segment = {"word": word_text}
 
                 if not np.isnan(word_start):
-                    word_segment["start"] = word_start
+                    word_segment["start"] = word_start + sentence_start_offset if not sentence_words else word_start
                 if not np.isnan(word_end):
-                    word_segment["end"] = word_end
+                    word_segment["end"] = word_end + sentence_end_offset if word_idx == len(curr_chars["word-idx"].unique()) - 1 else word_end
                 if not np.isnan(word_score):
                     word_segment["score"] = word_score
 
