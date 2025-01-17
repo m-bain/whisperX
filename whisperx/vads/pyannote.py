@@ -17,9 +17,6 @@ from tqdm import tqdm
 from whisperx.diarize import Segment as SegmentX
 from whisperx.vads.vad import Vad
 
-# deprecated
-VAD_SEGMENTATION_URL = "https://whisperx.s3.eu-west-2.amazonaws.com/model_weights/segmentation/0b5b3216d60a2d32fc086b47ea8c67589aaeb26b7e07fcbe620d6d0b83e209ea/pytorch_model.bin"
-
 def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=None, model_fp=None):
     model_dir = torch.hub._get_torch_home()
 
@@ -41,10 +38,6 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
         raise RuntimeError(f"{model_fp} exists and is not a regular file")
 
     model_bytes = open(model_fp, "rb").read()
-    if hashlib.sha256(model_bytes).hexdigest() != VAD_SEGMENTATION_URL.split('/')[-2]:
-        raise RuntimeError(
-            "Model has been downloaded but the SHA256 checksum does not match. Please retry loading the model."
-        )
 
     vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
     hyperparameters = {"onset": vad_onset,
