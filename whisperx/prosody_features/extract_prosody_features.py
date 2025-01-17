@@ -77,7 +77,6 @@ if __name__ == "__main__":
 
     # Create mirror directory structure
     for dirpath, dirnames, filenames in os.walk(data_root):
-        print(dirpath)
         structure = os.path.join(save_root, os.path.relpath(dirpath, data_root))
         if not os.path.isdir(structure):
             os.makedirs(structure)
