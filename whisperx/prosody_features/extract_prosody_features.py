@@ -1,6 +1,5 @@
 import os
 from typing import List
-import whisperx
 from whisperx.prosody_features.utils import generate_char_frame_sequence
 import gc
 import json
