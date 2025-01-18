@@ -68,15 +68,68 @@ if __name__ == "__main__":
         default="float16",
         help="Type of compute format to use. Default: 'float16'.",
     )
+    parser.add_argument(
+        "--file-type",
+        type=str,
+        default="wav",
+        help="Type audio file. Default: 'wav'.",
+    )
 
+    # Parse args
     args = parser.parse_args()
     device = args.device
     compute_type = args.compute_type
     data_root = args.data_root
     save_root = args.save_root
+    file_type = args.file_type
+
+    # Pre-load models
+    whisper_model = load_model("large-v2", device, compute_type=compute_type)
+    alignment_model, alignmet_model_metadata = load_align_model(
+        language_code="en", device=device
+    )
+
+    bad_files = []
 
     # Create mirror directory structure
     for dirpath, dirnames, filenames in os.walk(data_root):
-        structure = os.path.join(save_root, os.path.relpath(dirpath, data_root))
-        if not os.path.isdir(structure):
-            os.makedirs(structure)
+        save_dir_path = os.path.join(save_root, os.path.relpath(dirpath, data_root))
+        if not os.path.isdir(save_dir_path):
+            os.makedirs(save_dir_path)
+
+        if filenames: # If the directory contains audio files
+            for file in [f for f in filenames if f.endswith(file_type)]: # For each audio file in the directory                    
+                
+                audio_file_path = os.path.join(dirpath, file)
+                save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+
+                # Skip previously generated files
+                if os.path.exists(save_path):
+                    continue
+
+                # Perform alignment and generate char sequence feature
+                aligned_chars = get_aligned_chars(
+                    whisper_model=whisper_model,
+                    alignment_model=alignment_model,
+                    alignmet_model_metadata=alignmet_model_metadata,
+                    audio_file=audio_file_path,
+                    device=device,
+                )
+
+                # Handels error cases
+                if aligned_chars == []:
+                    print("ERROR: failed to align file")
+                    bad_files.append(audio_file_path)
+                    continue
+
+                char_seq = generate_char_frame_sequence(aligned_chars)
+
+                if char_seq is None:
+                    print("ERROR: failed to generate char sequence")
+                    bad_files.append(audio_file_path)
+                    continue
+
+                # Save
+                with open(save_path, "w") as save_file:
+                    json.dump(char_seq, save_file)
+
