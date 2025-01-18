@@ -93,12 +93,15 @@ if __name__ == "__main__":
 
     # Create mirror directory structure
     for dirpath, dirnames, filenames in os.walk(data_root):
-        save_dir_path = os.path.join(save_root, os.path.relpath(dirpath, data_root))
+        rel_path = os.path.relpath(dirpath, data_root)
+        save_dir_path = os.path.join(save_root, rel_path)
         if not os.path.isdir(save_dir_path):
             os.makedirs(save_dir_path)
 
         if filenames: # If the directory contains audio files
-            for file in [f for f in filenames if f.endswith(file_type)]: # For each audio file in the directory                    
+            
+            audio_files = [f for f in filenames if f.endswith(file_type)]
+            for file in tqdm.tqdm(audio_files, desc=f'extracting features for {rel_path}'): # For each audio file in the directory                    
                 
                 audio_file_path = os.path.join(dirpath, file)
                 save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
