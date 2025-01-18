@@ -123,6 +123,8 @@ if __name__ == "__main__":
                 if aligned_chars == []:
                     print("ERROR: failed to align file")
                     bad_files.append(audio_file_path)
+                    with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+                        json.dump(bad_files, save_file)
                     continue
 
                 char_seq = generate_char_frame_sequence(aligned_chars)
@@ -130,6 +132,8 @@ if __name__ == "__main__":
                 if char_seq is None:
                     print("ERROR: failed to generate char sequence")
                     bad_files.append(audio_file_path)
+                    with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+                        json.dump(bad_files, save_file)
                     continue
 
                 # Save
