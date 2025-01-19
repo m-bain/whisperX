@@ -59,4 +59,8 @@ class Silero(Vad):
                      offset: Optional[float] = None,
                      ):
         assert chunk_size > 0
+        if len(segments_list) == 0:
+            print("No active speech found in audio")
+            return []
+        assert segments_list, "segments_list is empty."
         return Vad.merge_chunks(segments, chunk_size, onset, offset)
