@@ -53,7 +53,7 @@ class Silero(Vad):
         return audio
 
     @staticmethod
-    def merge_chunks(segments,
+    def merge_chunks(segments_list,
                      chunk_size,
                      onset: float = 0.5,
                      offset: Optional[float] = None,
@@ -63,4 +63,4 @@ class Silero(Vad):
             print("No active speech found in audio")
             return []
         assert segments_list, "segments_list is empty."
-        return Vad.merge_chunks(segments, chunk_size, onset, offset)
+        return Vad.merge_chunks(segments_list, chunk_size, onset, offset)
