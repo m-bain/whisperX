@@ -53,7 +53,7 @@ class Silero(Vad):
         return audio
 
     @staticmethod
-    def merge_chunks(segments,
+    def merge_chunks(segments_list,
                      chunk_size,
                      onset: float = 0.5,
                      offset: Optional[float] = None,
