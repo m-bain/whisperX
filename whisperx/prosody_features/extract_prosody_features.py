@@ -109,6 +109,8 @@ if __name__ == "__main__":
             audio_files = [f for f in filenames if f.endswith(file_type)]
             for file in tqdm.tqdm(audio_files, desc=f'extracting features for {rel_path}'): # For each audio file in the directory                    
                 
+                print(f"Processing {file}...")
+                
                 audio_file_path = os.path.join(dirpath, file)
                 save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
 
