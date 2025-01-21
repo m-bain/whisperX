@@ -20,7 +20,7 @@ def get_aligned_chars(
     device: str = "cpu",
 ) -> List[dict]:
 
-    batch_size = 16  # reduce if low on GPU mem
+    batch_size = 4  # reduce if low on GPU mem
 
     audio = load_audio(audio_file)
     trans_result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
@@ -74,6 +74,11 @@ if __name__ == "__main__":
         default="wav",
         help="Type audio file. Default: 'wav'.",
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip processing of existing files.",
+    )
 
     # Parse args
     args = parser.parse_args()
@@ -82,6 +87,7 @@ if __name__ == "__main__":
     data_root = args.data_root
     save_root = args.save_root
     file_type = args.file_type
+    skip_existing = args.skip_existing
 
     # Pre-load models
     whisper_model = load_model("large-v2", device, compute_type=compute_type)
@@ -107,7 +113,7 @@ if __name__ == "__main__":
                 save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
 
                 # Skip previously generated files
-                if os.path.exists(save_path):
+                if os.path.exists(save_path) and skip_existing: 
                     continue
 
                 # Perform alignment and generate char sequence feature
