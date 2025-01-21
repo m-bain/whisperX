@@ -129,6 +129,7 @@ if __name__ == "__main__":
             save_path = os.path.join(save_root, rel_path.replace(file_type, ".json"))
 
             # Ensure the directory exists
+            print(f"Creating directory: {save_path}")
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
             # Add file paths for processing
@@ -140,7 +141,6 @@ if __name__ == "__main__":
             rel_path = os.path.relpath(dirpath, data_root)
             save_dir_path = os.path.join(save_root, rel_path)
             if not os.path.isdir(save_dir_path):
-                print(f"Creating directory: {save_dir_path}")
                 os.makedirs(save_dir_path)
 
             audio_files = [f for f in filenames if f.endswith(file_type)]
