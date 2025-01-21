@@ -79,6 +79,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip processing of existing files.",
     )
+    parser.add_argument(
+        "--chunk-file",
+        type=str,
+        required=False,
+        help="JSON file containing all the chunks.",
+    )
+    parser.add_argument(
+        "--chunk-index",
+        type=int,
+        required=False,
+        help="Index of the chunk to process.",
+    )
 
     # Parse args
     args = parser.parse_args()
@@ -88,6 +100,8 @@ if __name__ == "__main__":
     save_root = args.save_root
     file_type = args.file_type
     skip_existing = args.skip_existing
+    chunk_file = args.chunk_file
+    chunk_idx = args.chunk_index
 
     # Pre-load models
     whisper_model = load_model("large-v2", device, compute_type=compute_type)
@@ -95,24 +109,53 @@ if __name__ == "__main__":
         language_code="en", device=device
     )
 
-    # Locate all audio files
-    all_audio_files = []
-    for dirpath, dirnames, filenames in os.walk(data_root):
-        rel_path = os.path.relpath(dirpath, data_root)
-        save_dir_path = os.path.join(save_root, rel_path)
-        if not os.path.isdir(save_dir_path):
-            os.makedirs(save_dir_path)
+    if chunk_file:
+        assert chunk_idx, "chunk-index must be provided if chunk_file is specified."
+        # Load the full chunk file
+        with open(args.chunk_file, "r") as f:
+            all_chunks = json.load(f)
 
-        audio_files = [f for f in filenames if f.endswith(file_type)]
-        for file in audio_files:
-            audio_file_path = os.path.join(dirpath, file)
-            save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+        # Get the specific chunk to process
+        chunk_index = args.chunk_index
+        chunk_files = all_chunks[chunk_index]
+
+        # Prepare the save paths and ensure directory structure mirrors the input
+        all_audio_files = []
+        
+        for audio_file_path in chunk_files:
+            # Determine relative path for mirroring directory structure
+            rel_path = os.path.relpath(audio_file_path, data_root)
+            save_path = os.path.join(save_root, rel_path.replace(file_type, ".json"))
+
+            # Ensure the directory exists
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+            # Add file paths for processing
             all_audio_files.append((audio_file_path, save_path))
+            
+    else: # Locate all audio files
+        all_audio_files = []
+        for dirpath, dirnames, filenames in os.walk(data_root):
+            rel_path = os.path.relpath(dirpath, data_root)
+            save_dir_path = os.path.join(save_root, rel_path)
+            if not os.path.isdir(save_dir_path):
+                os.makedirs(save_dir_path)
+
+            audio_files = [f for f in filenames if f.endswith(file_type)]
+            for file in audio_files:
+                audio_file_path = os.path.join(dirpath, file)
+                save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+                all_audio_files.append((audio_file_path, save_path))
 
     # Process all files
     bad_files = []
+    
+    if chunk_file:
+        bad_file_log = os.path.join(save_root, f'bad_files_{chunk_idx}.json')
+    else:
+        bad_file_log = os.path.join(save_root, 'bad_files.json')
+    
     for audio_file_path, save_path in tqdm.tqdm(all_audio_files, desc='Extracting features'):
-        print(f"Processing {audio_file_path}...")
 
         # Skip previously generated files
         if os.path.exists(save_path) and skip_existing:
@@ -131,7 +174,7 @@ if __name__ == "__main__":
         if aligned_chars == []:
             print("ERROR: failed to align file")
             bad_files.append(audio_file_path)
-            with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+            with open(bad_file_log, "w") as save_file:
                 json.dump(bad_files, save_file)
             continue
 
@@ -140,7 +183,7 @@ if __name__ == "__main__":
         if char_seq is None:
             print("ERROR: failed to generate char sequence")
             bad_files.append(audio_file_path)
-            with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+            with open(bad_file_log, "w") as save_file:
                 json.dump(bad_files, save_file)
             continue
 
