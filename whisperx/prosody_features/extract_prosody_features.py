@@ -157,7 +157,7 @@ if __name__ == "__main__":
         bad_file_log = os.path.join(save_root, 'bad_files.json')
     
     for audio_file_path, save_path in tqdm.tqdm(all_audio_files, desc='Extracting features'):
-
+        print(save_path)
         # Skip previously generated files
         if os.path.exists(save_path) and skip_existing:
             continue
