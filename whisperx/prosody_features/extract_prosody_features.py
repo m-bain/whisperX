@@ -140,6 +140,7 @@ if __name__ == "__main__":
             rel_path = os.path.relpath(dirpath, data_root)
             save_dir_path = os.path.join(save_root, rel_path)
             if not os.path.isdir(save_dir_path):
+                print(f"Creating directory: {save_dir_path}")
                 os.makedirs(save_dir_path)
 
             audio_files = [f for f in filenames if f.endswith(file_type)]
@@ -157,7 +158,7 @@ if __name__ == "__main__":
         bad_file_log = os.path.join(save_root, 'bad_files.json')
     
     for audio_file_path, save_path in tqdm.tqdm(all_audio_files, desc='Extracting features'):
-        print(save_path)
+
         # Skip previously generated files
         if os.path.exists(save_path) and skip_existing:
             continue
