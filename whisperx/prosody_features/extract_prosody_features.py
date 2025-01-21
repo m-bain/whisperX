@@ -190,4 +190,5 @@ if __name__ == "__main__":
 
         # Save
         with open(save_path, "w") as save_file:
+            print(f"Saving prosody features to {save_path}")
             json.dump(char_seq, save_file)
