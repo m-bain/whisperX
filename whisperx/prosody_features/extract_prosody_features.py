@@ -95,56 +95,55 @@ if __name__ == "__main__":
         language_code="en", device=device
     )
 
-    bad_files = []
-
-    # Create mirror directory structure
+    # Locate all audio files
+    all_audio_files = []
     for dirpath, dirnames, filenames in os.walk(data_root):
         rel_path = os.path.relpath(dirpath, data_root)
         save_dir_path = os.path.join(save_root, rel_path)
         if not os.path.isdir(save_dir_path):
             os.makedirs(save_dir_path)
 
-        if filenames: # If the directory contains audio files
-            
-            audio_files = [f for f in filenames if f.endswith(file_type)]
-            for file in tqdm.tqdm(audio_files, desc=f'extracting features for {rel_path}'): # For each audio file in the directory                    
-                
-                print(f"Processing {file}...")
-                
-                audio_file_path = os.path.join(dirpath, file)
-                save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+        audio_files = [f for f in filenames if f.endswith(file_type)]
+        for file in audio_files:
+            audio_file_path = os.path.join(dirpath, file)
+            save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+            all_audio_files.append((audio_file_path, save_path))
 
-                # Skip previously generated files
-                if os.path.exists(save_path) and skip_existing: 
-                    continue
+    # Process all files
+    bad_files = []
+    for audio_file_path, save_path in tqdm.tqdm(all_audio_files, desc='Extracting features'):
+        print(f"Processing {audio_file_path}...")
 
-                # Perform alignment and generate char sequence feature
-                aligned_chars = get_aligned_chars(
-                    whisper_model=whisper_model,
-                    alignment_model=alignment_model,
-                    alignmet_model_metadata=alignmet_model_metadata,
-                    audio_file=audio_file_path,
-                    device=device,
-                )
+        # Skip previously generated files
+        if os.path.exists(save_path) and skip_existing:
+            continue
 
-                # Handels error cases
-                if aligned_chars == []:
-                    print("ERROR: failed to align file")
-                    bad_files.append(audio_file_path)
-                    with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
-                        json.dump(bad_files, save_file)
-                    continue
+        # Perform alignment and generate char sequence feature
+        aligned_chars = get_aligned_chars(
+            whisper_model=whisper_model,
+            alignment_model=alignment_model,
+            alignmet_model_metadata=alignmet_model_metadata,
+            audio_file=audio_file_path,
+            device=device,
+        )
 
-                char_seq = generate_char_frame_sequence(aligned_chars)
+        # Handle error cases
+        if aligned_chars == []:
+            print("ERROR: failed to align file")
+            bad_files.append(audio_file_path)
+            with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+                json.dump(bad_files, save_file)
+            continue
 
-                if char_seq is None:
-                    print("ERROR: failed to generate char sequence")
-                    bad_files.append(audio_file_path)
-                    with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
-                        json.dump(bad_files, save_file)
-                    continue
+        char_seq = generate_char_frame_sequence(aligned_chars)
 
-                # Save
-                with open(save_path, "w") as save_file:
-                    json.dump(char_seq, save_file)
+        if char_seq is None:
+            print("ERROR: failed to generate char sequence")
+            bad_files.append(audio_file_path)
+            with open(os.path.join(save_root, 'bad_files.json'), "w") as save_file:
+                json.dump(bad_files, save_file)
+            continue
 
+        # Save
+        with open(save_path, "w") as save_file:
+            json.dump(char_seq, save_file)
