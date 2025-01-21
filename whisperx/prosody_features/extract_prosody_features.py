@@ -110,7 +110,8 @@ if __name__ == "__main__":
     )
 
     if chunk_file:
-        assert chunk_idx, "chunk-index must be provided if chunk_file is specified."
+        assert chunk_idx is not None, "chunk-index must be provided if chunk_file is specified."
+        print('Extracting chunk index:', chunk_idx)
         # Load the full chunk file
         with open(args.chunk_file, "r") as f:
             all_chunks = json.load(f)
