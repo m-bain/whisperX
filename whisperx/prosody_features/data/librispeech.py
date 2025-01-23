@@ -247,7 +247,7 @@ if __name__ == "__main__":
     import numpy as np
     
     tokenizer = CharLevelTokenizer()
-    dataset = LibriSpeech(root_path="/project/shrikann_35/nmehlman/psid/librispeech", tokenizer=tokenizer)
+    dataset = LibriSpeech(root_path="/project/shrikann_35/nmehlman/psid_data/librispeech", tokenizer=tokenizer)
 
     idx = np.random.randint(len(dataset))
     tokens, speaker_id = dataset[idx]
