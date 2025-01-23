@@ -18,14 +18,13 @@ VALID_SPLITS = (
 
 MAX_SAMPLE_LENGTH = 1000
 
-class VPCDataset(Dataset):
+class LibriSpeech(Dataset):
     """
-    Dataset for Voice Conversion (VC) systems with character-level features.
+    Dataset for LibriSpeech with character-level features.
 
     Args:
         root_path (str): Path to the root directory containing data.
         tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
-        system (str): Specific VC system to use or "all" for all systems. Defaults to "all".
         split (str): Dataset split to use. Must be one of VALID_SPLITS.
 
     Raises:
@@ -36,29 +35,21 @@ class VPCDataset(Dataset):
         self,
         root_path: str,
         tokenizer: CharLevelTokenizer,
-        system: str = "all",
-        split: str = "train-clean-360",
-        return_id: bool = False
+        split: str = "train",
     ):
         self.root_path = root_path
-        self.system = system
         self.split = split
         self.tokenizer = tokenizer
-        self.return_id = return_id
 
         # Validate the split
         assert split in VALID_SPLITS, f"Invalid split. Must be one of {VALID_SPLITS}"
 
-        # Handle system selection
-        if system == "all":  # Train on all VC systems
-            self.paths = []
-            self.speakers = []
-            for sys in VC_SYSTEMS:  # Process each system
-                paths, speakers = self._build_system_data_paths(system=sys)
-                self.paths += paths
-                self.speakers += speakers
-        else:  # Single VC system
-            self.paths, self.speakers = self._build_system_data_paths(system=system)
+        splits_path = os.path.join(root_path, "splits.json")
+        splits = json.load(open(splits_path))
+        assert self.split in splits, f"Split {self.split} not found in splits.json"
+
+        # Load data paths and speaker labels
+        self.samples = splits[self.split]
 
         # Renumber speakers to ensure they are sequential
         self._renumber_speakers()
@@ -99,13 +90,11 @@ class VPCDataset(Dataset):
         """
         Renumber speakers to ensure IDs are sequential and compute the total number of unique speakers.
         """
-        unique_speakers = sorted(list(set(self.speakers)))
-        speaker_id_map = {
+        unique_speakers = sorted(list(set([sample["speaker"] for sample in self.samples])))
+        self.speaker_id_map = {
             old_id: i for i, old_id in enumerate(unique_speakers)
         }  # Map old IDs to new ones
 
-        # Update speaker IDs to be sequential
-        self.speakers = [speaker_id_map[speaker] for speaker in self.speakers]
         self.num_speakers = len(unique_speakers)  # Total number of unique speakers
 
         print(f"Found {self.num_speakers} total speakers")
@@ -138,9 +127,11 @@ class VPCDataset(Dataset):
         Returns:
             Tuple[torch.Tensor, int]: Tokenized character sequence and speaker ID.
         """
-        path, speaker = self.paths[index], self.speakers[index]
+        sample = self.samples[index]
 
-        id = path.split('/')[-1].replace('.json', '')
+        path = sample["path"]
+        speaker_raw = sample["speaker"]
+        speaker_id = self.speaker_id_map[speaker_raw]
 
         # Load character sequence and tokenize
         char_seq = json.load(open(path))
@@ -150,10 +141,7 @@ class VPCDataset(Dataset):
             print(f'WARNING: truncating token sequence (exceeds max length {MAX_SAMPLE_LENGTH})')
             tokens = tokens[:MAX_SAMPLE_LENGTH]
 
-        if self.return_id:
-            return tokens, id
-        else:
-            return tokens, speaker
+        return tokens, speaker_id
 
 
 def collate_fn(
@@ -269,9 +257,14 @@ def get_dataloaders(
         return {"train": train_dataloader}
 
 if __name__ == "__main__":
+
+    import numpy as np
     
     tokenizer = CharLevelTokenizer()
-    dataset = VPCDataset(root_path="/project/shrikann_35/nmehlman/vpc", tokenizer=tokenizer)
+    dataset = LibriSpeech(root_path="/project/shrikann_35/nmehlman/vpc", tokenizer=tokenizer)
 
-    for sample, _ in dataset:
-        print(len(sample))
+    idx = np.random.randint(len(dataset))
+    tokens, speaker_id = dataset[idx]
+    print(f"Sample {idx} - Speaker ID: {speaker_id}")
+    print(f"Tokens: {tokens}")
+    print(f"Tokens shape: {tokens.shape}")
