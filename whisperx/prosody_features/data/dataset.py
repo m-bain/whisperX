@@ -5,9 +5,6 @@ import os
 import json
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 
-MAX_SAMPLE_LENGTH = 1500
-
-
 class ProsodyDataset(Dataset):
     """
     Dataset for LibriSpeech with character-level features.
@@ -26,10 +23,12 @@ class ProsodyDataset(Dataset):
         root_path: str,
         tokenizer: CharLevelTokenizer,
         split: str = "train",
+        max_sample_length: int = 1024,
     ):
         self.root_path = root_path
         self.split = split
         self.tokenizer = tokenizer
+        self.max_sample_length = max_sample_length
 
         splits_path = os.path.join(root_path, "splits.json")
         splits = json.load(open(splits_path))
@@ -94,11 +93,11 @@ class ProsodyDataset(Dataset):
         char_seq = json.load(open(path))
         tokens = self.tokenizer.encode(char_seq)
 
-        if len(tokens) > MAX_SAMPLE_LENGTH:
+        if len(tokens) > self.max_sample_length:
             print(
-                f"WARNING: truncating token sequence (exceeds max length {MAX_SAMPLE_LENGTH})"
+                f"WARNING: truncating token sequence (exceeds max length {self.max_sample_length})"
             )
-            tokens = tokens[:MAX_SAMPLE_LENGTH]
+            tokens = tokens[:self.max_sample_length]
 
         return tokens, speaker_id
 

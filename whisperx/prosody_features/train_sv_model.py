@@ -28,7 +28,7 @@ def main(config):
     
     # Create Lightning module
     pl_model = ProsodySpeakerVerificationModel(
-        num_speakers=num_speakers, **config["lightning"]
+        num_speakers=num_speakers, max_sample_length=config['data']['max_sample_length'], **config["lightning"]
     )
 
     # Create logger (logs are saved to /save_dir/name/version/):

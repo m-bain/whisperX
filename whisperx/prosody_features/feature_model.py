@@ -94,7 +94,8 @@ class ProsodyFeatureModel(nn.Module):
         d_model: int = 512,
         num_layers: int = 2,
         dropout: float = 0.0,
-        local_attn_mask: int | None = None
+        local_attn_mask: int | None = None,
+        max_sample_length: int = 1024,
     ):
         super().__init__()
         self.num_tokens = num_tokens
@@ -103,6 +104,7 @@ class ProsodyFeatureModel(nn.Module):
         self.num_layers = num_layers
         self.dropout = dropout
         self.local_attn_mask = local_attn_mask
+        self.max_sample_length = max_sample_length
 
         # Embedding layer
         self.embedding = nn.Embedding(
@@ -110,7 +112,7 @@ class ProsodyFeatureModel(nn.Module):
         )
 
         # Positional encoding layer
-        self.pos_encoding = PositionalEncoding(d_model=embedding_dim, dropout=dropout)
+        self.pos_encoding = PositionalEncoding(d_model=embedding_dim, dropout=dropout, max_len=max_sample_length)
         
         self.linear = nn.Linear(in_features=embedding_dim, out_features=d_model)
 

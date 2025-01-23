@@ -11,6 +11,7 @@ gpus: "0,1"
 data:
   root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
   split: "train"
+  max_sample_length: 1024
 
 # Dataloader options:
 dataloader:
