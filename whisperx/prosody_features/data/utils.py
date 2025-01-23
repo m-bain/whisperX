@@ -125,8 +125,7 @@ def get_dataloaders(
 if __name__ == "__main__":
 
     # Define parameters for testing
-    dataset = "librispeech"
-    root_path = "/project/shrikann_35/nmehlman/psid_data/librispeech"
+    root_path = "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
     split = "train"
     val_frac = 0.1
     train_batch_size = 16
@@ -139,7 +138,6 @@ if __name__ == "__main__":
 
     # Get dataloaders
     dataloaders = get_dataloaders(
-        dataset=dataset,
         root_path=root_path,
         tokenizer=tokenizer,
         split=split,
