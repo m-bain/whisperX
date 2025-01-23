@@ -159,7 +159,7 @@ class ProsodyFeatureModel(nn.Module):
         return z_mean
 
 
-class ProsodySpeakerVerificationModel(LightningModule):
+class ProsodySpeakerIDModel(LightningModule):
 
     def __init__(
         self,

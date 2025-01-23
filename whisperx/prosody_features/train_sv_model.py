@@ -1,4 +1,4 @@
-from whisperx.prosody_features.feature_model import ProsodySpeakerVerificationModel
+from whisperx.prosody_features.feature_model import ProsodySpeakerIDModel
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 from whisperx.prosody_features.data.utils import get_dataloaders
 import pytorch_lightning as pl
@@ -25,10 +25,11 @@ def main(config):
     )
 
     num_speakers = dataloaders["train"].total_speakers
+    config["lightning"]["hparams"]["max_sample_length"] = config['data']['max_sample_length']
     
     # Create Lightning module
-    pl_model = ProsodySpeakerVerificationModel(
-        num_speakers=num_speakers, max_sample_length=config['data']['max_sample_length'], **config["lightning"]
+    pl_model = ProsodySpeakerIDModel(
+        num_speakers=num_speakers, **config["lightning"]
     )
 
     # Create logger (logs are saved to /save_dir/name/version/):
