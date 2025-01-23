@@ -1,6 +1,6 @@
 from whisperx.prosody_features.feature_model import ProsodySpeakerVerificationModel
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
-from whisperx.prosody_features.data import get_dataloaders
+from whisperx.prosody_features.data.utils import get_dataloaders
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import torch
