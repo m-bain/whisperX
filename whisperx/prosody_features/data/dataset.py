@@ -94,9 +94,6 @@ class ProsodyDataset(Dataset):
         tokens = self.tokenizer.encode(char_seq)
 
         if len(tokens) > self.max_sample_length:
-            print(
-                f"WARNING: truncating token sequence (exceeds max length {self.max_sample_length})"
-            )
             tokens = tokens[:self.max_sample_length]
 
         return tokens, speaker_id
