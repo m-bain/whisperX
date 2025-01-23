@@ -21,7 +21,7 @@ def main(config):
     tokenizer = CharLevelTokenizer()
     assert tokenizer.vocab_size() == 28  # Sanity check
     dataloaders = get_dataloaders(
-        tokenizer=tokenizer, **config["dataset"], **config["dataloader"]
+        tokenizer=tokenizer, **config["data"], **config["dataloader"]
     )
 
     num_speakers = dataloaders["train"].total_speakers
