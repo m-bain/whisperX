@@ -101,7 +101,7 @@ class LibriSpeech(Dataset):
         Returns:
             int: Total number of data samples.
         """
-        return len(self.paths)
+        return len(self.samples)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         """
