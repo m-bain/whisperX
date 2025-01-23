@@ -52,6 +52,7 @@ def get_dataloaders(
     val_batch_size: int = 32,
     num_workers: int = 1,
     shuffle: bool = True,
+    max_sample_length: int = 1024,
     **dataloader_kwargs,
 ) -> Union[DataLoader, Dict[str, DataLoader]]:
     """
@@ -66,6 +67,7 @@ def get_dataloaders(
         val_batch_size (int, optional): Batch size for validation DataLoader. Defaults to 32.
         num_workers (int, optional): Number of workers for DataLoader. Defaults to 1.
         shuffle (bool, optional): Whether to shuffle the training data. Defaults to True.
+        max_sample_length (int, optional): Maximum length of a sample. Defaults to 1024.
         **dataloader_kwargs: Additional arguments for DataLoader.
 
     Returns:
@@ -76,7 +78,7 @@ def get_dataloaders(
     """
 
     full_dataset = ProsodyDataset(
-        root_path=root_path, tokenizer=tokenizer, split=split
+        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length
     )
 
     total_speakers = full_dataset.total_speakers()
