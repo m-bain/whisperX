@@ -5,7 +5,7 @@ import os
 import json
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 
-MAX_SAMPLE_LENGTH = 1000
+MAX_SAMPLE_LENGTH = 1500
 
 
 class ProsodyDataset(Dataset):
