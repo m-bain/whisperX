@@ -9,7 +9,7 @@ gpus: "0,1"
 
 # Dataset options:
 data:
-  root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
   split: "train"
 
 # Dataloader options:
@@ -48,7 +48,7 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1/"
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech"
   name: "train_01"
   version: null     # Automatic versioning if set to null (recommended)
 
