@@ -40,7 +40,7 @@ def main(config):
         dirpath=f"{logger.log_dir}/checkpoints",     # Save in the logger's directory
         filename="best_model",                       
         save_top_k=1,                               
-        mode="min"                                   
+        mode="max"                                   
     )
 
     # Make trainer
