@@ -25,8 +25,10 @@ lightning:
   hparams: 
     num_tokens: 28
     embedding_dim: 128
-    num_layers: 1
-    dropout: 0.0
+    d_model: 512
+    num_layers: 2
+    dropout: 0.2
+    local_attn_mask: 20
   optimizer_params:
     lr: 0.001
   scheduler_params:
