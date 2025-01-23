@@ -5,17 +5,6 @@ import os
 import json
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 
-VC_SYSTEMS = ("B3", "B4", "B5", "T10-2", "T12-5", "T25-1", "T8-5")
-VALID_SPLITS = (
-    "libri_dev_enrolls",
-    "libri_test_enrolls",
-    "train-clean-360",
-    "libri_dev_trials_f",
-    "libri_test_trials_f",
-    "libri_dev_trials_m",
-    "libri_test_trials_m",
-)
-
 MAX_SAMPLE_LENGTH = 1000
 
 class LibriSpeech(Dataset):
@@ -40,9 +29,6 @@ class LibriSpeech(Dataset):
         self.root_path = root_path
         self.split = split
         self.tokenizer = tokenizer
-
-        # Validate the split
-        assert split in VALID_SPLITS, f"Invalid split. Must be one of {VALID_SPLITS}"
 
         splits_path = os.path.join(root_path, "splits.json")
         splits = json.load(open(splits_path))
