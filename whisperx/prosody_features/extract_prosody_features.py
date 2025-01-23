@@ -148,7 +148,7 @@ if __name__ == "__main__":
             audio_files = [f for f in filenames if f.endswith(file_type)]
             for file in audio_files:
                 audio_file_path = os.path.join(dirpath, file)
-                save_path = os.path.join(save_dir_path, file.replace(file_type, ".json"))
+                save_path = os.path.join(save_dir_path, file.replace(file_type, "json"))
                 all_audio_files.append((audio_file_path, save_path))
 
     # Process all files
