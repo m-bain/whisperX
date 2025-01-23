@@ -41,38 +41,6 @@ class ProsodyDataset(Dataset):
         # Renumber speakers to ensure they are sequential
         self._renumber_speakers()
 
-    def _build_system_data_paths(self, system: str) -> Tuple[List[str], List[int]]:
-        """
-        Build data paths and speaker labels for a specific system.
-
-        Args:
-            system (str): VC system identifier.
-
-        Returns:
-            Tuple[List[str], List[int]]: File paths and corresponding speaker labels.
-        """
-        sys_data_dir = os.path.join(
-            self.root_path, system, "data", f"{self.split}_{system}"
-        )
-        utt_to_speak_path = os.path.join(sys_data_dir, "utt2spk")
-        feats_dir = os.path.join(sys_data_dir, "char_feats")
-
-        # Map utterance IDs to speaker IDs
-        utt_to_speak = {
-            line.split()[0]: int(line.split()[1])
-            for line in open(utt_to_speak_path).readlines()
-        }
-
-        paths, speakers = [], []
-        for feat_file in os.listdir(feats_dir):  # For each feature file
-            full_file_path = os.path.join(feats_dir, feat_file)
-            utt_id = feat_file.replace(".json", "")
-            speaker = utt_to_speak[utt_id]
-            paths.append(full_file_path)
-            speakers.append(speaker)
-
-        return paths, speakers
-
     def _renumber_speakers(self):
         """
         Renumber speakers to ensure IDs are sequential and compute the total number of unique speakers.
@@ -141,7 +109,7 @@ if __name__ == "__main__":
 
     tokenizer = CharLevelTokenizer()
     dataset = ProsodyDataset(
-        root_path="/project/shrikann_35/nmehlman/psid_data/librispeech",
+        root_path="/project/shrikann_35/nmehlman/psid_data/vox1_feats",
         tokenizer=tokenizer,
     )
 
