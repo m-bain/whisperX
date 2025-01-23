@@ -8,7 +8,7 @@ from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 MAX_SAMPLE_LENGTH = 1000
 
 
-class LibriSpeechDataset(Dataset):
+class ProsodyDataset(Dataset):
     """
     Dataset for LibriSpeech with character-level features.
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     import numpy as np
 
     tokenizer = CharLevelTokenizer()
-    dataset = LibriSpeechDataset(
+    dataset = ProsodyDataset(
         root_path="/project/shrikann_35/nmehlman/psid_data/librispeech",
         tokenizer=tokenizer,
     )

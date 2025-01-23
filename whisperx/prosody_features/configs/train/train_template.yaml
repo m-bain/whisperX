@@ -9,7 +9,6 @@ gpus: "0,1"
 
 # Dataset options:
 data:
-  dataset: "librispeech"
   root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech"
   split: "train"
 
@@ -17,7 +16,7 @@ data:
 dataloader:
   train_batch_size: 64
   val_batch_size: 32
-  num_workers: 4
+  num_workers: 8
   val_frac: 0.2
 
 # Model options:

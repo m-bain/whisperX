@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, random_split
 from typing import List, Literal, Tuple, Union, Dict
 
 from whisperx.prosody_features.tokenizer import CharLevelTokenizer
-from whisperx.prosody_features.data.librispeech import LibriSpeechDataset
+from whisperx.prosody_features.data.dataset import ProsodyDataset
 
 
 def collate_fn(
@@ -44,7 +44,6 @@ def collate_fn(
 
 
 def get_dataloaders(
-    dataset: Literal["librispeech", "vox1"],
     root_path: str,
     tokenizer: CharLevelTokenizer,
     split: str,
@@ -59,7 +58,6 @@ def get_dataloaders(
     Create DataLoaders for training and validation.
 
     Args:
-        dataset (Literal["librispeech", "vox1"]): The dataset to use.
         root_path (str): Path to the dataset root.
         tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
         split (str): Dataset split to use.
@@ -77,14 +75,9 @@ def get_dataloaders(
         ValueError: If the specified dataset is not supported.
     """
 
-    if dataset == "librispeech":
-        full_dataset = LibriSpeechDataset(
-            root_path=root_path, tokenizer=tokenizer, split=split
-        )
-    elif dataset == "vox1":
-        pass  # TODO
-    else:
-        raise ValueError(f"Dataset {dataset} not supported.")
+    full_dataset = ProsodyDataset(
+        root_path=root_path, tokenizer=tokenizer, split=split
+    )
 
     total_speakers = full_dataset.total_speakers()
 
