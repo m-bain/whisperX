@@ -128,3 +128,46 @@ def get_dataloaders(
         )
         train_dataloader.total_speakers = total_speakers
         return {"train": train_dataloader}
+
+if __name__ == "__main__":
+
+    # Define parameters for testing
+    dataset = "librispeech"
+    root_path = "/project/shrikann_35/nmehlman/psid_data/librispeech"
+    split = "train"
+    val_frac = 0.1
+    train_batch_size = 16
+    val_batch_size = 32
+    num_workers = 1
+    shuffle = True
+
+    # Initialize tokenizer
+    tokenizer = CharLevelTokenizer()
+
+    # Get dataloaders
+    dataloaders = get_dataloaders(
+        dataset=dataset,
+        root_path=root_path,
+        tokenizer=tokenizer,
+        split=split,
+        val_frac=val_frac,
+        train_batch_size=train_batch_size,
+        val_batch_size=val_batch_size,
+        num_workers=num_workers,
+        shuffle=shuffle,
+    )
+
+    # Print information about the dataloaders
+    print("Train DataLoader:", dataloaders["train"])
+    if "val" in dataloaders:
+        print("Validation DataLoader:", dataloaders["val"])
+
+    # Load a test batch from each DataLoader and print data and label shapes
+    train_batch = next(iter(dataloaders["train"]))
+    print("Train batch data shape:", train_batch[0].shape)
+    print("Train batch label shape:", train_batch[1].shape)
+
+    if "val" in dataloaders:
+        val_batch = next(iter(dataloaders["val"]))
+        print("Validation batch data shape:", val_batch[0].shape)
+        print("Validation batch label shape:", val_batch[1].shape)
