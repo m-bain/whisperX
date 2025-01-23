@@ -129,7 +129,7 @@ if __name__ == "__main__":
         for audio_file_path in chunk_files:
             # Determine relative path for mirroring directory structure
             rel_path = os.path.relpath(audio_file_path, data_root)
-            save_path = os.path.join(save_root, rel_path.replace(file_type, ".json"))
+            save_path = os.path.join(save_root, rel_path.replace(file_type, "json"))
 
             # Ensure the directory exists
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
