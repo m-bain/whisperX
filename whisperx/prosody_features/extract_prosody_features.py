@@ -25,14 +25,17 @@ def get_aligned_chars(
     audio = load_audio(audio_file)
     trans_result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
     
-    align_result = align_for_prosody_features(
-        trans_result["segments"],
-        alignment_model,
-        alignmet_model_metadata,
-        audio,
-        device,
-        return_char_alignments=True,
-    )
+    try: 
+        align_result = align_for_prosody_features(
+            trans_result["segments"],
+            alignment_model,
+            alignmet_model_metadata,
+            audio,
+            device,
+            return_char_alignments=True,
+        )
+    except TypeError:
+        return []
 
     chars = align_result["char_segments"]
     
