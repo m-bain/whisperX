@@ -10,7 +10,7 @@ gpus: "0,1"
 # Dataset options:
 data:
   dataset: "librispeech"
-  root_path: "/project/shrikann_35/nmehlman/vpc"
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech"
   split: "train"
 
 # Dataloader options:
