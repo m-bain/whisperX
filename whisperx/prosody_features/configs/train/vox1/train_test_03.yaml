@@ -49,7 +49,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1/"
-  name: "train_02"
+  name: "train_03"
   version: null     # Automatic versioning if set to null (recommended)
 
 
