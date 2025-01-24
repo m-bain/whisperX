@@ -2,3 +2,4 @@ whisperx.egg-info/
 **/__pycache__/
 .ipynb_checkpoints
 workspace.ipynb
+whisperx/prosody_features/configs/train/.DS_Store
