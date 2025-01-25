@@ -9,6 +9,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import os
 import sys
 from whisperx.prosody_features.utils import load_yaml_config
+from pytorch_lightning.strategies import DDPStrategy
 
 
 torch.set_warn_always(False)
@@ -43,8 +44,10 @@ def main(config):
         mode="max"                                   
     )
 
+    ddp_strategy = DDPStrategy(find_unused_parameters=False)
+
     # Make trainer
-    trainer = Trainer(logger=logger, callbacks=[checkpoint_callback], **config["trainer"])
+    trainer = Trainer(logger=logger, callbacks=[checkpoint_callback], **config["trainer"], strategy=ddp_strategy)
 
     trainer.fit(
         pl_model,
