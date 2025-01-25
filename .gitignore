@@ -3,3 +3,4 @@ whisperx.egg-info/
 .ipynb_checkpoints
 workspace.ipynb
 whisperx/prosody_features/configs/train/.DS_Store
+.DS_Store
