@@ -158,6 +158,13 @@ def align(
         else:
             per_word = text
 
+        # make sure the leading and tailing word boundary exists.
+        if model_lang not in LANGUAGES_WITHOUT_SPACES:
+            if not text.startswith(" "):
+                text = " " + text
+            if not text.endswith(" "):
+                text = text + " "
+
         clean_char, clean_cdx = [], []
         for cdx, char in enumerate(text):
             char_ = char.lower()
