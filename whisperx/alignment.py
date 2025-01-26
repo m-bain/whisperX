@@ -271,8 +271,8 @@ def align(
                 blank_id = code
 
         trellis = get_trellis(emission, tokens, blank_id)
-        # path = backtrack(trellis, emission, tokens, blank_id)
-        path = backtrack_beam(trellis, emission, tokens, blank_id, beam_width=2)
+        path = backtrack(trellis, emission, tokens, blank_id)
+        # path = backtrack_beam(trellis, emission, tokens, blank_id, beam_width=2)
 
         if path is None:
             print(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original...')
