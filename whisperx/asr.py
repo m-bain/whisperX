@@ -195,9 +195,14 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+        initial_prompt: Optional[str] = None,
+        
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
+
+        if initial_prompt is not None:
+            self.options = replace(self.options, initial_prompt=initial_prompt)
 
         def data(audio, segments):
             for seg in segments:
