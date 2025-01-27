@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, List
+from typing import TypedDict, Optional, List, Tuple
 
 
 class SingleWordSegment(TypedDict):
@@ -28,6 +28,17 @@ class SingleSegment(TypedDict):
     start: float
     end: float
     text: str
+
+
+class SegmentData(TypedDict):
+    """
+    Temporary processing data used during alignment.
+    Contains cleaned and preprocessed data for each segment.
+    """
+    clean_char: List[str]  # Cleaned characters that exist in model dictionary
+    clean_cdx: List[int]   # Original indices of cleaned characters
+    clean_wdx: List[int]   # Indices of words containing valid characters
+    sentence_spans: List[Tuple[int, int]]  # Start and end indices of sentences
 
 
 class SingleAlignedSegment(TypedDict):
