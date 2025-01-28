@@ -4,7 +4,6 @@ import torchaudio
 from typing import Tuple
 import os
 import json
-import soundfile as sf
 
 class SpeakerRecogDataset(Dataset):
 
@@ -76,7 +75,8 @@ class SpeakerRecogDataset(Dataset):
         speaker_id = self.speaker_id_map[speaker_raw]
 
         # Load character sequence and tokenize
-        audio, _ = sf.read(path)
+        audio, _ = torchaudio.load(path)
+        audio = audio.numpy().squeeze()
 
         return audio, speaker_id
 
