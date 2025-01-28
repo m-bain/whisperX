@@ -29,6 +29,8 @@ def collate_fn(model_name: str):
         """
         # Separate sequences and speaker IDs
         audio, speaker_ids = zip(*batch)
+
+        print(audio, audio[0].shape)
         
         prc_audio = feature_extractor(audio, padding=True, return_tensors='pt', sampling_rate=16000).input_values
 
@@ -119,6 +121,7 @@ if __name__ == "__main__":
 
     # Define parameters for testing
     root_path = "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
+    model_name = "wavlm"
     split = "train"
     val_frac = 0.1
     train_batch_size = 16
@@ -129,6 +132,7 @@ if __name__ == "__main__":
     # Get dataloaders
     dataloaders = get_dataloaders(
         root_path=root_path,
+        model_name=model_name,
         split=split,
         val_frac=val_frac,
         train_batch_size=train_batch_size,
