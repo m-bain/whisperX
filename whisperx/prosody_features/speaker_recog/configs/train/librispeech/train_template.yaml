@@ -21,9 +21,8 @@ dataloader:
 
 # Model options:
 lightning:
-  hparams: 
-    model_name: 'wavlm'
-    freeze_feature_extractor: true
+  model_name: 'wavlm'
+  freeze_feature_extractor: true
   optimizer_params:
     lr: 0.001
   scheduler_params:
