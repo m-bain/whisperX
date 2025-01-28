@@ -40,6 +40,7 @@ trainer:
   devices: "auto"
   deterministic: False
   accumulate_grad_batches: 1
+  num_nodes: 2
 
 # Tensorboard options:
 tensorboard:
