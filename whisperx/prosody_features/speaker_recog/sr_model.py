@@ -53,6 +53,8 @@ class SpeakerRecogModel(LightningModule):
 
         if self.freeze_feature_extractor:
             params = self.classifer.parameters()
+            for param in self.model.parameters():
+                param.requires_grad = False
         else:
             params = self.parameters()
 
