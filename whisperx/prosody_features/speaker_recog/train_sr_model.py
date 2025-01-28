@@ -1,4 +1,4 @@
-from whisperx.prosody_features.speaker_recog.data.dataset import SpeakerRecogDataset
+from whisperx.prosody_features.speaker_recog.data.utils import get_dataloaders
 from whisperx.prosody_features.speaker_recog.sr_model import SpeakerRecogModel
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
@@ -18,17 +18,15 @@ CONFIG_PATH = sys.argv[1]
 def main(config):
     
     # Setup dataloaders
-    tokenizer = CharLevelTokenizer()
-    assert tokenizer.vocab_size() == 28  # Sanity check
     dataloaders = get_dataloaders(
-        tokenizer=tokenizer, **config["data"], **config["dataloader"]
+        **config["data"], **config["dataloader"]
     )
 
     num_speakers = dataloaders["train"].total_speakers
     config["lightning"]["hparams"]["max_sample_length"] = config['data']['max_sample_length']
     
     # Create Lightning module
-    pl_model = ProsodySpeakerIDModel(
+    pl_model = SpeakerRecogModel(
         num_speakers=num_speakers, **config["lightning"]
     )
 
