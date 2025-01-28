@@ -4,6 +4,7 @@ import torchaudio
 from typing import Tuple
 import os
 import json
+import numpy as np # DEBUG
 
 class SpeakerRecogDataset(Dataset):
 
