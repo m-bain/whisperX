@@ -84,7 +84,6 @@ class SpeakerRecogDataset(Dataset):
 if __name__ == "__main__":
 
     import numpy as np
-import soundfile as sf
 
     dataset = SpeakerRecogDataset(
         root_path="/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500",
