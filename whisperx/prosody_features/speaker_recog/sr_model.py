@@ -36,7 +36,6 @@ class SpeakerRecogModel(LightningModule):
 
         # Define model and featurizer
         if model_name == 'wavlm':
-            self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
             self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
             embed_dim = 512
         else:
@@ -71,14 +70,12 @@ class SpeakerRecogModel(LightningModule):
         Returns:
             y (Tensor): model output
         """
-
-        inputs = self.feature_extractor(x, return_tensors="pt", sampling_rate=16000) # Preprocess input
         
         if self.freeze_feature_extractor: # Get embeddings
             with torch.no_grad():
-                embeddings = self.model(**inputs).embeddings
+                embeddings = self.model(x).embeddings
         else:
-            embeddings = self.model(**inputs).embeddings
+            embeddings = self.model(x).embeddings
         
         y = self.classifer(embeddings) # Linear classifier
 
