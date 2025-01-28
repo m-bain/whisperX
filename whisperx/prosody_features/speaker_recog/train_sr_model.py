@@ -23,7 +23,6 @@ def main(config):
     )
 
     num_speakers = dataloaders["train"].total_speakers
-    config["lightning"]["hparams"]["max_sample_length"] = config['data']['max_sample_length']
     
     # Create Lightning module
     pl_model = SpeakerRecogModel(
