@@ -1,23 +1,22 @@
 from torch.utils.data import Dataset, DataLoader, random_split
 import torch
 import torchaudio
-from typing import List, Tuple, Dict, Union
+from typing import Tuple
 import os
 import json
-from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 
 class SpeakerRecogDataset(Dataset):
 
     def __init__(
         self,
         root_path: str,
-        splits_path: str,
         split: str = "train",
     ):
         self.root_path = root_path
         self.split = split
 
-        splits = json.load(open(splits_path)) # TODO fix paths to work for audio
+        splits_path = os.path.join(self.root_path, "splits.json")
+        splits = json.load(open(splits_path))
         assert self.split in splits, f"Split {self.split} not found in splits.json"
 
         # Load data paths and speaker labels
@@ -85,14 +84,12 @@ if __name__ == "__main__":
 
     import numpy as np
 
-    tokenizer = CharLevelTokenizer()
     dataset = SpeakerRecogDataset(
-        root_path="/project/shrikann_35/nmehlman/psid_data/LibriSpeech",
-        tokenizer=tokenizer,
+        root_path="/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500",
     )
 
     idx = np.random.randint(len(dataset))
-    tokens, speaker_id = dataset[idx]
+    audio, speaker_id = dataset[idx]
     print(f"Sample {idx} - Speaker ID: {speaker_id}")
-    print(f"Tokens: {tokens}")
-    print(f"Tokens shape: {tokens.shape}")
+    print(f"Audio: {audio}")
+    print(f"Audio shape: {audio.shape}")
