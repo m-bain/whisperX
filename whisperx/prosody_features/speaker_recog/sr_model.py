@@ -6,7 +6,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from typing import Any, Dict
 from torchmetrics import Accuracy
-from transformers import Wav2Vec2FeatureExtractor, WavLMForXVector
+from transformers import WavLMForXVector
 
 class SpeakerRecogModel(LightningModule):
 
@@ -36,7 +36,6 @@ class SpeakerRecogModel(LightningModule):
 
         # Define model and featurizer
         if model_name == 'wavlm':
-            self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
             self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
             embed_dim = 512
         else:

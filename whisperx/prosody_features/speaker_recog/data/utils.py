@@ -3,45 +3,44 @@ from torch.utils.data import DataLoader, random_split
 from typing import List, Tuple, Union, Dict
 
 from whisperx.prosody_features.speaker_recog.data.dataset import SpeakerRecogDataset
+from transformers import Wav2Vec2FeatureExtractor 
 
+def collate_fn(model_name: str):
 
-def collate_fn(
-    batch: List[Tuple[torch.Tensor, int]]
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Collate function to pad sequences to the same length for batching.
+    if model_name == 'wavlm':
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
+    else:
+        raise ValueError("Model name not recognized")
 
-    Args:
-        batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of
-                                                (sequence tensor, speaker ID).
+    def _collate_fn(
+        batch: List[Tuple[torch.Tensor, int]]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Collate function to pad sequences to the same length for batching.
 
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
-            - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
-            - Speaker IDs (torch.Tensor) of shape (batch_size).
-    """
-    # Separate sequences and speaker IDs
-    sequences, speaker_ids = zip(*batch)
+        Args:
+            batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of
+                                                    (sequence tensor, speaker ID).
 
-    # Find the length of the longest sequence in the batch
-    max_seq_len = max(seq.size(0) for seq in sequences)
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+                - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
+                - Speaker IDs (torch.Tensor) of shape (batch_size).
+        """
+        # Separate sequences and speaker IDs
+        audio, speaker_ids = zip(*batch)
+        
+        prc_audio = feature_extractor(audio, padding=True, return_tensors='pt').input_values
 
-    # Initialize a tensor for padded sequences with zeros
-    padded_sequences = torch.zeros(len(sequences), max_seq_len, dtype=torch.long)
-
-    # Copy each sequence into the padded tensor
-    for i, seq in enumerate(sequences):
-        padded_sequences[i, : seq.size(0)] = seq  # Copy the sequence up to its length
-
-    # Convert speaker IDs to a tensor
-    speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
-
-    return padded_sequences, speaker_ids
+        return prc_audio, speaker_ids
+    
+    return _collate_fn
 
 
 def get_dataloaders(
     root_path: str,
     split: str,
+    model_name: str,
     val_frac: float = 0.0,
     train_batch_size: int = 16,
     val_batch_size: int = 32,
@@ -87,7 +86,7 @@ def get_dataloaders(
             batch_size=train_batch_size,
             num_workers=num_workers,
             shuffle=shuffle,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
         val_dataloader = DataLoader(
@@ -95,7 +94,7 @@ def get_dataloaders(
             batch_size=val_batch_size,
             num_workers=num_workers,
             shuffle=False,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
 
@@ -110,7 +109,7 @@ def get_dataloaders(
             batch_size=train_batch_size,
             num_workers=num_workers,
             shuffle=shuffle,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
         train_dataloader.total_speakers = total_speakers

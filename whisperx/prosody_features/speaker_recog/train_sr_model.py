@@ -19,7 +19,7 @@ def main(config):
     
     # Setup dataloaders
     dataloaders = get_dataloaders(
-        **config["data"], **config["dataloader"]
+        model_name=config['lightning']['model_name'], **config["data"], **config["dataloader"]
     )
 
     num_speakers = dataloaders["train"].total_speakers
