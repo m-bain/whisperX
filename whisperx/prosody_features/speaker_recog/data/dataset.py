@@ -4,7 +4,6 @@ import torchaudio
 from typing import Tuple
 import os
 import json
-import numpy as np # DEBUG
 
 class SpeakerRecogDataset(Dataset):
 
@@ -69,7 +68,6 @@ class SpeakerRecogDataset(Dataset):
         Returns:
             Tuple[torch.Tensor, int]: Tokenized character sequence and speaker ID.
         """
-        return np.random.randn(16000*8), 0 # DEBUG
         sample = self.samples[index]
 
         path = sample["path"]
