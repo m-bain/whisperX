@@ -25,10 +25,10 @@ lightning:
   hparams: 
     num_tokens: 28
     embedding_dim: 128
-    d_model: 512
-    num_layers: 1
-    dropout: 0.1
-    local_attn_mask: 40
+    d_model: 256
+    num_layers: 2
+    dropout: 0.3
+    local_attn_mask: 60
   optimizer_params:
     lr: 0.0001
     weight_decay: 0.00001
@@ -52,7 +52,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech"
-  name: "more_reg_04"
+  name: "wider_attention"
   version: null     # Automatic versioning if set to null (recommended)
 
 
