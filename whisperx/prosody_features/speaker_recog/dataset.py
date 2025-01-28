@@ -75,7 +75,7 @@ class SpeakerRecogDataset(Dataset):
         speaker_id = self.speaker_id_map[speaker_raw]
 
         # Load character sequence and tokenize
-        audio = torchaudio.load(path)[0]
+        audio = torchaudio.load(path)[0].squeeze()
 
         return audio, speaker_id
 
