@@ -36,6 +36,7 @@ class SpeakerRecogModel(LightningModule):
 
         # Define model and featurizer
         if model_name == 'wavlm':
+            self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
             self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
             embed_dim = 512
         else:
