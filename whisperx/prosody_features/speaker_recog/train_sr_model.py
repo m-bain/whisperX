@@ -40,7 +40,7 @@ def main(config):
         mode="max"                                   
     )
 
-    ddp_strategy = DDPStrategy(find_unused_parameters=False)
+    ddp_strategy = DDPStrategy(find_unused_parameters=True)
 
     # Make trainer
     trainer = Trainer(logger=logger, callbacks=[checkpoint_callback], **config["trainer"], strategy=ddp_strategy)
