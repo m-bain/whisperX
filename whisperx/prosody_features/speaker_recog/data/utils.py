@@ -31,8 +31,9 @@ def collate_fn(model_name: str):
         audio, speaker_ids = zip(*batch)
         
         prc_audio = feature_extractor(audio, padding=True, return_tensors='pt', sampling_rate=16000).input_values
+        speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
 
-        return prc_audio, torch.tensor(speaker_ids)
+        return prc_audio, speaker_ids
     
     return _collate_fn
 
