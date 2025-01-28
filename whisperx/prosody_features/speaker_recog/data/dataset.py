@@ -68,6 +68,7 @@ class SpeakerRecogDataset(Dataset):
         Returns:
             Tuple[torch.Tensor, int]: Tokenized character sequence and speaker ID.
         """
+        return torch.randn(8*16000), 0 # DEBUG
         sample = self.samples[index]
 
         path = sample["path"]
