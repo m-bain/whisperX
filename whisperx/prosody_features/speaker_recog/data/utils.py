@@ -30,7 +30,7 @@ def collate_fn(model_name: str):
         # Separate sequences and speaker IDs
         audio, speaker_ids = zip(*batch)
         
-        prc_audio = feature_extractor(audio, padding=True, return_tensors='pt').input_values
+        prc_audio = feature_extractor(audio, padding=True, return_tensors='pt', sampling_rate=16000).input_values
 
         return prc_audio, speaker_ids
     
