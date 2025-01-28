@@ -14,7 +14,7 @@ data:
 
 # Dataloader options:
 dataloader:
-  train_batch_size: 64
+  train_batch_size: 32
   val_batch_size: 32
   num_workers: 8
   val_frac: 0.2
