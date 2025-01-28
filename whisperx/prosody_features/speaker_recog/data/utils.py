@@ -119,7 +119,7 @@ def get_dataloaders(
 if __name__ == "__main__":
 
     # Define parameters for testing
-    root_path = "/project/shrikann_35/nmehlman/psid_data/Librispeech/train-other-500"
+    root_path = "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
     split = "train"
     val_frac = 0.1
     train_batch_size = 16
