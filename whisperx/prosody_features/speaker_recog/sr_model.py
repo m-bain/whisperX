@@ -50,7 +50,13 @@ class SpeakerRecogModel(LightningModule):
         Returns:
             optimizer_dict (Dict): configured optimizer and lr scheduler
         """
-        optimizer = Adam(self.parameters(), **self.optimizer_params)
+
+        if self.freeze_feature_extractor:
+            params = self.classifer.parameters()
+        else:
+            params = self.parameters()
+
+        optimizer = Adam(params, **self.optimizer_params)
         scheduler = CosineAnnealingLR(optimizer=optimizer, **self.scheduler_params)
         return {
             "optimizer": optimizer,
