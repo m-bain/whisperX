@@ -15,6 +15,9 @@ from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from .types import SingleSegment, TranscriptionResult
 from .vads import Vad, Silero, Pyannote
 
+_cached_whisper_model = None
+
+
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
     for i in range(tokenizer.eot):
@@ -333,16 +336,22 @@ def load_model(
         A Whisper pipeline.
     """
 
-    if whisper_arch.endswith(".en"):
-        language = "en"
+    global _cached_whisper_model
 
-    model = model or WhisperModel(whisper_arch,
-                         device=device,
-                         device_index=device_index,
-                         compute_type=compute_type,
-                         download_root=download_root,
-                         local_files_only=local_files_only,
-                         cpu_threads=threads)
+    if _cached_whisper_model is None:
+        if whisper_arch.endswith(".en"):
+            language = "en"
+    
+        _cached_whisper_model = model or WhisperModel(whisper_arch,
+                             device=device,
+                             device_index=device_index,
+                             compute_type=compute_type,
+                             download_root=download_root,
+                             local_files_only=local_files_only,
+                             cpu_threads=threads)
+
+    model = _cached_whisper_model
+
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
@@ -378,6 +387,9 @@ def load_model(
         "hallucination_silence_threshold": None,
         "hotwords": None,
     }
+
+    if not torch.cuda.is_available():
+        default_asr_options["hotwords"] = None
 
     if asr_options is not None:
         default_asr_options.update(asr_options)
