@@ -13,13 +13,16 @@ def collate_fn(
     Collate function to pad sequences to the same length for batching.
 
     Args:
-        batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of
-                                                (sequence tensor, speaker ID).
+        batch (List[Tuple[torch.Tensor, int]] | List[Tuple[torch.Tensor, torch.Tensor, int]]): 
+            A batch of data samples, where each sample is a tuple of
+            (sequence tensor, speaker ID) or (sequence tensor, embedding tensor, speaker ID).
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+        Tuple[torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: 
+            A tuple containing:
             - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
             - Speaker IDs (torch.Tensor) of shape (batch_size).
+            - Embeddings (torch.Tensor) of shape (batch_size, embed_dim) if embeddings are included.
     """
     with_embeddings = (len(batch[0]) == 2)
     if with_embeddings:
@@ -71,6 +74,7 @@ def get_dataloaders(
         root_path (str): Path to the dataset root.
         tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
         split (str): Dataset split to use.
+        with_sr_embeds (bool, optional): Whether to include speaker recognition embeddings. Defaults to False.
         val_frac (float, optional): Fraction of data for validation. Defaults to 0.0.
         train_batch_size (int, optional): Batch size for training DataLoader. Defaults to 16.
         val_batch_size (int, optional): Batch size for validation DataLoader. Defaults to 32.
