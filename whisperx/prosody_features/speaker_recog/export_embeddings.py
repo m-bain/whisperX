@@ -3,6 +3,7 @@ from transformers import Wav2Vec2FeatureExtractor
 import os
 import torchaudio
 import tqdm
+import torch
 
 if __name__ == "__main__":
     
@@ -39,5 +40,6 @@ if __name__ == "__main__":
         x_prc = feature_extractor(x, sampling_rate=16000, return_tensors="pt").input_values
         x_prc = x_prc.to(device)
         z = model.get_embeddings(x_prc).cpu()
-        
+    
+        torch.save(z, save_path)
         
