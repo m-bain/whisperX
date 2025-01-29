@@ -24,13 +24,13 @@ class ProsodyDataset(Dataset):
         tokenizer: CharLevelTokenizer,
         split: str = "train",
         max_sample_length: int = 1024,
-        return_sr_embeds: bool = False,
+        sr_embed_model: str | None = None,
     ):
         self.root_path = root_path
         self.split = split
         self.tokenizer = tokenizer
         self.max_sample_length = max_sample_length
-        self.return_sr_embeds = return_sr_embeds
+        self.sr_embed_model = sr_embed_model
 
         splits_path = os.path.join(root_path, "splits.json")
         splits = json.load(open(splits_path))
@@ -98,8 +98,8 @@ class ProsodyDataset(Dataset):
         if len(tokens) > self.max_sample_length:
             tokens = tokens[:self.max_sample_length]
         
-        if self.return_sr_embeds:
-            embed_path = path.replace('.json', '.pt')
+        if self.sr_embed_model:
+            embed_path = path.replace('.json', f'.{self.sr_embed_model}.pt')
             sr_embeds = torch.load(embed_path)
             return tokens, sr_embeds, speaker_id
         else:

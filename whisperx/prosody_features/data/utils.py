@@ -58,7 +58,7 @@ def get_dataloaders(
     root_path: str,
     tokenizer: CharLevelTokenizer,
     split: str,
-    with_sr_embeds: bool = False,
+    sr_embed_model: str | None = None,
     val_frac: float = 0.0,
     train_batch_size: int = 16,
     val_batch_size: int = 32,
@@ -74,7 +74,7 @@ def get_dataloaders(
         root_path (str): Path to the dataset root.
         tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
         split (str): Dataset split to use.
-        with_sr_embeds (bool, optional): Whether to include speaker recognition embeddings. Defaults to False.
+        sr_embed_model (str | None, optional): Name of the speaker recognition embedding model. Defaults to None.
         val_frac (float, optional): Fraction of data for validation. Defaults to 0.0.
         train_batch_size (int, optional): Batch size for training DataLoader. Defaults to 16.
         val_batch_size (int, optional): Batch size for validation DataLoader. Defaults to 32.
@@ -91,7 +91,7 @@ def get_dataloaders(
     """
 
     full_dataset = ProsodyDataset(
-        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length, return_sr_embeds=with_sr_embeds
+        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length, sr_embed_model=sr_embed_model
     )
 
     total_speakers = full_dataset.total_speakers()
