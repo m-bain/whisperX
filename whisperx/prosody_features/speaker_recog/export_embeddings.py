@@ -4,14 +4,26 @@ import os
 import torchaudio
 import tqdm
 import torch
+import argparse
 
 if __name__ == "__main__":
     
-    data_root: str = "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
-    model_name: str = "wavlm"
-    file_type: str = "flac"
-    save_root: str = "/project/shrikann_35/nmehlman/psid_data/librispeech_feats/"
-    device: str = "cuda"
+    parser = argparse.ArgumentParser(description="Export speaker embeddings from audio files.")
+    parser.add_argument("--data_root", type=str, required=True, help="Root directory of the audio data.")
+    parser.add_argument("--save_root", type=str, required=True, help="Directory to save the embeddings.")
+    parser.add_argument("--model_name", type=str, default="wavlm", help="Name of the model to use.")
+    parser.add_argument("--file_type", type=str, default="flac", help="Type of audio files to process.")
+    parser.add_argument("--skip_existing", action="store_true", help="Skip processing if embeddings already exist.")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on.")
+    
+    args = parser.parse_args()
+    
+    data_root = args.data_root
+    model_name = args.model_name
+    file_type = args.file_type
+    save_root = args.save_root
+    skip_existing = args.skip_existing
+    device = args.device
     
     if model_name == "wavlm":
         feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
@@ -29,7 +41,7 @@ if __name__ == "__main__":
         audio_files = [f for f in filenames if f.endswith(file_type)]
         for file in audio_files:
             audio_file_path = os.path.join(dirpath, file)
-            save_path = os.path.join(save_dir_path, file.replace(file_type, "pt"))
+            save_path = os.path.join(save_dir_path, file.replace(file_type, f"{model_name}.pt"))
             all_audio_files.append((audio_file_path, save_path))
             
     for audio_file_path, save_path in tqdm.tqdm(all_audio_files):
