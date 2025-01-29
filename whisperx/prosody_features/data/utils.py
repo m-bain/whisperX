@@ -7,7 +7,7 @@ from whisperx.prosody_features.data.dataset import ProsodyDataset
 
 
 def collate_fn(
-    batch: List[Tuple[torch.Tensor, int]]
+    batch: List[Tuple[torch.Tensor, int]] | List[Tuple[torch.Tensor, torch.Tensor, int]]
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Collate function to pad sequences to the same length for batching.
@@ -21,8 +21,11 @@ def collate_fn(
             - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
             - Speaker IDs (torch.Tensor) of shape (batch_size).
     """
-    # Separate sequences and speaker IDs
-    sequences, speaker_ids = zip(*batch)
+    with_embeddings = (len(batch[0]) == 2)
+    if with_embeddings:
+        sequences, embeds, speaker_ids = zip(*batch) # Separate sequences and speaker IDs
+    else:
+        sequences, speaker_ids = zip(*batch) # Includes SR embeddings
 
     # Find the length of the longest sequence in the batch
     max_seq_len = max(seq.size(0) for seq in sequences)
@@ -39,14 +42,20 @@ def collate_fn(
         speaker_ids = [id for id in speaker_ids]
     else:
         speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
-
-    return padded_sequences, speaker_ids
+        
+    if with_embeddings:
+        embeds = torch.stack(embeds, dim=0)
+        return padded_sequences, embeds, speaker_ids
+    
+    else:
+        return padded_sequences, speaker_ids
 
 
 def get_dataloaders(
     root_path: str,
     tokenizer: CharLevelTokenizer,
     split: str,
+    with_sr_embeds: bool = False,
     val_frac: float = 0.0,
     train_batch_size: int = 16,
     val_batch_size: int = 32,
@@ -78,7 +87,7 @@ def get_dataloaders(
     """
 
     full_dataset = ProsodyDataset(
-        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length
+        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length, return_sr_embeds=with_sr_embeds
     )
 
     total_speakers = full_dataset.total_speakers()
