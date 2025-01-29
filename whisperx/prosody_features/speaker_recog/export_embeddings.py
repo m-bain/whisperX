@@ -6,15 +6,13 @@ if __name__ == "__main__":
     data_root: str = "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
     model_name: str = "wavlm"
     file_type: str = ".flac"
-    save_root: str = "/path/to/save"
+    save_root: str = "/project/shrikann_35/nmehlman/psid_data/librispeech_feats/"
     
     # Collect all audio file paths
     all_audio_files = []
     for dirpath, dirnames, filenames in os.walk(data_root):
         rel_path = os.path.relpath(dirpath, data_root)
         save_dir_path = os.path.join(save_root, rel_path)
-        if not os.path.isdir(save_dir_path):
-            os.makedirs(save_dir_path)
 
         audio_files = [f for f in filenames if f.endswith(file_type)]
         for file in audio_files:
