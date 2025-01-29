@@ -88,6 +88,21 @@ class SpeakerRecogModel(LightningModule):
         y = self.classifer(embeddings) # Linear classifier
 
         return y
+    
+    def get_embeddings(self, x: Tensor) -> Tensor:
+        """Get embeddings from the model
+
+        Args:
+            x (Tensor): input
+
+        Returns:
+            embeddings (Tensor): model embeddings
+        """
+        
+        with torch.no_grad():
+            embeddings = self.model(x).embeddings
+            
+        return embeddings
 
     def training_step(self, batch: Any, batch_idx: int = 0) -> Any:
         """Performs training step with loss computation and metric logging
