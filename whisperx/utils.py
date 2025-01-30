@@ -106,6 +106,7 @@ LANGUAGES = {
     "jw": "javanese",
     "su": "sundanese",
     "yue": "cantonese",
+    "lv": "latvian",
 }
 
 # language code lookup by name, with a few language aliases
@@ -214,7 +215,12 @@ class WriteTXT(ResultWriter):
 
     def write_result(self, result: dict, file: TextIO, options: dict):
         for segment in result["segments"]:
-            print(segment["text"].strip(), file=file, flush=True)
+            speaker = segment.get("speaker")
+            text = segment["text"].strip()
+            if speaker is not None:
+                print(f"[{speaker}]: {text}", file=file, flush=True)
+            else:
+                print(text, file=file, flush=True)
 
 
 class SubtitlesWriter(ResultWriter):
@@ -236,7 +242,7 @@ class SubtitlesWriter(ResultWriter):
             line_count = 1
             # the next subtitle to yield (a list of word timings with whitespace)
             subtitle: list[dict] = []
-            times = []
+            times: list[tuple] = []
             last = result["segments"][0]["start"]
             for segment in result["segments"]:
                 for i, original_timing in enumerate(segment["words"]):

@@ -1,5 +1,8 @@
 # conjunctions.py
 
+from typing import Set
+
+
 conjunctions_by_language = {
     'en': {'and', 'whether', 'or', 'as', 'but', 'so', 'for', 'nor', 'which', 'yet', 'although', 'since', 'unless', 'when', 'while', 'because', 'if', 'how', 'that', 'than', 'who', 'where', 'what', 'near', 'before', 'after', 'across', 'through', 'until', 'once', 'whereas', 'even', 'both', 'either', 'neither', 'though'},
     'fr': {'et', 'ou', 'mais', 'parce', 'bien', 'pendant', 'quand', 'où', 'comme', 'si', 'que', 'avant', 'après', 'aussitôt', 'jusqu’à', 'à', 'malgré', 'donc', 'tant', 'puisque', 'ni', 'soit', 'bien', 'encore', 'dès', 'lorsque'},
@@ -36,8 +39,9 @@ commas_by_language = {
     'ur': '،'  
 }
 
-def get_conjunctions(lang_code):
+def get_conjunctions(lang_code: str) -> Set[str]:
     return conjunctions_by_language.get(lang_code, set())
 
-def get_comma(lang_code):
-    return commas_by_language.get(lang_code, ',')
+
+def get_comma(lang_code: str) -> str:
+    return commas_by_language.get(lang_code, ",")
