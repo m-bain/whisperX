@@ -114,10 +114,12 @@ if __name__ == "__main__":
     dataset = ProsodyDataset(
         root_path="/project/shrikann_35/nmehlman/psid_data/vox1_feats",
         tokenizer=tokenizer,
+        sr_embed_model='wavlm'
     )
 
     idx = np.random.randint(len(dataset))
-    tokens, speaker_id = dataset[idx]
+    tokens, embeds, speaker_id = dataset[idx]
     print(f"Sample {idx} - Speaker ID: {speaker_id}")
     print(f"Tokens: {tokens}")
+    print(f"Embeds shape: {embeds.shape}")
     print(f"Tokens shape: {tokens.shape}")
