@@ -1,38 +1,21 @@
 from torch.utils.data import Dataset, DataLoader, random_split
 import torch
-from typing import List, Tuple, Dict, Union
+import torchaudio
+from typing import Tuple
 import os
 import json
-from whisperx.prosody_features.tokenizer import CharLevelTokenizer
 
-class ProsodyDataset(Dataset):
-    """
-    Dataset for LibriSpeech with character-level features.
-
-    Args:
-        root_path (str): Path to the root directory containing data.
-        tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
-        split (str): Dataset split to use. Must be one of VALID_SPLITS.
-
-    Raises:
-        AssertionError: If the specified split is not valid.
-    """
+class SpeakerRecogDataset(Dataset):
 
     def __init__(
         self,
         root_path: str,
-        tokenizer: CharLevelTokenizer,
         split: str = "train",
-        max_sample_length: int = 1024,
-        sr_embed_model: str | None = None,
     ):
         self.root_path = root_path
         self.split = split
-        self.tokenizer = tokenizer
-        self.max_sample_length = max_sample_length
-        self.sr_embed_model = sr_embed_model
 
-        splits_path = os.path.join(root_path, "splits.json")
+        splits_path = os.path.join(self.root_path, "splits.json")
         splits = json.load(open(splits_path))
         assert self.split in splits, f"Split {self.split} not found in splits.json"
 
@@ -92,34 +75,22 @@ class ProsodyDataset(Dataset):
         speaker_id = self.speaker_id_map[speaker_raw]
 
         # Load character sequence and tokenize
-        char_seq = json.load(open(path))
-        tokens = self.tokenizer.encode(char_seq)
-        
-        if len(tokens) > self.max_sample_length:
-            tokens = tokens[:self.max_sample_length]
-        
-        if self.sr_embed_model:
-            embed_path = path.replace('.json', f'.{self.sr_embed_model}.pt')
-            sr_embeds = torch.load(embed_path, weights_only=False)
-            return tokens, sr_embeds, speaker_id
-        else:
-            return tokens, speaker_id
+        audio, _ = torchaudio.load(path)
+        audio = audio.numpy().squeeze()
+
+        return audio, speaker_id
 
 
 if __name__ == "__main__":
 
     import numpy as np
 
-    tokenizer = CharLevelTokenizer()
-    dataset = ProsodyDataset(
-        root_path="/project/shrikann_35/nmehlman/psid_data/vox1_feats",
-        tokenizer=tokenizer,
-        sr_embed_model='wavlm'
+    dataset = SpeakerRecogDataset(
+        root_path="/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500",
     )
 
     idx = np.random.randint(len(dataset))
-    tokens, embeds, speaker_id = dataset[idx]
+    audio, speaker_id = dataset[idx]
     print(f"Sample {idx} - Speaker ID: {speaker_id}")
-    print(f"Tokens: {tokens}")
-    print(f"Embeds shape: {embeds.shape}")
-    print(f"Tokens shape: {tokens.shape}")
+    print(f"Audio: {audio}")
+    print(f"Audio shape: {audio.shape}")

@@ -164,18 +164,25 @@ class ProsodySpeakerIDModel(LightningModule):
     def __init__(
         self,
         num_speakers: int,
+        sr_fusion: bool = False,
+        sr_embed_dim: int | None = None,
         hparams: dict = {},
         optimizer_params: dict = {},
         scheduler_params: dict = {}
     ) -> None:
 
         super().__init__()
+        
+        # Validate config
+        if sr_fusion and sr_embed_dim is None:
+            raise ValueError("sr_embed_dim must be provided if sr_fusion is True")
 
         # Save hyperparameters
         self.save_hyperparameters()
 
         self.optimizer_params = optimizer_params
         self.scheduler_params = scheduler_params
+        self.sr_fusion = sr_fusion
 
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
@@ -184,11 +191,17 @@ class ProsodySpeakerIDModel(LightningModule):
              "balanced_accuracy": Recall(average='macro', num_classes=num_speakers, task="multiclass")}
         )
 
-        # Define feature model and
+        # Define feature model 
         self.feature_model = ProsodyFeatureModel(**hparams)
-        self.classifier = nn.Linear(
-            in_features=hparams["d_model"], out_features=num_speakers
-        )
+        
+        if sr_fusion: # Fusion with speaker recognition embeddings
+            self.classifier = nn.Linear(
+                in_features=(hparams["d_model"] + sr_embed_dim), out_features=num_speakers
+            )
+        else:
+            self.classifier = nn.Linear(
+                in_features=hparams["d_model"], out_features=num_speakers
+            )
 
     def configure_optimizers(self) -> Dict:
         """Configures optimizer
@@ -221,7 +234,7 @@ class ProsodySpeakerIDModel(LightningModule):
 
         return z
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, z_sr: Tensor | None = None) -> Tensor:
         """Forward pass function
 
         Args:
@@ -232,6 +245,11 @@ class ProsodySpeakerIDModel(LightningModule):
         """
 
         z = self.feature_model(x)
+        
+        if self.sr_fusion: # Fusion with speaker recognition embeddings
+            assert z_sr is not None, "Speaker recognition embeddings must be provided for fusion"
+            z = torch.cat([z, z_sr.squeeze()], dim=1)
+            
         y = self.classifier(z)
 
         return y
@@ -246,10 +264,13 @@ class ProsodySpeakerIDModel(LightningModule):
         Returns:
             loss (Any): batch loss
         """
-
-        x, y_true = batch  # Unpack batch
-
-        y_pred = self(x)  # Forward pass
+        
+        if self.sr_fusion:
+            x, z_sr, y_true = batch
+            y_pred = self(x, z_sr)  # Forward pass
+        else:
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
 
         # Compute and log loss
         loss = self.loss_fcn(y_pred, y_true)
@@ -274,9 +295,12 @@ class ProsodySpeakerIDModel(LightningModule):
             loss (Any): batch loss
         """
 
-        x, y_true = batch  # Unpack batch
-
-        y_pred = self(x)  # Forward pass
+        if self.sr_fusion:
+            x, z_sr, y_true = batch
+            y_pred = self(x, z_sr)  # Forward pass
+        else:
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
 
         # Compute and log loss
         loss = self.loss_fcn(y_pred, y_true)

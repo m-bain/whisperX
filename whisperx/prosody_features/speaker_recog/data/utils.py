@@ -1,71 +1,52 @@
 import torch
 from torch.utils.data import DataLoader, random_split
-from typing import List, Literal, Tuple, Union, Dict
+from typing import List, Tuple, Union, Dict
 
-from whisperx.prosody_features.tokenizer import CharLevelTokenizer
-from whisperx.prosody_features.data.dataset import ProsodyDataset
+from whisperx.prosody_features.speaker_recog.data.dataset import SpeakerRecogDataset
+from transformers import Wav2Vec2FeatureExtractor 
 
+def collate_fn(model_name: str):
 
-def collate_fn(
-    batch: List[Tuple[torch.Tensor, int]] | List[Tuple[torch.Tensor, torch.Tensor, int]]
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Collate function to pad sequences to the same length for batching.
-
-    Args:
-        batch (List[Tuple[torch.Tensor, int]] | List[Tuple[torch.Tensor, torch.Tensor, int]]): 
-            A batch of data samples, where each sample is a tuple of
-            (sequence tensor, speaker ID) or (sequence tensor, embedding tensor, speaker ID).
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: 
-            A tuple containing:
-            - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
-            - Speaker IDs (torch.Tensor) of shape (batch_size).
-            - Embeddings (torch.Tensor) of shape (batch_size, embed_dim) if embeddings are included.
-    """
-    with_embeddings = (len(batch[0]) == 3)
-
-    if with_embeddings:
-        sequences, embeds, speaker_ids = zip(*batch) # Separate sequences and speaker IDs
+    if model_name == 'wavlm':
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
     else:
-        sequences, speaker_ids = zip(*batch) # Includes SR embeddings
+        raise ValueError("Model name not recognized")
 
-    # Find the length of the longest sequence in the batch
-    max_seq_len = max(seq.size(0) for seq in sequences)
+    def _collate_fn(
+        batch: List[Tuple[torch.Tensor, int]]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Collate function to pad sequences to the same length for batching.
 
-    # Initialize a tensor for padded sequences with zeros
-    padded_sequences = torch.zeros(len(sequences), max_seq_len, dtype=torch.long)
+        Args:
+            batch (List[Tuple[torch.Tensor, int]]): A batch of data samples, where each sample is a tuple of
+                                                    (sequence tensor, speaker ID).
 
-    # Copy each sequence into the padded tensor
-    for i, seq in enumerate(sequences):
-        padded_sequences[i, : seq.size(0)] = seq  # Copy the sequence up to its length
-
-    # Convert speaker IDs to a tensor
-    if isinstance(speaker_ids[0], str):
-        speaker_ids = [id for id in speaker_ids]
-    else:
-        speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+                - Padded sequences (torch.Tensor) of shape (batch_size, max_seq_len).
+                - Speaker IDs (torch.Tensor) of shape (batch_size).
+        """
+        # Separate sequences and speaker IDs
+        audio, speaker_ids = zip(*batch)
         
-    if with_embeddings:
-        embeds = torch.stack(embeds, dim=0)
-        return padded_sequences, embeds, speaker_ids
+        prc_audio = feature_extractor(audio, padding=True, return_tensors='pt', sampling_rate=16000).input_values
+        speaker_ids = torch.tensor(speaker_ids, dtype=torch.long)
+
+        return prc_audio, speaker_ids
     
-    else:
-        return padded_sequences, speaker_ids
+    return _collate_fn
 
 
 def get_dataloaders(
     root_path: str,
-    tokenizer: CharLevelTokenizer,
     split: str,
-    sr_embed_model: str | None = None,
+    model_name: str,
     val_frac: float = 0.0,
     train_batch_size: int = 16,
     val_batch_size: int = 32,
     num_workers: int = 1,
     shuffle: bool = True,
-    max_sample_length: int = 1024,
     **dataloader_kwargs,
 ) -> Union[DataLoader, Dict[str, DataLoader]]:
     """
@@ -73,15 +54,12 @@ def get_dataloaders(
 
     Args:
         root_path (str): Path to the dataset root.
-        tokenizer (CharLevelTokenizer): Tokenizer for encoding character sequences.
         split (str): Dataset split to use.
-        sr_embed_model (str | None, optional): Name of the speaker recognition embedding model. Defaults to None.
         val_frac (float, optional): Fraction of data for validation. Defaults to 0.0.
         train_batch_size (int, optional): Batch size for training DataLoader. Defaults to 16.
         val_batch_size (int, optional): Batch size for validation DataLoader. Defaults to 32.
         num_workers (int, optional): Number of workers for DataLoader. Defaults to 1.
         shuffle (bool, optional): Whether to shuffle the training data. Defaults to True.
-        max_sample_length (int, optional): Maximum length of a sample. Defaults to 1024.
         **dataloader_kwargs: Additional arguments for DataLoader.
 
     Returns:
@@ -91,8 +69,8 @@ def get_dataloaders(
         ValueError: If the specified dataset is not supported.
     """
 
-    full_dataset = ProsodyDataset(
-        root_path=root_path, tokenizer=tokenizer, split=split, max_sample_length=max_sample_length, sr_embed_model=sr_embed_model
+    full_dataset = SpeakerRecogDataset(
+        root_path=root_path, split=split
     )
 
     total_speakers = full_dataset.total_speakers()
@@ -109,7 +87,7 @@ def get_dataloaders(
             batch_size=train_batch_size,
             num_workers=num_workers,
             shuffle=shuffle,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
         val_dataloader = DataLoader(
@@ -117,7 +95,7 @@ def get_dataloaders(
             batch_size=val_batch_size,
             num_workers=num_workers,
             shuffle=False,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
 
@@ -132,7 +110,7 @@ def get_dataloaders(
             batch_size=train_batch_size,
             num_workers=num_workers,
             shuffle=shuffle,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn(model_name),
             **dataloader_kwargs,
         )
         train_dataloader.total_speakers = total_speakers
@@ -141,7 +119,8 @@ def get_dataloaders(
 if __name__ == "__main__":
 
     # Define parameters for testing
-    root_path = "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+    root_path = "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
+    model_name = "wavlm"
     split = "train"
     val_frac = 0.1
     train_batch_size = 16
@@ -149,13 +128,10 @@ if __name__ == "__main__":
     num_workers = 1
     shuffle = True
 
-    # Initialize tokenizer
-    tokenizer = CharLevelTokenizer()
-
     # Get dataloaders
     dataloaders = get_dataloaders(
         root_path=root_path,
-        tokenizer=tokenizer,
+        model_name=model_name,
         split=split,
         val_frac=val_frac,
         train_batch_size=train_batch_size,
