@@ -18,9 +18,9 @@ dataloader:
 
 # Model options:
 lightning:
+  sr_fusion: true
+  sr_embed_dim: 512
   hparams: 
-    sr_fusion: true
-    sr_embed_dim: 512
     num_tokens: 28
     embedding_dim: 128
     d_model: 1024
