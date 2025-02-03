@@ -166,6 +166,8 @@ class ProsodySpeakerIDModel(LightningModule):
         num_speakers: int,
         sr_fusion: bool = False,
         sr_embed_dim: int | None = None,
+        freeze_feature_model: bool = False,
+        feature_model_ckpt: str | None = None,
         hparams: dict = {},
         optimizer_params: dict = {},
         scheduler_params: dict = {}
@@ -183,6 +185,7 @@ class ProsodySpeakerIDModel(LightningModule):
         self.optimizer_params = optimizer_params
         self.scheduler_params = scheduler_params
         self.sr_fusion = sr_fusion
+        self.freeze_feature_model = freeze_feature_model
 
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
@@ -193,6 +196,16 @@ class ProsodySpeakerIDModel(LightningModule):
 
         # Define feature model 
         self.feature_model = ProsodyFeatureModel(**hparams)
+        
+        if feature_model_ckpt is not None: # Load encoder weights if provided
+            print('Loading feature model weights from:', feature_model_ckpt)
+            lightning_state_dict = torch.load(feature_model_ckpt)['state_dict']
+            feature_model_ckpt = {k.replace('feature_model.', ''): v for k, v in lightning_state_dict.items() if 'feature_model' in k} 
+            self.feature_model.load_state_dict(feature_model_ckpt, map_location='cpu')
+        
+        if self.freeze_feature_model: # Freeze encoder weights if requested
+            for param in self.feature_model.parameters():
+                param.requires_grad = False
         
         if sr_fusion: # Fusion with speaker recognition embeddings
             self.classifier = nn.Linear(
