@@ -6,7 +6,7 @@ from pytorch_lightning import LightningModule
 from torch.optim import Optimizer, Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from typing import Any, Dict
-from torchmetrics import Accuracy
+from torchmetrics import Accuracy, F1Score, Recall
 
 def create_local_attention_mask(seq_len, n):
     """
@@ -180,7 +180,8 @@ class ProsodySpeakerIDModel(LightningModule):
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
         self.metrics = torch.nn.ModuleDict(
-            {"accuracy": Accuracy(task="multiclass", num_classes=num_speakers)}
+            {"accuracy": Accuracy(task="multiclass", num_classes=num_speakers),
+             "balanced_accuracy": Recall(average='macro', num_classes=num_speakers, task="multiclass")}
         )
 
         # Define feature model and
