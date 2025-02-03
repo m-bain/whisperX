@@ -205,7 +205,7 @@ class ProsodySpeakerIDModel(LightningModule):
             feature_model_ckpt = {k.replace('feature_model.', ''): v for k, v in lightning_state_dict.items() if 'feature_model' in k} 
             self.feature_model.load_state_dict(feature_model_ckpt)
         
-        if self.freeze_feature_mode or self.sr_embeds_only: # Freeze encoder weights if requested
+        if self.freeze_feature_model or self.sr_embeds_only: # Freeze encoder weights if requested
             for param in self.feature_model.parameters():
                 param.requires_grad = False
         
