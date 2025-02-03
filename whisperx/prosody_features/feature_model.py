@@ -247,7 +247,7 @@ class ProsodySpeakerIDModel(LightningModule):
         
         if self.sr_fusion: # Fusion with speaker recognition embeddings
             assert z_sr is not None, "Speaker recognition embeddings must be provided for fusion"
-            z = torch.cat([z, z_sr], dim=1)
+            z = torch.cat([z, z_sr.squeeze()], dim=1)
             
         y = self.classifier(z)
 
