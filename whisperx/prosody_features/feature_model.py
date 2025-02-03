@@ -263,10 +263,13 @@ class ProsodySpeakerIDModel(LightningModule):
         Returns:
             loss (Any): batch loss
         """
-
-        x, y_true = batch  # Unpack batch
-
-        y_pred = self(x)  # Forward pass
+        
+        if self.sr_fusion:
+            x, z_sr, y_true = batch
+            y_pred = self(x, z_sr)  # Forward pass
+        else:
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
 
         # Compute and log loss
         loss = self.loss_fcn(y_pred, y_true)
@@ -291,9 +294,12 @@ class ProsodySpeakerIDModel(LightningModule):
             loss (Any): batch loss
         """
 
-        x, y_true = batch  # Unpack batch
-
-        y_pred = self(x)  # Forward pass
+        if self.sr_fusion:
+            x, z_sr, y_true = batch
+            y_pred = self(x, z_sr)  # Forward pass
+        else:
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
 
         # Compute and log loss
         loss = self.loss_fcn(y_pred, y_true)
