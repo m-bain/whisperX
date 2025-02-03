@@ -44,7 +44,7 @@ trainer:
   sync_batchnorm: True
   accelerator: "gpu"
   devices: "auto"
-  num_nodes: 2
+  num_nodes: 1
   deterministic: False
   accumulate_grad_batches: 1
 
