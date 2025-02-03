@@ -23,6 +23,7 @@ dataloader:
 # Model options:
 lightning:
   feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/wide_2_layer/version_0/checkpoints/best_model.ckpt"
+  freeze_feature_model: true
   hparams: 
     num_tokens: 28
     embedding_dim: 128
