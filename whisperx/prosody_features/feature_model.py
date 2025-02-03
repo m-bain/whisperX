@@ -166,6 +166,7 @@ class ProsodySpeakerIDModel(LightningModule):
         num_speakers: int,
         sr_fusion: bool = False,
         sr_embed_dim: int | None = None,
+        sr_embeds_only: bool = False,
         freeze_feature_model: bool = False,
         feature_model_ckpt: str | None = None,
         hparams: dict = {},
@@ -186,7 +187,8 @@ class ProsodySpeakerIDModel(LightningModule):
         self.scheduler_params = scheduler_params
         self.sr_fusion = sr_fusion
         self.freeze_feature_model = freeze_feature_model
-
+        self.sr_embeds_only = sr_embeds_only
+        
         # Define loss and metric functions
         self.loss_fcn = nn.CrossEntropyLoss()
         self.metrics = torch.nn.ModuleDict(
@@ -207,9 +209,13 @@ class ProsodySpeakerIDModel(LightningModule):
             for param in self.feature_model.parameters():
                 param.requires_grad = False
         
-        if sr_fusion: # Fusion with speaker recognition embeddings
+        if sr_fusion and not sr_embeds_only: # Fusion with speaker recognition embeddings
             self.classifier = nn.Linear(
                 in_features=(hparams["d_model"] + sr_embed_dim), out_features=num_speakers
+            )
+        elif sr_embeds_only: # Use only speaker recognition embeddings  
+            self.classifier = nn.Linear(
+                in_features=sr_embed_dim, out_features=num_speakers
             )
         else:
             self.classifier = nn.Linear(
@@ -256,13 +262,16 @@ class ProsodySpeakerIDModel(LightningModule):
         Returns:
             y (Tensor): model output
         """
-
-        z = self.feature_model(x)
         
-        if self.sr_fusion: # Fusion with speaker recognition embeddings
+        if self.sr_fusion and not self.sr_embeds_only: # Fusion with speaker recognition embeddings
             assert z_sr is not None, "Speaker recognition embeddings must be provided for fusion"
+            z = self.feature_model(x)
             z = torch.cat([z, z_sr.squeeze()], dim=1)
-            
+        elif self.sr_embeds_only: # Use only speaker recognition embeddings 
+            z = z_sr
+        else: # Use only prosody embeddings
+            z = self.feature_model(x)
+        
         y = self.classifier(z)
 
         return y
