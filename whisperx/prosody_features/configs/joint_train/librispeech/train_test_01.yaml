@@ -25,8 +25,8 @@ lightning:
     embedding_dim: 128
     d_model: 1024
     num_layers: 2
-    dropout: 0.3
-    local_attn_mask: 30
+    dropout: 0.2
+    local_attn_mask: 15
   optimizer_params:
     lr: 0.0001
   scheduler_params:
@@ -48,8 +48,8 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/test"
-  name: "name"
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/joint_train"
+  name: "train_test_01"
   version: null     # Automatic versioning if set to null (recommended)
 
 
