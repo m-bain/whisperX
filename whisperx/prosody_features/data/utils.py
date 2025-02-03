@@ -24,7 +24,8 @@ def collate_fn(
             - Speaker IDs (torch.Tensor) of shape (batch_size).
             - Embeddings (torch.Tensor) of shape (batch_size, embed_dim) if embeddings are included.
     """
-    with_embeddings = (len(batch[0]) == 2)
+    with_embeddings = (len(batch[0]) == 3)
+
     if with_embeddings:
         sequences, embeds, speaker_ids = zip(*batch) # Separate sequences and speaker IDs
     else:
