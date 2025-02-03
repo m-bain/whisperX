@@ -199,9 +199,9 @@ class ProsodySpeakerIDModel(LightningModule):
         
         if feature_model_ckpt is not None: # Load encoder weights if provided
             print('Loading feature model weights from:', feature_model_ckpt)
-            lightning_state_dict = torch.load(feature_model_ckpt)['state_dict']
+            lightning_state_dict = torch.load(feature_model_ckpt, weights_only=False, map_location='cpu')['state_dict']
             feature_model_ckpt = {k.replace('feature_model.', ''): v for k, v in lightning_state_dict.items() if 'feature_model' in k} 
-            self.feature_model.load_state_dict(feature_model_ckpt, map_location='cpu')
+            self.feature_model.load_state_dict(feature_model_ckpt)
         
         if self.freeze_feature_model: # Freeze encoder weights if requested
             for param in self.feature_model.parameters():
