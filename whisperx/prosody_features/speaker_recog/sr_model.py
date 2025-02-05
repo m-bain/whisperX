@@ -38,6 +38,11 @@ class SpeakerRecogModel(LightningModule):
         if model_name == 'wavlm':
             self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
             embed_dim = 512
+        elif model_name == 'speechbrain':
+            from speechbrain.inference.speaker import EncoderClassifier
+            self.model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-xvect-voxceleb", 
+                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb")
+            embed_dim = 512
         else:
             raise ValueError("Model name not recognized")
         
@@ -68,6 +73,12 @@ class SpeakerRecogModel(LightningModule):
                 "frequency": 1,       # Frequency of applying the scheduler
             },
         }
+        
+    def _forward(self, x: Tensor) -> Tensor:
+        if self.model_name == 'wavlm':
+            return self.model(x).embeddings
+        elif self.model_name == 'speechbrain':
+            return self.model.encode_batch(x)
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass function
@@ -81,9 +92,9 @@ class SpeakerRecogModel(LightningModule):
         
         if self.freeze_feature_extractor: # Get embeddings
             with torch.no_grad():
-                embeddings = self.model(x).embeddings
+                embeddings = self._forward(x)
         else:
-            embeddings = self.model(x).embeddings
+            embeddings = self._forward(x)
         
         y = self.classifer(embeddings) # Linear classifier
 
@@ -100,7 +111,7 @@ class SpeakerRecogModel(LightningModule):
         """
         
         with torch.no_grad():
-            embeddings = self.model(x).embeddings
+            embeddings = self._forward(x)
             
         return embeddings
 

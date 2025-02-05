@@ -26,7 +26,10 @@ if __name__ == "__main__":
     device = args.device
     
     if model_name == "wavlm":
-        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
+        _feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv').to(device)
+        feature_extractor = lambda x: _feature_extractor(x, sampling_rate=16000, return_tensors='pt').input_values
+    elif model_name == "speechbrain":
+        feature_extractor = lambda x: x
     else:
         raise ValueError("Model name not recognized")
     
@@ -49,9 +52,10 @@ if __name__ == "__main__":
         x, _ = torchaudio.load(audio_file_path)
         x = x.squeeze().numpy()
         
-        x_prc = feature_extractor(x, sampling_rate=16000, return_tensors="pt").input_values
+        x_prc = feature_extractor(x)
         x_prc = x_prc.to(device)
         z = model.get_embeddings(x_prc).cpu()
+        print(z.shape) # DEBUG
     
         torch.save(z, save_path)
         
