@@ -169,6 +169,8 @@ class ProsodySpeakerIDModel(LightningModule):
         sr_embeds_only: bool = False,
         freeze_feature_model: bool = False,
         feature_model_ckpt: str | None = None,
+        prosody_fusion_dim: int = 256,
+        sr_fusion_dim: int = 512,
         hparams: dict = {},
         optimizer_params: dict = {},
         scheduler_params: dict = {}
@@ -210,8 +212,12 @@ class ProsodySpeakerIDModel(LightningModule):
                 param.requires_grad = False
         
         if sr_fusion and not sr_embeds_only: # Fusion with speaker recognition embeddings
+            
+            self.proj_sr = nn.Linear(in_features=sr_embed_dim, out_features=sr_fusion_dim) # Projection layers to align spaces
+            self.proj_prosody = nn.Linear(in_features=hparams["d_model"], out_features=prosody_fusion_dim)
+            
             self.classifier = nn.Linear(
-                in_features=(hparams["d_model"] + sr_embed_dim), out_features=num_speakers
+                in_features=(sr_fusion_dim + prosody_fusion_dim), out_features=num_speakers
             )
         elif sr_embeds_only: # Use only speaker recognition embeddings  
             self.classifier = nn.Linear(
@@ -266,10 +272,12 @@ class ProsodySpeakerIDModel(LightningModule):
         if self.sr_fusion and not self.sr_embeds_only: # Fusion with speaker recognition embeddings
             assert z_sr is not None, "Speaker recognition embeddings must be provided for fusion"
             z = self.feature_model(x)
-            z = torch.cat([z, z_sr.squeeze()], dim=1)
+            z = self.proj_prosody(z)
+            z_sr = self.proj_sr(z_sr)
+            z = torch.cat([z, z_sr], dim=1)
         
         elif self.sr_embeds_only: # Use only speaker recognition embeddings 
-            z = z_sr.squeeze()
+            z = z_sr
         
         else: # Use only prosody embeddings
             z = self.feature_model(x)

@@ -101,7 +101,7 @@ class ProsodyDataset(Dataset):
         if self.sr_embed_model:
             embed_path = path.replace('.json', f'.{self.sr_embed_model}.pt')
             sr_embeds = torch.load(embed_path, weights_only=False)
-            return tokens, sr_embeds, speaker_id
+            return tokens, sr_embeds.squeeze(), speaker_id
         else:
             return tokens, speaker_id
 
