@@ -33,7 +33,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("Model name not recognized")
     
-    model = SpeakerRecogModel(model_name, num_speakers=2).to(device) # num_speakers is a dummy value
+    model = SpeakerRecogModel(model_name, num_speakers=2, device=device) # num_speakers is a dummy value
             
     # Collect all audio file paths
     all_audio_files = []

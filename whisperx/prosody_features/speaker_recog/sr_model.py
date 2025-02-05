@@ -16,7 +16,8 @@ class SpeakerRecogModel(LightningModule):
         num_speakers: int,
         freeze_feature_extractor: bool = False,
         optimizer_params: dict = {},
-        scheduler_params: dict = {}
+        scheduler_params: dict = {},
+        device: str = "cuda",
     ) -> None:
 
         super().__init__()
@@ -37,12 +38,12 @@ class SpeakerRecogModel(LightningModule):
 
         # Define model and featurizer
         if model_name == 'wavlm':
-            self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
+            self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv').to(device)
             embed_dim = 512
         elif model_name == 'speechbrain':
             from speechbrain.inference.speaker import EncoderClassifier
             self.model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-xvect-voxceleb", 
-                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb")
+                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb").to(device)
             embed_dim = 512
         else:
             raise ValueError("Model name not recognized")
