@@ -21,7 +21,9 @@ lightning:
   sr_fusion: true
   sr_embed_dim: 512
   feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/wide_2_layer/version_6/checkpoints/best_model-epoch=137-step=48124-val_accuracy=0.22.ckpt"
-  freeze_feature_model: true
+  freeze_feature_model: false
+  prosody_fusion_dim: 256
+  sr_fusion_dim: 512
   hparams: 
     d_model: 1024
     dropout: 0.5
