@@ -24,6 +24,7 @@ class SpeakerRecogModel(LightningModule):
         # Save hyperparameters
         self.save_hyperparameters()
 
+        self.model_name = model_name
         self.optimizer_params = optimizer_params
         self.scheduler_params = scheduler_params
         self.freeze_feature_extractor = freeze_feature_extractor
