@@ -43,7 +43,8 @@ class SpeakerRecogModel(LightningModule):
         elif model_name == 'speechbrain':
             from speechbrain.inference.speaker import EncoderClassifier
             self.model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-xvect-voxceleb", 
-                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb").to(device)
+                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb",
+                                                        run_opts={"device": device})
             embed_dim = 512
         else:
             raise ValueError("Model name not recognized")
