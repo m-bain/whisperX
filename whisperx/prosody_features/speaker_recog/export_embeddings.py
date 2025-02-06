@@ -54,9 +54,7 @@ if __name__ == "__main__":
         
         x_prc = feature_extractor(x)
         x_prc = x_prc.to(device)
-        print(x_prc.device) # DEBUG
-        z = model.get_embeddings(x_prc).cpu()
-        print(z.shape) # DEBUG
+        z = model.get_embeddings(x_prc).cpu().squeeze()
     
         torch.save(z, save_path)
         
