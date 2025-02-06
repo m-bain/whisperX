@@ -16,7 +16,8 @@ class SpeakerRecogModel(LightningModule):
         num_speakers: int,
         freeze_feature_extractor: bool = False,
         optimizer_params: dict = {},
-        scheduler_params: dict = {}
+        scheduler_params: dict = {},
+        device: str = "cuda",
     ) -> None:
 
         super().__init__()
@@ -24,6 +25,7 @@ class SpeakerRecogModel(LightningModule):
         # Save hyperparameters
         self.save_hyperparameters()
 
+        self.model_name = model_name
         self.optimizer_params = optimizer_params
         self.scheduler_params = scheduler_params
         self.freeze_feature_extractor = freeze_feature_extractor
@@ -36,7 +38,13 @@ class SpeakerRecogModel(LightningModule):
 
         # Define model and featurizer
         if model_name == 'wavlm':
-            self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv')
+            self.model = WavLMForXVector.from_pretrained('microsoft/wavlm-base-sv').to(device)
+            embed_dim = 512
+        elif model_name == 'speechbrain':
+            from speechbrain.inference.speaker import EncoderClassifier
+            self.model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-xvect-voxceleb", 
+                                                        savedir="/home1/nmehlman/models/spkrec-xvect-voxceleb",
+                                                        run_opts={"device": device})
             embed_dim = 512
         else:
             raise ValueError("Model name not recognized")
@@ -68,6 +76,12 @@ class SpeakerRecogModel(LightningModule):
                 "frequency": 1,       # Frequency of applying the scheduler
             },
         }
+        
+    def _forward(self, x: Tensor) -> Tensor:
+        if self.model_name == 'wavlm':
+            return self.model(x).embeddings
+        elif self.model_name == 'speechbrain':
+            return self.model.encode_batch(x)
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass function
@@ -81,9 +95,9 @@ class SpeakerRecogModel(LightningModule):
         
         if self.freeze_feature_extractor: # Get embeddings
             with torch.no_grad():
-                embeddings = self.model(x).embeddings
+                embeddings = self._forward(x)
         else:
-            embeddings = self.model(x).embeddings
+            embeddings = self._forward(x)
         
         y = self.classifer(embeddings) # Linear classifier
 
@@ -100,7 +114,7 @@ class SpeakerRecogModel(LightningModule):
         """
         
         with torch.no_grad():
-            embeddings = self.model(x).embeddings
+            embeddings = self._forward(x)
             
         return embeddings
 
