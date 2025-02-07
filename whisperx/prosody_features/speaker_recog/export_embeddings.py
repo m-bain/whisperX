@@ -49,6 +49,9 @@ if __name__ == "__main__":
             
     for audio_file_path, save_path in tqdm.tqdm(all_audio_files):
         
+        if skip_existing and os.path.exists(save_path):
+            continue
+        
         x, _ = torchaudio.load(audio_file_path)
         x = x.squeeze()
         
