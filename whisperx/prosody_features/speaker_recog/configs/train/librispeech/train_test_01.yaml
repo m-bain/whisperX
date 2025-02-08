@@ -1,0 +1,51 @@
+
+
+# Basic training
+
+---
+random_seed: 42
+ckpt_path: null
+gpus: "0,1"
+
+# Dataset options:
+data:
+  root_path: "/project/shrikann_35/nmehlman/psid_data/LibriSpeech/train-other-500"
+  split: "train"
+
+# Dataloader options:
+dataloader:
+  train_batch_size: 32
+  val_batch_size: 32
+  num_workers: 8
+  val_frac: 0.2
+
+# Model options:
+lightning:
+  model_name: 'wavlm'
+  freeze_feature_extractor: true
+  optimizer_params:
+    lr: 0.001
+  scheduler_params:
+    T_max: 250
+    eta_min: 0.00001
+
+
+# Training options:
+trainer:
+  max_epochs: 250
+  val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
+  log_every_n_steps: 10    
+  sync_batchnorm: True
+  accelerator: "gpu"
+  devices: "auto"
+  deterministic: False
+  accumulate_grad_batches: 1
+  num_nodes: 2
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "/home1/nmehlman/arts/vpc/logs/sr_tensorboard/librispeech"
+  name: "train_test_01"
+  version: null     # Automatic versioning if set to null (recommended)
+
+

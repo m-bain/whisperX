@@ -1,0 +1,60 @@
+random_seed: 42
+ckpt_path: null
+gpus: "0,1"
+
+# Dataset options:
+data:
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
+  split: "train"
+  max_sample_length: 1024
+  sr_embed_model: 'wavlm'
+
+# Dataloader options:
+dataloader:
+  train_batch_size: 64
+  val_batch_size: 32
+  num_workers: 8
+  val_frac: 0.2
+
+# Model options:
+lightning:
+  sr_fusion: true
+  sr_embed_dim: 512
+  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/wide_2_layer/version_6/checkpoints/best_model-epoch=137-step=48124-val_accuracy=0.22.ckpt"
+  freeze_feature_model: false
+  prosody_fusion_dim: 256
+  sr_fusion_dim: 512
+  hparams: 
+    d_model: 1024
+    dropout: 0.5
+    embedding_dim: 128
+    local_attn_mask: 5
+    num_layers: 2
+    num_tokens: 28
+  optimizer_params:
+    lr: 0.001
+    weight_decay: 0.00005
+  scheduler_params:
+    T_max: 250
+    eta_min: 0.00001
+
+
+# Training options:
+trainer:
+  max_epochs: 250
+  val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
+  log_every_n_steps: 10    
+  sync_batchnorm: True
+  accelerator: "gpu"
+  devices: "auto"
+  num_nodes: 2
+  deterministic: False
+  accumulate_grad_batches: 1
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/joint_train"
+  name: "frozen_more_reg"
+  version: null     # Automatic versioning if set to null (recommended)
+
+

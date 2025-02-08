@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+=======
+workspace.ipynb
+whisperx/prosody_features/configs/train/.DS_Store
+whisperx/prosody_features/configs/.DS_Store
+.DS_Store
