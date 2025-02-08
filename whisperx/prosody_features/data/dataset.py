@@ -39,6 +39,16 @@ class ProsodyDataset(Dataset):
         # Load data paths and speaker labels
         self.samples = splits[self.split]
 
+        # Filter out samples that don't have a corresponding .json file
+        _samples = [sample for sample in self.samples if os.path.exists(sample["path"])]
+
+        if len(_samples) != len(self.samples):
+            print(
+                f"Filtered out {len(self.samples) - len(_samples)} samples without .json files"
+            )   
+        
+        self.samples = _samples
+
         # Renumber speakers to ensure they are sequential
         self._renumber_speakers()
 
