@@ -20,7 +20,7 @@ dataloader:
 lightning:
   sr_fusion: true
   sr_embed_dim: 512
-  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/small_attention/version_1/checkpoints/best_model-epoch=137-step=48124-val_accuracy=0.22.ckpt"
+  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/small_attention/version_1/checkpoints/best_model-epoch=233-step=97498-val_accuracy=0.25.ckpt"
   freeze_feature_model: false
   prosody_fusion_dim: 256
   sr_fusion_dim: 512
