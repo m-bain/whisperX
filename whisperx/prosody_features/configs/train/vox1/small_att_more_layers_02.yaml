@@ -26,11 +26,11 @@ lightning:
     num_tokens: 28
     embedding_dim: 128
     d_model: 256
-    num_layers: 6
+    num_layers: 3
     dropout: 0.2
-    local_attn_mask: 2
+    local_attn_mask: 10
   optimizer_params:
-    lr: 0.0005
+    lr: 0.0001
     weight_decay: 0.000
   scheduler_params:
     T_max: 250
