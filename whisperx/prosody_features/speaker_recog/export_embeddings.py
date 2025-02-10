@@ -26,7 +26,7 @@ if __name__ == "__main__":
     device = args.device
     
     if model_name == "wavlm":
-        _feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv').to(device)
+        _feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained('microsoft/wavlm-base-sv')
         feature_extractor = lambda x: _feature_extractor(x.numpy(), sampling_rate=16000, return_tensors='pt').input_values
     elif model_name == "speechbrain":
         feature_extractor = lambda x: x
