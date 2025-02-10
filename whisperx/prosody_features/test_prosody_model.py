@@ -47,7 +47,7 @@ def main(config):
     with open(json_path, "w") as f:
         json.dump(metrics, f, indent=4)
         
-    config_save_path = os.path.join(logger.log_dir, "config.yaml")
+    config_save_path = os.path.join(logger.log_dir, "config.json")
     with open(config_save_path, "w") as f:
         json.dump(config, f, indent=4)
     
