@@ -5,8 +5,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
 import os
+import json
 import sys
 from whisperx.prosody_features.utils import load_yaml_config
 from pytorch_lightning.strategies import DDPStrategy
@@ -42,8 +42,11 @@ def main(config):
         dataloaders=dataloaders["test"]    
     )
     
-    print(metrics)
-
+    # Save metrics
+    json_path = os.path.join(logger.log_dir, "metrics.json")
+    with open(json_path, "w") as f:
+        json.dump(metrics, f)
+    
 if __name__ == "__main__":
 
     # Load config, and perform general setup
