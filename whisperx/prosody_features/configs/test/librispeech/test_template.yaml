@@ -3,7 +3,7 @@
 # Basic training
 
 ---
-checkpoint: ""
+checkpoint: "~/arts/vpc/logs/tensorboard/tests/dummy/version_0/checkpoints/best_model-epoch=00-step=0005-val_accuracy=0.00.ckpt"
 
 random_seed: 42
 ckpt_path: null
