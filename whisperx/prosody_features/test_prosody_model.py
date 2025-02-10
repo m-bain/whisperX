@@ -24,8 +24,6 @@ def main(config):
     dataloaders = get_dataloaders(
         tokenizer=tokenizer, **config["data"], **config["dataloader"]
     )
-
-    config["lightning"]["hparams"]["max_sample_length"] = config['data']['max_sample_length']
     
     # Create Lightning module
     assert "checkpoint" in config, "Checkpoint path must be provided in the config"
