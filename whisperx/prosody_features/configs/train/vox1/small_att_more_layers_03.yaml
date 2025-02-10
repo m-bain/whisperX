@@ -30,7 +30,7 @@ lightning:
     dropout: 0.2
     local_attn_mask: 2
   optimizer_params:
-    lr: 0.00005
+    lr: 0.000025
     weight_decay: 0.000
   scheduler_params:
     T_max: 250
@@ -44,7 +44,7 @@ trainer:
   log_every_n_steps: 10    
   sync_batchnorm: True
   accelerator: "gpu"
-  num_nodes: 2
+  num_nodes: 4
   devices: "auto"
   deterministic: False
   accumulate_grad_batches: 1
