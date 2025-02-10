@@ -42,10 +42,14 @@ def main(config):
         dataloaders=dataloaders["test"]    
     )
     
-    # Save metrics
+    # Save metrics and config to JSON
     json_path = os.path.join(logger.log_dir, "metrics.json")
     with open(json_path, "w") as f:
-        json.dump(metrics, f)
+        json.dump(metrics, f, indent=4)
+        
+    config_save_path = os.path.join(logger.log_dir, "config.yaml")
+    with open(config_save_path, "w") as f:
+        json.dump(config, f, indent=4)
     
 if __name__ == "__main__":
 
