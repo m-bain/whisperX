@@ -344,3 +344,32 @@ class ProsodySpeakerIDModel(LightningModule):
             self.log("val_%s" % metric_name, metric_val, sync_dist=True)
 
         return loss
+    
+    def test_step(self, batch: Any, batch_idx: int = 0) -> Any:
+        """Performs testing step with loss computation and metric logging
+
+        Args:
+            batch (Any): batch of samples
+            batch_idx (int, optional): Index of batch. Defaults to 0.
+
+        Returns:
+            loss (Any): batch loss
+        """
+
+        if self.sr_fusion:
+            x, z_sr, y_true = batch
+            y_pred = self(x, z_sr)  # Forward pass
+        else:
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
+
+        # Compute and log loss
+        loss = self.loss_fcn(y_pred, y_true)
+        self.log("test_loss", loss, sync_dist=True)
+
+        # Compute and log metrics
+        for metric_name, metric_fcn in self.metrics.items():
+            metric_val = metric_fcn(y_pred, y_true)
+            self.log("test_%s" % metric_name, metric_val, sync_dist=True)
+
+        return loss
