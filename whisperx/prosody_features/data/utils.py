@@ -63,6 +63,7 @@ def get_dataloaders(
     val_frac: float = 0.0,
     train_batch_size: int = 16,
     val_batch_size: int = 32,
+    test_batch_size: int = 32,
     num_workers: int = 1,
     shuffle: bool = True,
     max_sample_length: int = 1024,
@@ -96,47 +97,61 @@ def get_dataloaders(
     )
 
     total_speakers = full_dataset.total_speakers()
-
-    if val_frac > 0.0:  # Create a validation split if requested
-        val_size = int(val_frac * len(full_dataset))
-        train_size = len(full_dataset) - val_size
-
-        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
-
-        # Build dataloaders
-        train_dataloader = DataLoader(
-            train_dataset,
-            batch_size=train_batch_size,
-            num_workers=num_workers,
-            shuffle=shuffle,
-            collate_fn=collate_fn,
-            **dataloader_kwargs,
-        )
-        val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=val_batch_size,
+    
+    if split == "test": # Test split
+        print('Test split requested, are you sure you want to do this??')
+        test_dataloader = DataLoader(
+            full_dataset,
+            batch_size=test_batch_size,
             num_workers=num_workers,
             shuffle=False,
             collate_fn=collate_fn,
             **dataloader_kwargs,
         )
+        test_dataloader.total_speakers = total_speakers
+        return {"test": test_dataloader}
 
-        # Store number of speakers for easy access
-        train_dataloader.total_speakers = total_speakers
-        val_dataloader.total_speakers = total_speakers
+    else: # Training split
+        if val_frac > 0.0:  # Create a validation split if requested
+            val_size = int(val_frac * len(full_dataset))
+            train_size = len(full_dataset) - val_size
 
-        return {"train": train_dataloader, "val": val_dataloader}
-    else:  # Train on the full dataset
-        train_dataloader = DataLoader(
-            full_dataset,
-            batch_size=train_batch_size,
-            num_workers=num_workers,
-            shuffle=shuffle,
-            collate_fn=collate_fn,
-            **dataloader_kwargs,
-        )
-        train_dataloader.total_speakers = total_speakers
-        return {"train": train_dataloader}
+            train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+            # Build dataloaders
+            train_dataloader = DataLoader(
+                train_dataset,
+                batch_size=train_batch_size,
+                num_workers=num_workers,
+                shuffle=shuffle,
+                collate_fn=collate_fn,
+                **dataloader_kwargs,
+            )
+            val_dataloader = DataLoader(
+                val_dataset,
+                batch_size=val_batch_size,
+                num_workers=num_workers,
+                shuffle=False,
+                collate_fn=collate_fn,
+                **dataloader_kwargs,
+            )
+
+            # Store number of speakers for easy access
+            train_dataloader.total_speakers = total_speakers
+            val_dataloader.total_speakers = total_speakers
+
+            return {"train": train_dataloader, "val": val_dataloader}
+        else:  # Train on the full dataset
+            train_dataloader = DataLoader(
+                full_dataset,
+                batch_size=train_batch_size,
+                num_workers=num_workers,
+                shuffle=shuffle,
+                collate_fn=collate_fn,
+                **dataloader_kwargs,
+            )
+            train_dataloader.total_speakers = total_speakers
+            return {"train": train_dataloader}
 
 if __name__ == "__main__":
 

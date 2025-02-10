@@ -22,8 +22,6 @@ dataloader:
 
 # Model options:
 lightning:
-  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/wide_2_layer/version_0/checkpoints/best_model.ckpt"
-  freeze_feature_model: true
   hparams: 
     num_tokens: 28
     embedding_dim: 128
@@ -32,16 +30,16 @@ lightning:
     dropout: 0.4
     local_attn_mask: 20
   optimizer_params:
-    lr: 0.0001
+    lr: 0.0000
     weight_decay: 0.000
   scheduler_params:
     T_max: 250
     eta_min: 0.00001
 
-
 # Training options:
 trainer:
-  max_epochs: 2
+  max_epochs: 1
+  limit_train_batches: 20
   val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
@@ -54,7 +52,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/tests"
-  name: "ckpt_loading"
+  name: "dummy"
   version: null     # Automatic versioning if set to null (recommended)
 
 
