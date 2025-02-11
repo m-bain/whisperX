@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 import torch
 
 from .audio import load_audio, SAMPLE_RATE
@@ -26,7 +26,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         print_progress: bool = False,
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Optional[Callable[float, str]] = None,
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)

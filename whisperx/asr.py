@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from dataclasses import replace
 
 import ctranslate2
@@ -195,7 +195,7 @@ class FasterWhisperPipeline(Pipeline):
         print_progress: bool = False,
         combined_progress: bool = False,
         verbose: bool= False,
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Optional[Callable[float, str]] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)

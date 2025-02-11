@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 setup(
     name="vox2me_whisperx",
     py_modules=["vox2me_whisperx"],
-    version="1.0.1",
+    version="1.0.2",
     description="Time-Accurate Automatic Speech Recognition using Whisper.",
     long_description=long_description,
     long_description_content_type="text/markdown",
