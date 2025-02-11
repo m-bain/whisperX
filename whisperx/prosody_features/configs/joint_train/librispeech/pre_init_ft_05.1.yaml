@@ -33,16 +33,16 @@ lightning:
     num_layers: 6
     num_tokens: 28
   optimizer_params:
-    lr: 0.0005
+    lr: 0.001
     weight_decay: 0.00001
   scheduler_params:
-    T_max: 150
+    T_max: 300
     eta_min: 0.00001
 
 
 # Training options:
 trainer:
-  max_epochs: 150
+  max_epochs: 300
   val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
