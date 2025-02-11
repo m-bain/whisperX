@@ -25,6 +25,8 @@ class DiarizationPipeline:
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
+        print_progress: bool = False,
+        progress_callback: Optional[Callable] = None,
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -32,7 +34,24 @@ class DiarizationPipeline:
             'waveform': torch.from_numpy(audio[None, :]),
             'sample_rate': SAMPLE_RATE
         }
-        segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers)
+
+        def progress_hook(step_name, step_artifact, file=None, total=None, completed=None):
+            if step_name != 'embeddings':
+                return
+
+            if completed is None:
+                completed = total = 1
+
+            percent = (completed / total) * 100
+
+            if print_progress:
+                print(f"Performing diarization {step_name}...")
+                print(f"Progress: {percent:.2f}%...")
+            if progress_callback:
+                progress_callback(percent, 'diarization')
+
+        segments = self.model(audio_data, num_speakers=num_speakers, min_speakers=min_speakers,
+                              max_speakers=max_speakers, hook=progress_hook)
         diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
