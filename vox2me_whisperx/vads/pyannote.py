@@ -14,8 +14,8 @@ from pyannote.core import Annotation, SlidingWindowFeature
 from pyannote.core import Segment
 from tqdm import tqdm
 
-from whisperx.diarize import Segment as SegmentX
-from whisperx.vads.vad import Vad
+from vox2me_whisperx.diarize import Segment as SegmentX
+from vox2me_whisperx.vads.vad import Vad
 
 def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=None, model_fp=None):
     model_dir = torch.hub._get_torch_home()

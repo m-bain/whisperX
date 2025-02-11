@@ -1,3 +1,3 @@
-from whisperx.vads.pyannote import Pyannote
-from whisperx.vads.silero import Silero
-from whisperx.vads.vad import Vad
+from vox2me_whisperx.vads.pyannote import Pyannote
+from vox2me_whisperx.vads.silero import Silero
+from vox2me_whisperx.vads.vad import Vad
