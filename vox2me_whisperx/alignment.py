@@ -119,7 +119,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
-    progress_callback: Optional[Callable[float, str]] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.

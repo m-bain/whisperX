@@ -26,7 +26,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         print_progress: bool = False,
-        progress_callback: Optional[Callable[float, str]] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)

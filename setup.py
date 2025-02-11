@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 setup(
     name="vox2me_whisperx",
     py_modules=["vox2me_whisperx"],
-    version="1.0.2",
+    version="1.0.3",
     description="Time-Accurate Automatic Speech Recognition using Whisper.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -26,7 +26,7 @@ setup(
     ]
     + [f"pyannote.audio==3.3.2"],
     entry_points={
-        "console_scripts": ["whisperx=whisperx.transcribe:cli"],
+        "console_scripts": ["vox2me_whisperx=vox2me_whisperx.transcribe:cli"],
     },
     include_package_data=True,
     extras_require={"dev": ["pytest"]},

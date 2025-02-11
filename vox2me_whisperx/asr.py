@@ -195,7 +195,7 @@ class FasterWhisperPipeline(Pipeline):
         print_progress: bool = False,
         combined_progress: bool = False,
         verbose: bool= False,
-        progress_callback: Optional[Callable[float, str]] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
