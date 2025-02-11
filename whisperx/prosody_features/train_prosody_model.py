@@ -37,7 +37,7 @@ def main(config):
     logger = TensorBoardLogger(**config["tensorboard"])
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_accuracy",
+        monitor="val_balanced_accuracy",
         dirpath=f"{logger.log_dir}/checkpoints",  # Save in the logger's directory
         filename="best_model-{epoch:02d}-{step:04d}-{val_accuracy:.2f}",  # Include epoch, step, and val_accuracy in the filename
         save_top_k=1,
