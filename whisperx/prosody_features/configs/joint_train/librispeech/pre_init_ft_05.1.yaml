@@ -48,14 +48,14 @@ trainer:
   sync_batchnorm: True
   accelerator: "gpu"
   devices: "auto"
-  num_nodes: 1 # DEBUG
+  num_nodes: 2
   deterministic: False
   accumulate_grad_batches: 1
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/tests" # DEBUG
-  name: "training_continue" # DEBUG
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/joint_train"
+  name: "pre_init_ft"
   version: null     # Automatic versioning if set to null (recommended)
 
 
