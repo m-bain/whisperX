@@ -52,7 +52,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1"
-  name: "small_att_more_layers"
+  name: "more_reg_01"
   version: null     # Automatic versioning if set to null (recommended)
 
 
