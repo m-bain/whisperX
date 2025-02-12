@@ -55,7 +55,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/joint_train"
-  name: "pre_init_ft"
+  name: "pre_init_ft_sb"
   version: null     # Automatic versioning if set to null (recommended)
 
 
