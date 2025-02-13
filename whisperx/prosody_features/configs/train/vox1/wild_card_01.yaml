@@ -24,11 +24,11 @@ dataloader:
 lightning:
   hparams: 
     num_tokens: 28
-    embedding_dim: 64
+    embedding_dim: 16
     d_model: 128
-    num_layers: 6
-    dropout: 0.4
-    local_attn_mask: 2
+    num_layers: 4
+    dropout: 0.2
+    local_attn_mask: 4
   optimizer_params:
     lr: 0.0001
     weight_decay: 0.00005
@@ -52,7 +52,7 @@ trainer:
 # Tensorboard options:
 tensorboard:
   save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1"
-  name: "deep_with_reg"
+  name: "wild_card"
   version: null     # Automatic versioning if set to null (recommended)
 
 
