@@ -1,0 +1,58 @@
+
+
+# Basic training
+
+---
+random_seed: 42
+ckpt_path: null
+gpus: "0,1"
+
+# Dataset options:
+data:
+  root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+  split: "train"
+  max_sample_length: 1024
+
+# Dataloader options:
+dataloader:
+  train_batch_size: 32
+  val_batch_size: 32
+  num_workers: 8
+  val_frac: 0.2
+
+# Model options:
+lightning:
+  hparams: 
+    num_tokens: 28
+    embedding_dim: 64
+    d_model: 128
+    num_layers: 6
+    dropout: 0.4
+    local_attn_mask: 2
+  optimizer_params:
+    lr: 0.0005
+    weight_decay: 0.00005
+  scheduler_params:
+    T_max: 200
+    eta_min: 0.000001
+
+
+# Training options:
+trainer:
+  max_epochs: 200
+  val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
+  log_every_n_steps: 10    
+  sync_batchnorm: True
+  accelerator: "gpu"
+  num_nodes: 4
+  devices: "auto"
+  deterministic: False
+  accumulate_grad_batches: 1
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1"
+  name: "deep_with_reg"
+  version: null     # Automatic versioning if set to null (recommended)
+
+
