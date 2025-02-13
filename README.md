@@ -321,3 +321,83 @@ If you use this in your research, please cite the paper:
   year={2023}
 }
 ```
+
+## Docker Deployment
+
+### Building the Docker Image
+
+To build the Docker image, run the following command in the root directory of the repository:
+
+```bash
+docker build -t whisperx:latest .
+```
+
+### Pushing the Docker Image to a Container Registry
+
+To push the Docker image to Docker Hub, first tag the image with your Docker Hub username and repository name:
+
+```bash
+docker tag whisperx:latest your_dockerhub_username/whisperx:latest
+```
+
+Then push the image to Docker Hub:
+
+```bash
+docker push your_dockerhub_username/whisperx:latest
+```
+
+### Deploying the Docker Container to a Cloud Service
+
+#### AWS ECS
+
+1. Create an ECS cluster.
+2. Create a task definition for the Docker container.
+3. Run the task in the ECS cluster.
+
+#### Google Cloud Run
+
+1. Deploy the container image to Google Container Registry (GCR):
+
+```bash
+gcloud builds submit --tag gcr.io/your_project_id/whisperx
+```
+
+2. Deploy the container to Cloud Run:
+
+```bash
+gcloud run deploy whisperx --image gcr.io/your_project_id/whisperx --platform managed
+```
+
+#### Azure Container Instances
+
+1. Create a resource group:
+
+```bash
+az group create --name myResourceGroup --location eastus
+```
+
+2. Create a container instance:
+
+```bash
+az container create --resource-group myResourceGroup --name whisperx --image your_dockerhub_username/whisperx:latest --dns-name-label whisperx --ports 5000
+```
+
+## Cloud Function Deployment
+
+### AWS Lambda
+
+1. Package the application code and its dependencies.
+2. Create a Lambda function and upload the package.
+3. Configure the Lambda function to trigger based on events or HTTP requests.
+
+### Google Cloud Functions
+
+1. Package the application code and its dependencies.
+2. Create a Cloud Function and upload the package.
+3. Configure the Cloud Function to trigger based on events or HTTP requests.
+
+### Azure Functions
+
+1. Package the application code and its dependencies.
+2. Create an Azure Function and upload the package.
+3. Configure the Azure Function to trigger based on events or HTTP requests.
