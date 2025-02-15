@@ -25,13 +25,13 @@ lightning:
   hparams: 
     num_tokens: 28
     embedding_dim: 128
-    d_model: 512
-    num_layers: 6
-    dropout: 0.5
+    d_model: 1024
+    num_layers: 2
+    dropout: 0.2
     local_attn_mask: 2
   optimizer_params:
     lr: 0.0001
-    weight_decay: 0.00001
+    weight_decay: 0.000001
   scheduler_params:
     T_max: 400
     eta_min: 0.00000
