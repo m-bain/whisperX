@@ -26,15 +26,15 @@ lightning:
     num_tokens: 28
     embedding_dim: 128
     d_model: 256
-    num_layers: 6
-    dropout: 0.2
+    num_layers: 5
+    dropout: 0.4
     local_attn_mask: 2
   optimizer_params:
     lr: 0.0001
     weight_decay: 0.000
   scheduler_params:
     T_max: 250
-    eta_min: 0.00001
+    eta_min: 0.00000
 
 
 # Training options:
@@ -51,6 +51,6 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech"
-  name: "small_att_more_layers"
-  version: 0     # Automatic versioning if set to null (recommended)
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1"
+  name: "shorter_seq"
+  version: null     # Automatic versioning if set to null (recommended)
