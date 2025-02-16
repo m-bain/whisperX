@@ -4,7 +4,7 @@ gpus: "0,1"
 
 # Dataset options:
 data:
-  root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
   split: "train"
   max_sample_length: 512
   sr_embed_model: 'speechbrain'
@@ -49,7 +49,7 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/vox1/sr_only/"
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/librispeech/sr_only/"
   name: "speechbrain"
   version: null     # Automatic versioning if set to null (recommended)
 
