@@ -27,7 +27,7 @@ lightning:
     embedding_dim: 128
     d_model: 256
     num_layers: 4
-    dropout: 0.2
+    dropout: 0.0
     local_attn_mask: 2
   optimizer_params:
     lr: 0.0001
