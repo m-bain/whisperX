@@ -31,13 +31,13 @@ lightning:
   optimizer_params:
     lr: 0.0005
   scheduler_params:
-    T_max: 100
+    T_max: 150
     eta_min: 0.00000
 
 
 # Training options:
 trainer:
-  max_epochs: 100
+  max_epochs: 150
   val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
