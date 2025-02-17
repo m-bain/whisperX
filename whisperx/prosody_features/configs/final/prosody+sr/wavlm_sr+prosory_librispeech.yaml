@@ -4,10 +4,10 @@ gpus: "0,1"
 
 # Dataset options:
 data:
-  root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
   split: "train"
-  max_sample_length: 512
-  sr_embed_model: 'speechbrain'
+  max_sample_length: 1024
+  sr_embed_model: 'wavlm'
 
 # Dataloader options:
 dataloader:
@@ -19,23 +19,23 @@ dataloader:
 # Model options:
 lightning:
   sr_fusion: true
-  sr_embed_dim: 300
-  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1/dropout_03/version_0/checkpoints/best_model-epoch=293-step=253877-val_accuracy=0.06.ckpt"
+  sr_embed_dim: 512
+  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/librispeech/wide_2_layer/version_6/checkpoints/best_model-epoch=137-step=48124-val_accuracy=0.22.ckpt"
   freeze_feature_model: false
   prosody_fusion_dim: 256
   sr_fusion_dim: 512
   hparams: 
-    d_model: 256
-    dropout: 0.3
+    d_model: 1024
+    dropout: 0.5
     embedding_dim: 128
-    local_attn_mask: 2
-    num_layers: 4
+    local_attn_mask: 5
+    num_layers: 2
     num_tokens: 28
   optimizer_params:
     lr: 0.001
     weight_decay: 0.00005
   scheduler_params:
-    T_max: 300
+    T_max: 250
     eta_min: 0.00001
 
 
@@ -53,8 +53,8 @@ trainer:
 
 # Tensorboard options:
 tensorboard:
-  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/vox1/sb+sr/"
-  name: "speechbrain"
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/librispeech/sb+sr/"
+  name: "wavlm"
   version: null     # Automatic versioning if set to null (recommended)
 
 

@@ -20,7 +20,7 @@ dataloader:
 lightning:
   sr_fusion: true
   sr_embed_dim: 512
-  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1/dropout_03/version_0/checkpoints/best_model-epoch=293-step=253877-val_accuracy=0.06.ckptc"
+  feature_model_ckpt: "/home1/nmehlman/arts/vpc/logs/tensorboard/vox1/dropout_03/version_0/checkpoints/best_model-epoch=293-step=253877-val_accuracy=0.06.ckpt"
   freeze_feature_model: false
   prosody_fusion_dim: 256
   sr_fusion_dim: 512
