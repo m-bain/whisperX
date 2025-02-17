@@ -35,13 +35,13 @@ lightning:
     lr: 0.001
     weight_decay: 0.00005
   scheduler_params:
-    T_max: 250
+    T_max: 300
     eta_min: 0.00001
 
 
 # Training options:
 trainer:
-  max_epochs: 250
+  max_epochs: 300
   val_check_interval: 0.25 # Must be >= 1 for iterable-type dataset
   log_every_n_steps: 10    
   sync_batchnorm: True
