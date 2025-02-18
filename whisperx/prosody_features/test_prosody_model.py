@@ -39,7 +39,7 @@ def main(config):
 
     metrics = trainer.test(
         pl_model,
-        dataloaders=dataloaders["test"]    
+        dataloaders=dataloaders["train"]# DEBUG dataloaders["test"]    
     )
     
     # Save metrics and config to JSON
