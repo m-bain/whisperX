@@ -7,7 +7,7 @@ checkpoint: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/vox1/sr_only/wavlm/
 
 random_seed: 42
 ckpt_path: null
-gpus: "0,1"
+gpus: "0"
 
 # Dataset options:
 data:
