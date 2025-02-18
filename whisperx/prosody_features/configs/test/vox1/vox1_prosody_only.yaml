@@ -12,7 +12,7 @@ gpus: "0"
 # Dataset options:
 data:
   root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
-  split: "train" # DEBUG
+  split: "test"
   max_sample_length: 512
 
 # Dataloader options:
