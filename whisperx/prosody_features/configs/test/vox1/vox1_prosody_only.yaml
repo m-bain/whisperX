@@ -12,7 +12,7 @@ gpus: "0"
 # Dataset options:
 data:
   root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
-  split: "test"
+  split: "train" # DEBUG
   max_sample_length: 512
 
 # Dataloader options:
@@ -23,7 +23,7 @@ dataloader:
 # Training options:
 trainer:
   accelerator: "gpu"
-  devices: "auto"
+  devices: 1
   deterministic: False
 
 # Tensorboard options:

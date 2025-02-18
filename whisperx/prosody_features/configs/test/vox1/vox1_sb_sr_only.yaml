@@ -24,7 +24,7 @@ dataloader:
 # Training options:
 trainer:
   accelerator: "gpu"
-  devices: "auto"
+  devices: 1
   deterministic: False
 
 # Tensorboard options:
