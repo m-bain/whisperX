@@ -310,7 +310,6 @@ class ProsodySpeakerIDModel(LightningModule):
 
         # Compute and log metrics
         for metric_name, metric_fcn in self.metrics.items():
-            metric_fcn = metric_fcn
             metric_val = metric_fcn(y_pred, y_true)
             self.log("train_%s" % metric_name, metric_val, sync_dist=True)
 
@@ -355,7 +354,8 @@ class ProsodySpeakerIDModel(LightningModule):
         Returns:
             loss (Any): batch loss
         """
-
+        self.feature_model.eval()  # Set feature model to evaluation mode
+        
         if self.sr_fusion:
             x, z_sr, y_true = batch
             y_pred = self(x, z_sr)  # Forward pass
