@@ -354,8 +354,7 @@ class ProsodySpeakerIDModel(LightningModule):
         Returns:
             loss (Any): batch loss
         """
-        self.feature_model.eval()  # Set feature model to evaluation mode
-        
+                
         if self.sr_fusion:
             x, z_sr, y_true = batch
             y_pred = self(x, z_sr)  # Forward pass
