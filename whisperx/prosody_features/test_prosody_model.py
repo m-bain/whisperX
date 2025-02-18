@@ -22,7 +22,7 @@ def main(config):
     tokenizer = CharLevelTokenizer()
     assert tokenizer.vocab_size() == 28  # Sanity check
     dataloaders = get_dataloaders(
-        tokenizer=tokenizer, **config["data"], **config["dataloader"]
+        tokenizer=tokenizer, **config["data"], **config["dataloader"], val_frac=0.1 # DEBUG
     )
     
     # Create Lightning module
@@ -39,7 +39,7 @@ def main(config):
 
     metrics = trainer.test(
         pl_model,
-        dataloaders=dataloaders["train"]# DEBUG dataloaders["test"]    
+        dataloaders=dataloaders["val"]# DEBUG dataloaders["test"]    
     )
     
     # Save metrics and config to JSON
