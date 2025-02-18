@@ -364,11 +364,11 @@ class ProsodySpeakerIDModel(LightningModule):
 
         # Compute and log loss
         loss = self.loss_fcn(y_pred, y_true)
-        self.log("test_loss", loss, sync_dist=True)
+        self.log("test_loss", loss, sync_dist=True, on_epoch=True)
 
         # Compute and log metrics
         for metric_name, metric_fcn in self.metrics.items():
             metric_val = metric_fcn(y_pred, y_true)
-            self.log("test_%s" % metric_name, metric_val, sync_dist=True)
+            self.log("test_%s" % metric_name, metric_val, sync_dist=True, on_epoch=True)
 
         return loss
