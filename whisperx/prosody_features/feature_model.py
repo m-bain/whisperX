@@ -370,5 +370,6 @@ class ProsodySpeakerIDModel(LightningModule):
 
         # Compute and log metrics at epoch level
         for metric_name, metric_fcn in self.metrics.items():
+            metric_fcn = metric_fcn.cpu()
             metric_val = metric_fcn(preds, labels)
             self.log(f"test_{metric_name}", metric_val, sync_dist=True)
