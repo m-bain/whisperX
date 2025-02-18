@@ -1,0 +1,36 @@
+
+
+# Basic training
+
+---
+checkpoint: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/librispeech/sr_only/wavlm/version_0/checkpoints/best_model-epoch=118-step=111036-val_accuracy=0.98.ckpt"
+
+random_seed: 42
+ckpt_path: null
+gpus: "0,1"
+
+# Dataset options:
+data:
+  root_path: "/project/shrikann_35/nmehlman/psid_data/librispeech_feats"
+  split: "test"
+  sr_embed_model: 'wavlm'
+  max_sample_length: 1024
+
+# Dataloader options:
+dataloader:
+  test_batch_size: 64
+  num_workers: 4
+
+# Training options:
+trainer:
+  accelerator: "gpu"
+  devices: "auto"
+  deterministic: False
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final_test/librispeech"
+  name: "wavlm_sr_only"
+  version: null     # Automatic versioning if set to null (recommended)
+
+

@@ -1,0 +1,36 @@
+
+
+# Basic training
+
+---
+checkpoint: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/vox1/sb+sr/speechbrain/version_0/checkpoints/best_model-epoch=197-step=96302-val_accuracy=0.99.ckpt"
+
+random_seed: 42
+ckpt_path: null
+gpus: "0,1"
+
+# Dataset options:
+data:
+  root_path: "/project/shrikann_35/nmehlman/psid_data/vox1_feats"
+  split: "test"
+  sr_embed_model: 'speechbrain'
+  max_sample_length: 512
+
+# Dataloader options:
+dataloader:
+  test_batch_size: 64
+  num_workers: 4
+
+# Training options:
+trainer:
+  accelerator: "gpu"
+  devices: "auto"
+  deterministic: False
+
+# Tensorboard options:
+tensorboard:
+  save_dir: "/home1/nmehlman/arts/vpc/logs/tensorboard/final_test/vox1"
+  name: "prosody+sb_sr"
+  version: null     # Automatic versioning if set to null (recommended)
+
+
