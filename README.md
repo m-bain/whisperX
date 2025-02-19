@@ -129,7 +129,7 @@ To **enable Speaker Diarization**, include your Hugging Face access token (read)
 
 Run whisper on example segment (using default params, whisper small) add `--highlight_words True` to visualise word timings in the .srt file.
 
-    whisperx examples/sample01.wav
+    whisperx path/to/audio.wav
 
 
 Result using *WhisperX* with forced alignment to wav2vec2.0 large:
@@ -143,16 +143,16 @@ https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-
 
 For increased timestamp accuracy, at the cost of higher gpu mem, use bigger models (bigger alignment model not found to be that helpful, see paper) e.g.
 
-    whisperx examples/sample01.wav --model large-v2 --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --batch_size 4
+    whisperx path/to/audio.wav --model large-v2 --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --batch_size 4
 
 
 To label the transcript with speaker ID's (set number of speakers if known e.g. `--min_speakers 2` `--max_speakers 2`):
 
-    whisperx examples/sample01.wav --model large-v2 --diarize --highlight_words True
+    whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
 To run on CPU instead of GPU (and for running on Mac OS X):
 
-    whisperx examples/sample01.wav --compute_type int8
+    whisperx path/to/audio.wav --compute_type int8
 
 ### Other languages
 
@@ -163,7 +163,7 @@ Currently default models provided for `{en, fr, de, es, it}` via torchaudio pipe
 
 
 #### E.g. German
-    whisperx --model large-v2 --language de examples/sample_de_01.wav
+    whisperx --model large-v2 --language de path/to/audio.wav
 
 https://user-images.githubusercontent.com/36994049/208298811-e36002ba-3698-4731-97d4-0aebd07e0eb3.mov
 
