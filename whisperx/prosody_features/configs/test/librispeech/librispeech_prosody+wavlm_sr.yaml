@@ -4,7 +4,7 @@
 
 ---
 # UPDATE THIS
-checkpoint: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/librispeech/sb+sr/wavlm/version_0/checkpoints/last.ckpt"
+checkpoint: "/home1/nmehlman/arts/vpc/logs/tensorboard/final/librispeech/sb+sr/wavlm/version_0/checkpoints/best_model-epoch=192-step=90708-val_accuracy=0.98.ckpt"
 
 random_seed: 42
 ckpt_path: null
