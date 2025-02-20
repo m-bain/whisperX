@@ -187,6 +187,7 @@ class FasterWhisperPipeline(Pipeline):
     def transcribe(
         self,
         audio: Union[str, np.ndarray],
+        determine_detected_language,
         batch_size: Optional[int] = None,
         num_workers=0,
         language: Optional[str] = None,
@@ -195,6 +196,7 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+        language_detection_segments=1
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -223,7 +225,7 @@ class FasterWhisperPipeline(Pipeline):
             offset=self._vad_params["vad_offset"],
         )
         if self.tokenizer is None:
-            language = language or self.detect_language(audio)
+            language = language or self.detect_language(audio, language_detection_segments, determine_detected_language)
             task = task or "transcribe"
             self.tokenizer = Tokenizer(
                 self.model.hf_tokenizer,
@@ -281,19 +283,29 @@ class FasterWhisperPipeline(Pipeline):
 
         return {"segments": segments, "language": language}
 
-    def detect_language(self, audio: np.ndarray) -> str:
-        if audio.shape[0] < N_SAMPLES:
-            print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
-        model_n_mels = self.model.feat_kwargs.get("feature_size")
-        segment = log_mel_spectrogram(audio[: N_SAMPLES],
-                                      n_mels=model_n_mels if model_n_mels is not None else 80,
-                                      padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
-        encoder_output = self.model.encode(segment)
-        results = self.model.model.detect_language(encoder_output)
-        language_token, language_probability = results[0][0]
-        language = language_token[2:-2]
-        print(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio...")
-        return language
+    def detect_language(self, audio: np.ndarray, language_detection_segments: int, determine_detected_language) -> str:
+        segments = []
+        for i in range(0, language_detection_segments):
+            if audio.shape[0] - (i+1)*N_SAMPLES < 0:
+                lang = determine_detected_language(segments)
+                print(f"Detected language: {lang} across {language_detection_segments} segments...")
+                return lang
+            
+            if audio.shape[0] < N_SAMPLES:
+                print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
+            
+            model_n_mels = self.model.feat_kwargs.get("feature_size")
+            segment = log_mel_spectrogram(audio[i*N_SAMPLES: (i+1)*N_SAMPLES],
+                                        n_mels=model_n_mels if model_n_mels is not None else 80,
+                                        padding=0 if audio.shape[0] >= (i+1)*N_SAMPLES else (i+1)*N_SAMPLES - audio.shape[0])
+            encoder_output = self.model.encode(segment)
+            results = self.model.model.detect_language(encoder_output)[0]
+            all_language_probs = [[token[2:-2], prob] for (token, prob) in results]
+            segments.append(all_language_probs[:3])
+
+        lang = determine_detected_language(segments)
+        print(f"Detected language: {lang} across {language_detection_segments} segments...")
+        return lang
 
 
 def load_model(
