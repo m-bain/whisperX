@@ -318,8 +318,8 @@ class ProsodySpeakerIDModel(LightningModule):
             self.log("train_%s" % metric_name, metric_val, sync_dist=True)
 
         # Store for final metric computation
-        self.train_preds.append(y_pred.cpu().argmax(dim=1))
-        self.train_labels.append(y_true.cpu())
+        self.preds.append(y_pred.cpu().argmax(dim=1))
+        self.labels.append(y_true.cpu())
 
         return loss
 
@@ -346,8 +346,8 @@ class ProsodySpeakerIDModel(LightningModule):
         self.log("val_loss", loss, sync_dist=True)
 
         # Store for final metric computation
-        self.val_preds.append(y_pred.cpu().argmax(dim=1))
-        self.val_labels.append(y_true.cpu())
+        self.preds.append(y_pred.cpu().argmax(dim=1))
+        self.labels.append(y_true.cpu())
         
         for metric_name, metric_fcn in self.metrics.items():
             
