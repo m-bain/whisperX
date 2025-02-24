@@ -63,7 +63,7 @@ def process_files(rank, world_size, all_audio_files, args):
     
     # Load models on assigned GPU
     device = torch.device(f"cuda:{rank}")
-    whisper_model = load_model("large-v2", device, compute_type=args.compute_type)
+    whisper_model = load_model("large-v2", device='cuda', device_index=rank, compute_type=args.compute_type)
     alignment_model, alignmet_model_metadata = load_align_model(language_code="en", device=device)
 
     # Distribute files across GPUs
