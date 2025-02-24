@@ -34,7 +34,7 @@ def get_aligned_chars(
             device,
             return_char_alignments=True,
         )
-    except TypeError:
+    except (TypeError, AssertionError):
         return []
 
     chars = align_result["char_segments"]
