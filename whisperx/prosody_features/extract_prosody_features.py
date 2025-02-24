@@ -63,7 +63,7 @@ def process_files(rank, world_size, all_audio_files, args):
     
     # Load models on assigned GPU
     device = torch.device(f"cuda:{rank}")
-    whisper_model = load_model("large-v2", device='cuda', device_index=rank, compute_type=args.compute_type)
+    whisper_model = load_model("large-v2", device='cuda', device_index=rank, compute_type=args.compute_type, language='en') 
     alignment_model, alignmet_model_metadata = load_align_model(language_code="en", device=device)
 
     # Distribute files across GPUs
@@ -76,7 +76,7 @@ def process_files(rank, world_size, all_audio_files, args):
     if rank == 0:
         pbar = tqdm.tqdm(total=len(all_audio_files), desc="Processing Progress (All GPUs)", position=0, leave=True)
 
-    processed_count = torch.tensor(0, device=device)
+    local_processed_count = 0  # Local counter for processed files
 
     for audio_file_path, save_path in local_files:
         if os.path.exists(save_path) and args.skip_existing:
@@ -109,14 +109,15 @@ def process_files(rank, world_size, all_audio_files, args):
         with open(save_path, "w") as save_file:
             json.dump(char_seq, save_file)
 
-        # Update progress count
-        processed_count += 1
+        local_processed_count += 1  # Track local progress
 
         # Synchronize progress across GPUs
-        dist.all_reduce(processed_count, op=dist.ReduceOp.SUM)
+        global_counts = [torch.tensor(0, device=device) for _ in range(world_size)]
+        dist.all_gather(global_counts, torch.tensor(local_processed_count, device=device)) 
 
         if rank == 0:
-            pbar.n = processed_count.item()  # Update tqdm progress
+            total_processed = sum(t.item() for t in global_counts)  # Sum progress from all GPUs
+            pbar.n = total_processed  # Update tqdm
             pbar.refresh()
 
     if rank == 0:
