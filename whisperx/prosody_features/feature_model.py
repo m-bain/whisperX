@@ -310,8 +310,16 @@ class ProsodySpeakerIDModel(LightningModule):
 
         # Compute and log metrics
         for metric_name, metric_fcn in self.metrics.items():
+            
+            if metric_name == 'balanced_accuracy': # Requires aggregation
+                continue
+            
             metric_val = metric_fcn(y_pred, y_true)
             self.log("train_%s" % metric_name, metric_val, sync_dist=True)
+
+        # Store for final metric computation
+        self.train_preds.append(y_pred.cpu().argmax(dim=1))
+        self.train_labels.append(y_true.cpu())
 
         return loss
 
@@ -337,39 +345,86 @@ class ProsodySpeakerIDModel(LightningModule):
         loss = self.loss_fcn(y_pred, y_true)
         self.log("val_loss", loss, sync_dist=True)
 
-        # Compute and log metrics
+        # Store for final metric computation
+        self.val_preds.append(y_pred.cpu().argmax(dim=1))
+        self.val_labels.append(y_true.cpu())
+        
         for metric_name, metric_fcn in self.metrics.items():
+            
+            if metric_name == 'balanced_accuracy': # Requires aggregation
+                continue
+            
             metric_val = metric_fcn(y_pred, y_true)
-            self.log("val_%s" % metric_name, metric_val, sync_dist=True)
+            self.log(f"val_{metric_name}", metric_val, sync_dist=True)
 
         return loss
-    
-    def test_step(self, batch: Any, batch_idx: int = 0):
+
+    def test_step(self, batch: Any, batch_idx: int = 0) -> Any:
+        """Performs test step with loss computation and metric logging
+
+        Args:
+            batch (Any): batch of samples
+            batch_idx (int, optional): Index of batch. Defaults to 0.
+
+        Returns:
+            loss (Any): batch loss
+        """
+
         if self.sr_fusion:
             x, z_sr, y_true = batch
-            y_pred = self(x, z_sr)
+            y_pred = self(x, z_sr)  # Forward pass
         else:
-            x, y_true = batch
-            y_pred = self(x)
+            x, y_true = batch  # Unpack batch
+            y_pred = self(x)  # Forward pass
+
+        # Compute and log loss
+        loss = self.loss_fcn(y_pred, y_true)
+        self.log("test_loss", loss, sync_dist=True)
 
         # Store for final metric computation
-        self.test_preds.append(y_pred.cpu())
-        self.test_labels.append(y_true.cpu())
+        self.preds.append(y_pred.cpu().argmax(dim=1))
+        self.labels.append(y_true.cpu())
+        
+        for metric_name, metric_fcn in self.metrics.items():
+            
+            if metric_name == 'balanced_accuracy': # Requires aggregation
+                continue
+            
+            metric_val = metric_fcn(y_pred, y_true)
+            self.log(f"test_{metric_name}", metric_val, sync_dist=True)
 
-        return y_pred  # Just return, do not log metrics per batch
+        return loss
+
+    def on_train_epoch_start(self):
+        """Initialize storage for training metrics"""
+        self.preds = []
+        self.labels = []
+
+    def on_train_epoch_end(self):
+        self._log_balanced_accuracy('train')
+
+    def on_validation_epoch_start(self):
+        """Initialize storage for validation metrics"""
+        self.preds = []
+        self.labels = []
+
+    def on_validation_epoch_end(self):
+        self._log_balanced_accuracy('val')
 
     def on_test_epoch_start(self):
         """Initialize storage for test metrics"""
-        self.test_preds = []
-        self.test_labels = []
+        self.preds = []
+        self.labels = []
 
     def on_test_epoch_end(self):
-        """Compute and log final metrics at the end of the test epoch"""
-        preds = torch.cat(self.test_preds, dim=0)
-        labels = torch.cat(self.test_labels, dim=0)
+        self._log_balanced_accuracy('test')
+    
+    def _log_balanced_accuracy(self, prefix: str):
+        """Compute and log final balanced accuracy"""
+        
+        preds = torch.cat(self.preds, dim=0)
+        labels = torch.cat(self.labels, dim=0)
 
-        # Compute and log metrics at epoch level
-        for metric_name, metric_fcn in self.metrics.items():
-            metric_fcn = metric_fcn.cpu()
-            metric_val = metric_fcn(preds, labels)
-            self.log(f"test_{metric_name}", metric_val, sync_dist=True)
+        balanced_accuracy = self.metrics['balanced_accuracy'].cpu()
+        ba_val = balanced_accuracy(preds, labels)
+        self.log(f"{prefix}_balanced_accuracy", ba_val, sync_dist=True)
