@@ -1,4 +1,4 @@
-name: arts-vpc
+name: arts-prosody
 channels:
   - pytorch
   - pytorch-nightly
