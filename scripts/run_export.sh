@@ -15,6 +15,6 @@ eval "$(conda shell.bash hook)"
 conda activate whisperx
 
 # Run the Python script using torch.multiprocessing spawn
-python -m ../whisperx/prosody_features/extract_prosody_features.py "$@"
+python ../whisperx/prosody_features/extract_prosody_features.py "$@"
 
 conda deactivate
