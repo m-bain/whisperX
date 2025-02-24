@@ -1,71 +1,155 @@
 import os
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 from typing import List
 from whisperx.prosody_features.utils import generate_char_frame_sequence
-import gc
 import json
 import tqdm
 import argparse
 from whisperx.transcribe import load_model
 from whisperx.alignment import load_align_model, align_for_prosody_features
 from whisperx.audio import load_audio
-import torch
-import torch.distributed as dist
-from torch.multiprocessing import Process
 
-MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models" # TODO make this non hard coded
+MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
 
-def init_process(rank, size, fn, *args):
-    """ Initialize the distributed environment. """
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-    dist.init_process_group("gloo", rank=rank, world_size=size)
-    fn(rank, size, *args)
+
+def setup(rank, world_size):
+    """Initialize the distributed process group."""
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+
+def cleanup():
+    """Destroy the distributed process group."""
+    dist.destroy_process_group()
+
 
 def get_aligned_chars(
-    rank,
-    size,
     whisper_model,
     alignment_model,
     alignmet_model_metadata,
     audio_file: str,
     device: str = "cpu",
 ) -> List[dict]:
-
-    batch_size = 4  # reduce if low on GPU mem
+    """Perform transcription and alignment for a given audio file."""
+    batch_size = 4  # Adjust if running out of memory
 
     audio = load_audio(audio_file)
     trans_result = whisper_model.transcribe(audio, batch_size=batch_size, language="en")
-    
-    try: 
+
+    try:
         align_result = align_for_prosody_features(
             trans_result["segments"],
             alignment_model,
             alignmet_model_metadata,
             audio,
             device,
+            return_char_alignments=True,
         )
-        # Save or process align_result as needed
     except Exception as e:
-        print(f"Error in alignment: {e}")
+        print(f"Error processing {audio_file}: {e}")
+        return []
 
-def run(rank, size):
-    # Load models
-    whisper_model = load_model(MODEL_DIR)
-    alignment_model, alignmet_model_metadata = load_align_model(MODEL_DIR)
+    return align_result["char_segments"]
 
-    # Set device for each process
-    device = f"cuda:{rank}" if torch.cuda.is_available() else "cpu"
 
-    # Call the function
-    get_aligned_chars(rank, size, whisper_model, alignment_model, alignmet_model_metadata, "path_to_audio_file", device)
+def process_files(rank, world_size, all_audio_files, args):
+    """Main function executed by each process."""
+    setup(rank, world_size)
+    
+    # Load models on assigned GPU
+    device = f"cuda:{rank}"
+    whisper_model = load_model("large-v2", device, compute_type=args.compute_type)
+    alignment_model, alignmet_model_metadata = load_align_model(language_code="en", device=device)
+
+    # Distribute files across GPUs
+    local_files = all_audio_files[rank::world_size]
+
+    bad_files = []
+    bad_file_log = os.path.join(args.save_root, f'bad_files_{rank}.json')
+
+    for audio_file_path, save_path in tqdm.tqdm(local_files, desc=f'GPU {rank} Processing'):
+        if os.path.exists(save_path) and args.skip_existing:
+            continue
+
+        aligned_chars = get_aligned_chars(
+            whisper_model=whisper_model,
+            alignment_model=alignment_model,
+            alignmet_model_metadata=alignmet_model_metadata,
+            audio_file=audio_file_path,
+            device=device,
+        )
+
+        if not aligned_chars:
+            print(f"ERROR: failed to align file {audio_file_path}")
+            bad_files.append(audio_file_path)
+            with open(bad_file_log, "w") as save_file:
+                json.dump(bad_files, save_file)
+            continue
+
+        char_seq = generate_char_frame_sequence(aligned_chars)
+
+        if char_seq is None:
+            print(f"ERROR: failed to generate char sequence for {audio_file_path}")
+            bad_files.append(audio_file_path)
+            with open(bad_file_log, "w") as save_file:
+                json.dump(bad_files, save_file)
+            continue
+
+        with open(save_path, "w") as save_file:
+            json.dump(char_seq, save_file)
+
+    cleanup()
+
 
 if __name__ == "__main__":
-    size = torch.cuda.device_count()
-    processes = []
-    for rank in range(size):
-        p = Process(target=init_process, args=(rank, size, run))
-        p.start()
-        processes.append(p)
+    # Argument parser setup
+    parser = argparse.ArgumentParser(description="Feature extraction script with alignment.")
+    parser.add_argument("--data-root", type=str, help="Root data directory.")
+    parser.add_argument("--save-root", type=str, help="Root directory for saving prosody features.")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use for model inference.")
+    parser.add_argument("--compute-type", type=str, default="float32", help="Compute format type.")
+    parser.add_argument("--file-type", type=str, default="wav", help="Type of audio file.")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip processing of existing files.")
+    parser.add_argument("--chunk-file", type=str, required=False, help="JSON file containing all chunks.")
+    parser.add_argument("--chunk-index", type=int, required=False, help="Index of the chunk to process.")
+    args = parser.parse_args()
 
-    for p in processes:
-        p.join()
+    # Locate audio files
+    all_audio_files = []
+    if args.chunk_file:
+        assert args.chunk_index is not None, "chunk-index must be provided if chunk_file is specified."
+        print("Extracting chunk index:", args.chunk_index)
+        with open(args.chunk_file, "r") as f:
+            all_chunks = json.load(f)
+        chunk_files = all_chunks[args.chunk_index]
+        
+        for audio_file_path in chunk_files:
+            rel_path = os.path.relpath(audio_file_path, args.data_root)
+            save_path = os.path.join(args.save_root, rel_path.replace(args.file_type, "json"))
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            all_audio_files.append((audio_file_path, save_path))
+    else:
+        for dirpath, _, filenames in os.walk(args.data_root):
+            rel_path = os.path.relpath(dirpath, args.data_root)
+            save_dir_path = os.path.join(args.save_root, rel_path)
+            os.makedirs(save_dir_path, exist_ok=True)
+
+            for file in filenames:
+                if file.endswith(args.file_type):
+                    audio_file_path = os.path.join(dirpath, file)
+                    save_path = os.path.join(save_dir_path, file.replace(args.file_type, "json"))
+                    all_audio_files.append((audio_file_path, save_path))
+
+    # Get world size (number of GPUs available)
+    world_size = torch.cuda.device_count()
+    print(f"Found {world_size} GPUs for distributed processing.")
+    if world_size < 1:
+        raise RuntimeError("No GPUs found for distributed processing.")
+
+    print(f"Using {world_size} GPUs for processing.")
+    
+    # Spawn multiple processes
+    mp.spawn(process_files, args=(world_size, all_audio_files, args), nprocs=world_size, join=True)
