@@ -66,9 +66,9 @@ if __name__ == "__main__":
         help="Device to use for model inference. Default: 'cuda'.",
     )
     parser.add_argument(
-        "--compute_type",
+        "--compute-type",
         type=str,
-        default="float16",
+        default="float32",
         help="Type of compute format to use. Default: 'float16'.",
     )
     parser.add_argument(
