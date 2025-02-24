@@ -74,7 +74,7 @@ def process_files(rank, world_size, all_audio_files, args):
 
     # Initialize tqdm on rank 0 (single shared progress bar)
     if rank == 0:
-        pbar = tqdm(total=len(all_audio_files), desc="Processing Progress (All GPUs)", position=0, leave=True)
+        pbar = tqdm.tqdm(total=len(all_audio_files), desc="Processing Progress (All GPUs)", position=0, leave=True)
 
     processed_count = torch.tensor(0, device=device)
 
