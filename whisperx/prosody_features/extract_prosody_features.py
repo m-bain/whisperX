@@ -12,13 +12,10 @@ from whisperx.transcribe import load_model
 from whisperx.alignment import load_align_model, align_for_prosody_features
 from whisperx.audio import load_audio
 
-MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
-
-
 def setup(rank, world_size):
     """Initialize the distributed process group."""
     os.environ["MASTER_ADDR"] = "127.0.0.1"  # Localhost for single-node
-    os.environ["MASTER_PORT"] = "12355"  # Choose any open port
+    os.environ["MASTER_PORT"] = "12355"  
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -135,35 +132,20 @@ if __name__ == "__main__":
     parser.add_argument("--compute-type", type=str, default="float32", help="Compute format type.")
     parser.add_argument("--file-type", type=str, default="wav", help="Type of audio file.")
     parser.add_argument("--skip-existing", action="store_true", help="Skip processing of existing files.")
-    parser.add_argument("--chunk-file", type=str, required=False, help="JSON file containing all chunks.")
-    parser.add_argument("--chunk-index", type=int, required=False, help="Index of the chunk to process.")
     args = parser.parse_args()
 
     # Locate audio files
     all_audio_files = []
-    if args.chunk_file:
-        assert args.chunk_index is not None, "chunk-index must be provided if chunk_file is specified."
-        print("Extracting chunk index:", args.chunk_index)
-        with open(args.chunk_file, "r") as f:
-            all_chunks = json.load(f)
-        chunk_files = all_chunks[args.chunk_index]
-        
-        for audio_file_path in chunk_files:
-            rel_path = os.path.relpath(audio_file_path, args.data_root)
-            save_path = os.path.join(args.save_root, rel_path.replace(args.file_type, "json"))
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            all_audio_files.append((audio_file_path, save_path))
-    else:
-        for dirpath, _, filenames in os.walk(args.data_root):
-            rel_path = os.path.relpath(dirpath, args.data_root)
-            save_dir_path = os.path.join(args.save_root, rel_path)
-            os.makedirs(save_dir_path, exist_ok=True)
+    for dirpath, _, filenames in os.walk(args.data_root):
+        rel_path = os.path.relpath(dirpath, args.data_root)
+        save_dir_path = os.path.join(args.save_root, rel_path)
+        os.makedirs(save_dir_path, exist_ok=True)
 
-            for file in filenames:
-                if file.endswith(args.file_type):
-                    audio_file_path = os.path.join(dirpath, file)
-                    save_path = os.path.join(save_dir_path, file.replace(args.file_type, "json"))
-                    all_audio_files.append((audio_file_path, save_path))
+        for file in filenames:
+            if file.endswith(args.file_type):
+                audio_file_path = os.path.join(dirpath, file)
+                save_path = os.path.join(save_dir_path, file.replace(args.file_type, "json"))
+                all_audio_files.append((audio_file_path, save_path))
 
     # Get world size (number of GPUs available)
     world_size = torch.cuda.device_count()
