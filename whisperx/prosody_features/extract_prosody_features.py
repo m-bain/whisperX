@@ -17,6 +17,8 @@ MODEL_DIR = "/project/shrikann_35/nmehlman/vpc/models"
 
 def setup(rank, world_size):
     """Initialize the distributed process group."""
+    os.environ["MASTER_ADDR"] = "127.0.0.1"  # Localhost for single-node
+    os.environ["MASTER_PORT"] = "12355"  # Choose any open port
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -148,8 +150,6 @@ if __name__ == "__main__":
     print(f"Found {world_size} GPUs for distributed processing.")
     if world_size < 1:
         raise RuntimeError("No GPUs found for distributed processing.")
-
-    print(f"Using {world_size} GPUs for processing.")
     
     # Spawn multiple processes
     mp.spawn(process_files, args=(world_size, all_audio_files, args), nprocs=world_size, join=True)
