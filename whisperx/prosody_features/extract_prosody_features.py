@@ -39,9 +39,7 @@ def get_aligned_chars(
         return []
 
     chars = align_result["char_segments"]
-    
-    print(chars) # DEBUG
-    
+        
     return chars
    
 
