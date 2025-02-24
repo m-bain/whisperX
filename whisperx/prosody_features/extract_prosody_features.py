@@ -72,7 +72,13 @@ def process_files(rank, world_size, all_audio_files, args):
     bad_files = []
     bad_file_log = os.path.join(args.save_root, f'bad_files_{rank}.json')
 
-    for audio_file_path, save_path in tqdm.tqdm(local_files, desc=f'GPU {rank} Processing'):
+    # Initialize tqdm on rank 0 (single shared progress bar)
+    if rank == 0:
+        pbar = tqdm(total=len(all_audio_files), desc="Processing Progress (All GPUs)", position=0, leave=True)
+
+    processed_count = torch.tensor(0, device=device)
+
+    for audio_file_path, save_path in local_files:
         if os.path.exists(save_path) and args.skip_existing:
             continue
 
@@ -102,6 +108,19 @@ def process_files(rank, world_size, all_audio_files, args):
 
         with open(save_path, "w") as save_file:
             json.dump(char_seq, save_file)
+
+        # Update progress count
+        processed_count += 1
+
+        # Synchronize progress across GPUs
+        dist.all_reduce(processed_count, op=dist.ReduceOp.SUM)
+
+        if rank == 0:
+            pbar.n = processed_count.item()  # Update tqdm progress
+            pbar.refresh()
+
+    if rank == 0:
+        pbar.close()
 
     cleanup()
 
