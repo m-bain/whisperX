@@ -270,4 +270,3 @@ dependencies:
       - tzdata==2024.2
       - urllib3==2.2.3
       - yarl==1.17.2
-prefix: /home1/nmehlman/.conda/envs/whisperx
