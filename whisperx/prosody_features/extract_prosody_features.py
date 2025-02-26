@@ -76,35 +76,37 @@ def process_files(rank, world_size, all_audio_files, args):
     local_processed_count = 0  # Local counter for processed files
 
     for audio_file_path, save_path in local_files:
+        
         if os.path.exists(save_path) and args.skip_existing:
-            continue
+            pass
+        
+        else:
+            aligned_chars = get_aligned_chars(
+                whisper_model=whisper_model,
+                alignment_model=alignment_model,
+                alignmet_model_metadata=alignmet_model_metadata,
+                audio_file=audio_file_path,
+                device=device,
+            )
 
-        aligned_chars = get_aligned_chars(
-            whisper_model=whisper_model,
-            alignment_model=alignment_model,
-            alignmet_model_metadata=alignmet_model_metadata,
-            audio_file=audio_file_path,
-            device=device,
-        )
+            if not aligned_chars:
+                print(f"ERROR: failed to align file {audio_file_path}")
+                bad_files.append(audio_file_path)
+                with open(bad_file_log, "w") as save_file:
+                    json.dump(bad_files, save_file)
+                continue
 
-        if not aligned_chars:
-            print(f"ERROR: failed to align file {audio_file_path}")
-            bad_files.append(audio_file_path)
-            with open(bad_file_log, "w") as save_file:
-                json.dump(bad_files, save_file)
-            continue
+            char_seq = generate_char_frame_sequence(aligned_chars)
 
-        char_seq = generate_char_frame_sequence(aligned_chars)
+            if char_seq is None:
+                print(f"ERROR: failed to generate char sequence for {audio_file_path}")
+                bad_files.append(audio_file_path)
+                with open(bad_file_log, "w") as save_file:
+                    json.dump(bad_files, save_file)
+                continue
 
-        if char_seq is None:
-            print(f"ERROR: failed to generate char sequence for {audio_file_path}")
-            bad_files.append(audio_file_path)
-            with open(bad_file_log, "w") as save_file:
-                json.dump(bad_files, save_file)
-            continue
-
-        with open(save_path, "w") as save_file:
-            json.dump(char_seq, save_file)
+            with open(save_path, "w") as save_file:
+                json.dump(char_seq, save_file)
 
         local_processed_count += 1  # Track local progress
 
