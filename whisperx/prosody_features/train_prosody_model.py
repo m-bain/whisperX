@@ -10,11 +10,10 @@ import os
 import sys
 from whisperx.prosody_features.utils import load_yaml_config
 from pytorch_lightning.strategies import DDPStrategy
+import argparse
 
 
 torch.set_warn_always(False)
-
-CONFIG_PATH = sys.argv[1]
 
 def main(config):
     
@@ -59,9 +58,13 @@ def main(config):
      
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Train a prosody model.")
+    parser.add_argument("config_path", type=str, help="Path to the configuration file.")
+    args = parser.parse_args()
 
     # Load config, and perform general setup
-    config = load_yaml_config(CONFIG_PATH)
+    config = load_yaml_config(args.config_path)
     
     #os.environ["CUDA_VISIBLE_DEVICES"] = config["gpus"]
     if config["random_seed"]:
