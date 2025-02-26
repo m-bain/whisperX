@@ -14,4 +14,4 @@ eval "$(conda shell.bash hook)"
 conda activate arts-prosody
 
 # Run the Python script with the provided configuration path
-python3 train_prosody_model.py "$CONFIG_PATH"
+python3 ../whisperx/prosody_features/train_prosody_model.py "$CONFIG_PATH"
