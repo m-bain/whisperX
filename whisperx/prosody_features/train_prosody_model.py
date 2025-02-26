@@ -59,7 +59,7 @@ def main(config):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description="Train a prosody model.")
+    parser = argparse.ArgumentParser(description="Train a prosody ID model.")
     parser.add_argument("config_path", type=str, help="Path to the configuration file.")
     args = parser.parse_args()
 
