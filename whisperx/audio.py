@@ -58,11 +58,33 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
             str(sr),
             "-",
         ]
-        out = subprocess.run(cmd, capture_output=True, check=True).stdout
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=10 * 1024 * 1024
+        )
+
+        out = bytearray()
+        while True:
+            chunk = process.stdout.read(1024 * 1024)
+            if not chunk:
+                break
+            out.extend(chunk)
+
+        stderr_output = process.stderr.read()
+        return_code = process.wait()
+
+        if return_code != 0:
+            raise RuntimeError(f"FFmpeg process failed with error: {stderr_output.decode()}")
+
+        if len(out) % 2 != 0:
+            raise ValueError("Audio buffer size is not aligned to int16.")
+        
+        return np.frombuffer(out, np.int16).astype(np.float32) / 32768.0
+    except Exception as e:
+        raise RuntimeError(f"Error loading audio file {file}: {str(e)}")
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
