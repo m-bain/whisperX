@@ -22,7 +22,7 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
+def load_audio(file: str, sr: int = SAMPLE_RATE, ffmpeg_audio_filters: Optional[str] = None) -> np.ndarray:
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -33,6 +33,11 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
 
     sr: int
         The sample rate to resample the audio if necessary
+
+    ffmpeg_audio_filters: Optional[str]
+        Apply ffmpeg audio filters (https://ffmpeg.org/ffmpeg-filters.html)
+        "ebur128" to normalize loudness across the audio based on EBU R 128
+        "dynaudnorm=p=0.5:s=5:g=15" to normalize volume dynamically over short windows
 
     Returns
     -------
@@ -58,6 +63,9 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
             str(sr),
             "-",
         ]
+        if ffmpeg_audio_filters:
+            cmd.insert(6, "-af")
+            cmd.insert(7, ffmpeg_audio_filters)
         out = subprocess.run(cmd, capture_output=True, check=True).stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
