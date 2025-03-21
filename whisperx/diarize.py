@@ -5,6 +5,7 @@ from typing import Optional, Union
 import torch
 
 from .audio import load_audio, SAMPLE_RATE
+from .types import TranscriptionResult, AlignedTranscriptionResult
 
 
 class DiarizationPipeline:
@@ -18,7 +19,14 @@ class DiarizationPipeline:
             device = torch.device(device)
         self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
 
-    def __call__(self, audio: Union[str, np.ndarray], num_speakers=None, min_speakers=None, max_speakers=None, return_embeddings=False):
+    def __call__(
+        self,
+        audio: Union[str, np.ndarray],
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        return_embeddings: bool = False,
+    ):
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio_data = {
@@ -39,7 +47,12 @@ class DiarizationPipeline:
 
         return diarize_df, speaker_embeddings
 
-def assign_word_speakers(diarize_df, transcript_result, speaker_embeddings=None, fill_nearest=False):
+def assign_word_speakers(
+    diarize_df: pd.DataFrame,
+    transcript_result: Union[AlignedTranscriptionResult, TranscriptionResult],
+    speaker_embeddings: Optional[dict] = None,
+    fill_nearest: bool = False,
+) -> dict:
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
@@ -78,7 +91,7 @@ def assign_word_speakers(diarize_df, transcript_result, speaker_embeddings=None,
 
 
 class Segment:
-    def __init__(self, start, end, speaker=None):
+    def __init__(self, start:int, end:int, speaker:Optional[str]=None):
         self.start = start
         self.end = end
         self.speaker = speaker
