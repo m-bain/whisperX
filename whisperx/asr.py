@@ -50,6 +50,7 @@ class WhisperModel(faster_whisper.WhisperModel):
             previous_tokens,
             without_timestamps=options.without_timestamps,
             prefix=options.prefix,
+            hotwords=options.hotwords
         )
 
         encoder_output = self.encode(features)
