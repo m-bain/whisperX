@@ -1,6 +1,4 @@
-import hashlib
 import os
-import urllib
 from typing import Callable, Text, Union
 from typing import Optional
 
@@ -12,10 +10,10 @@ from pyannote.audio.pipelines import VoiceActivityDetection
 from pyannote.audio.pipelines.utils import PipelineModel
 from pyannote.core import Annotation, SlidingWindowFeature
 from pyannote.core import Segment
-from tqdm import tqdm
 
 from whisperx.diarize import Segment as SegmentX
 from whisperx.vads.vad import Vad
+
 
 def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=None, model_fp=None):
     model_dir = torch.hub._get_torch_home()

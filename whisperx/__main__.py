@@ -1,4 +1,4 @@
-from .transcribe import cli
+from whisperx.transcribe import cli
 
 
 cli()
