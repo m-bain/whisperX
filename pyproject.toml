@@ -29,5 +29,8 @@ whisperx = "whisperx.transcribe:cli"
 requires = ["setuptools"]
 
 [tool.setuptools]
-packages = ["whisperx"]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["whisperx*"]
