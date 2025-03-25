@@ -416,6 +416,8 @@ def get_wildcard_emission(frame_emission, tokens, blank_id):
         tensor: Maximum probability score for each token position
     """
     assert 0 <= blank_id < len(frame_emission)
+    if len(tokens) == 0:
+        return torch.tensor([])
 
     # Convert tokens to a tensor if they are not already
     tokens = torch.tensor(tokens) if not isinstance(tokens, torch.Tensor) else tokens
