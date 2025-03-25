@@ -6,12 +6,12 @@ import warnings
 import numpy as np
 import torch
 
-from .alignment import align, load_align_model
-from .asr import load_model
-from .audio import load_audio
-from .diarize import DiarizationPipeline, assign_word_speakers
-from .types import AlignedTranscriptionResult, TranscriptionResult
-from .utils import (
+from whisperx.alignment import align, load_align_model
+from whisperx.asr import load_model
+from whisperx.audio import load_audio
+from whisperx.diarize import DiarizationPipeline, assign_word_speakers
+from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
+from whisperx.utils import (
     LANGUAGES,
     TO_LANGUAGE_CODE,
     get_writer,
