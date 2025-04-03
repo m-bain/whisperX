@@ -55,11 +55,6 @@ class WhisperModel(faster_whisper.WhisperModel):
         )
 
         encoder_output = self.encode(features)
-
-        max_initial_timestamp_index = int(
-            round(options.max_initial_timestamp / self.time_precision)
-        )
-
         result = self.model.generate(
                 encoder_output,
                 [prompt] * batch_size,
