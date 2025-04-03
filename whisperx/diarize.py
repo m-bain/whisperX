@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union, Tuple, Dict, List, Any
+from typing import Optional, Union
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
@@ -27,7 +27,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         return_embeddings: bool = False,
-    ) -> Union[Tuple[pd.DataFrame, Optional[Dict[str, List[float]]]], pd.DataFrame]:
+    ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
         Perform speaker diarization on audio.
         
@@ -86,7 +86,7 @@ class DiarizationPipeline:
 def assign_word_speakers(
     diarize_df: pd.DataFrame,
     transcript_result: Union[AlignedTranscriptionResult, TranscriptionResult],
-    speaker_embeddings: Optional[Dict[str, List[float]]] = None,
+    speaker_embeddings: Optional[dict[str, list[float]]] = None,
     fill_nearest: bool = False,
 ) -> Union[AlignedTranscriptionResult, TranscriptionResult]:
     """
