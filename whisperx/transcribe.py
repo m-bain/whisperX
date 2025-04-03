@@ -10,6 +10,11 @@ from whisperx.alignment import align, load_align_model
 from whisperx.asr import load_model
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
+# Import the offline diarization pipeline
+try:
+    from .offline_diarize import OfflineDiarizationPipeline
+except ImportError:
+    OfflineDiarizationPipeline = None
 from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import (
     LANGUAGES,
@@ -56,6 +61,9 @@ def cli():
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")
     parser.add_argument("--min_speakers", default=None, type=int, help="Minimum number of speakers to in audio file")
     parser.add_argument("--max_speakers", default=None, type=int, help="Maximum number of speakers to in audio file")
+    # Add offline diarization params
+    parser.add_argument("--diarize_offline", action="store_true", help="Use offline diarization models instead of downloading from HF")
+    parser.add_argument("--diarize_config", type=str, default="models/pyannote_diarization_config.yaml", help="Path to the diarization config file for offline mode")
 
     parser.add_argument("--temperature", type=float, default=0, help="temperature to use for sampling")
     parser.add_argument("--best_of", type=optional_int, default=5, help="number of candidates when sampling with non-zero temperature")
@@ -120,6 +128,8 @@ def cli():
     chunk_size: int = args.pop("chunk_size")
 
     diarize: bool = args.pop("diarize")
+    diarize_offline: bool = args.pop("diarize_offline")
+    diarize_config: str = args.pop("diarize_config")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
     print_progress: bool = args.pop("print_progress")
@@ -238,12 +248,24 @@ def cli():
 
     # >> Diarize
     if diarize:
-        if hf_token is None:
-            print("Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error loading diarization model...")
         tmp_results = results
         print(">>Performing diarization...")
         results = []
-        diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
+        
+        if diarize_offline:
+            if OfflineDiarizationPipeline is None:
+                raise ImportError("offline_diarize.py must be in the same directory as transcribe.py. Please ensure it's properly installed.")
+                
+            print(f"Using offline diarization with config: {diarize_config}")
+            diarize_model = OfflineDiarizationPipeline(
+                config_path=diarize_config,
+                device=device
+            )
+        else:
+            if hf_token is None:
+                print("Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error loading diarization model...")
+            diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=device)
+            
         for result, input_audio_path in tmp_results:
             diarize_segments = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
             result = assign_word_speakers(diarize_segments, result)

@@ -54,6 +54,7 @@ This repository provides fast automatic speech recognition (70x realtime with la
 
 <h2 align="left", id="highlights">New🚨</h2>
 
+- Offline diarization support added! Use local models without Hugging Face API access.
 - 1st place at [Ego4d transcription challenge](https://eval.ai/web/challenges/challenge-page/1637/leaderboard/3931/WER)  🏆
 - _WhisperX_ accepted at INTERSPEECH 2023 
 - v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitlting & better diarization
@@ -110,6 +111,19 @@ To **enable Speaker Diarization**, include your Hugging Face access token (read)
 > **Note**<br>
 > As of Oct 11, 2023, there is a known issue regarding slow performance with pyannote/Speaker-Diarization-3.0 in whisperX. It is due to dependency conflicts between faster-whisper and pyannote-audio 3.0.0. Please see [this issue](https://github.com/m-bain/whisperX/issues/499) for more details and potential workarounds.
 
+#### Offline Diarization
+
+You can now use offline diarization without needing a Hugging Face token. This requires:
+
+1. Download the necessary model files to a local `models` directory
+2. Configure the diarization pipeline using the provided `models/pyannote_diarization_config.yaml` file
+
+To use offline diarization with the command line:
+
+```bash
+whisperx path/to/audio.wav --model large-v2 --diarize --diarize_offline --diarize_config models/pyannote_diarization_config.yaml
+```
+
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
 
 ### English
@@ -136,6 +150,10 @@ For increased timestamp accuracy, at the cost of higher gpu mem, use bigger mode
 To label the transcript with speaker ID's (set number of speakers if known e.g. `--min_speakers 2` `--max_speakers 2`):
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
+
+To use offline diarization mode:
+
+    whisperx path/to/audio.wav --model large-v2 --diarize --diarize_offline --diarize_config models/pyannote_diarization_config.yaml
 
 To run on CPU instead of GPU (and for running on Mac OS X):
 
@@ -192,7 +210,14 @@ print(result["segments"]) # after alignment
 # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
+# Option 1: HF-token based diarization (online)
 diarize_model = whisperx.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
+
+# Option 2: Local/offline diarization
+# diarize_model = whisperx.OfflineDiarizationPipeline(
+#    config_path="models/pyannote_diarization_config.yaml",
+#    device=device
+# )
 
 # add min/max number of speakers if known
 diarize_segments = diarize_model(audio)
@@ -266,6 +291,8 @@ Bug finding and pull requests are also highly appreciated to keep this project g
 * [ ] Add benchmarking code (TEDLIUM for spd/WER & word segmentation)
 
 * [x] Allow silero-vad as alternative VAD option
+
+* [x] Add offline diarization support
 
 * [ ] Improve diarization (word level). *Harder than first thought...*
 
