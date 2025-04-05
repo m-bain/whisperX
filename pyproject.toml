@@ -34,3 +34,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["whisperx*"]
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu126"
