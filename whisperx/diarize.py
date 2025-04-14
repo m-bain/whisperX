@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
@@ -11,13 +12,14 @@ from whisperx.types import TranscriptionResult, AlignedTranscriptionResult
 class DiarizationPipeline:
     def __init__(
         self,
-        model_name="pyannote/speaker-diarization-3.1",
+        model_name=None,
         use_auth_token=None,
         device: Optional[Union[str, torch.device]] = "cpu",
     ):
         if isinstance(device, str):
             device = torch.device(device)
-        self.model = Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token).to(device)
+        model_config = model_name or os.environ.get('DIARIZATION_MODEL_CONFIG', "pyannote/speaker-diarization-3.1")
+        self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
 
     def __call__(
         self,
