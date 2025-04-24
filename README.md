@@ -325,3 +325,11 @@ If you use this in your research, please cite the paper:
 3. **Custom Merge Logic for Silero VAD**
    - Gives each VAD segment individually to be transcribed
    - Improves handling of speech segments for better transcription quality
+
+
+
+
+  Install:
+  ```
+  pip install  -e .
+  ```
