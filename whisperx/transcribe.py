@@ -47,10 +47,12 @@ def cli():
     parser.add_argument("--return_char_alignments", action='store_true', help="Return character-level alignments in the output json file")
 
     # vad params
-    parser.add_argument("--vad_method", type=str, default="pyannote", choices=["pyannote", "silero"], help="VAD method to be used")
+    parser.add_argument("--vad_method", type=str, default="silero_custom", choices=["pyannote", "silero", "silero_custom"], help="VAD method to be used")
     parser.add_argument("--vad_onset", type=float, default=0.500, help="Onset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected")
     parser.add_argument("--vad_offset", type=float, default=0.363, help="Offset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected.")
     parser.add_argument("--chunk_size", type=int, default=30, help="Chunk size for merging VAD segments. Default is 30, reduce this if the chunk is too long.")
+    parser.add_argument("--vad_onnx", type=str2bool, default=True, help="If `True`, use the ONNX version of the Silero VAD model.")
+    parser.add_argument("--silero_merge_cutoff", type=float, default=0.1, help="The merge cutoff for the Silero VAD model.")
 
     # diarization params
     parser.add_argument("--diarize", action="store_true", help="Apply diarization to assign speaker labels to each segment/word")

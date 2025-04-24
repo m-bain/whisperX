@@ -217,6 +217,9 @@ class FasterWhisperPipeline(Pipeline):
             waveform = Pyannote.preprocess_audio(audio)
             merge_chunks = Pyannote.merge_chunks
 
+        print("--------------------------------")
+        print(self.vad_model)
+        print("--------------------------------")
         vad_segments = self.vad_model({"waveform": waveform, "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(
             vad_segments,
