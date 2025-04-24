@@ -308,3 +308,20 @@ If you use this in your research, please cite the paper:
   year={2023}
 }
 ```
+
+
+
+# Main Changes - Aayush
+
+1. **Custom Implementation of Silero VAD**
+   - This class implements a custom wrapper around the Silero VAD model to detect speech segments in audio files
+   - Default configuration: `vad_method: Optional[str] = "silero_custom"` in `load_model` 
+   - Merges two VAD segments if separated by less than the specified cutoff value
+   - Default: `silero_merge_cutoff=0.1` in `load_model`
+
+2. **ONNX Support in Silero VAD**
+   - Enabled by default: `vad_onnx=True` in `load_model`
+
+3. **Custom Merge Logic for Silero VAD**
+   - Gives each VAD segment individually to be transcribed
+   - Improves handling of speech segments for better transcription quality

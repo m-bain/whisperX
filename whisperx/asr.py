@@ -13,7 +13,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 
 from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from whisperx.types import SingleSegment, TranscriptionResult
-from whisperx.vads import Vad, Silero, Pyannote
+from whisperx.vads import Vad, Silero, Pyannote, SileroCustom
 
 
 def find_numeral_symbol_tokens(tokenizer):
@@ -306,13 +306,15 @@ def load_model(
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
     vad_model: Optional[Vad]= None,
-    vad_method: Optional[str] = "pyannote",
+    vad_method: Optional[str] = "silero_custom",
     vad_options: Optional[dict] = None,
     model: Optional[WhisperModel] = None,
     task="transcribe",
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    vad_onnx=True,
+    silero_merge_cutoff=0.1
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -326,6 +328,8 @@ def load_model(
         download_root - The root directory to download the model to.
         local_files_only - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
         threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
+        vad_onnx - If `True`, use the ONNX version of the Silero VAD model.
+        silero_merge_cutoff - The merge cutoff for the Silero VAD model.
     Returns:
         A Whisper pipeline.
     """
@@ -387,7 +391,9 @@ def load_model(
     default_vad_options = {
         "chunk_size": 30, # needed by silero since binarization happens before merge_chunks
         "vad_onset": 0.500,
-        "vad_offset": 0.363
+        "vad_offset": 0.363,
+        "vad_onnx": vad_onnx,
+        "silero_merge_cutoff": silero_merge_cutoff
     }
 
     if vad_options is not None:
@@ -400,6 +406,8 @@ def load_model(
     else:
         if vad_method == "silero":
             vad_model = Silero(**default_vad_options)
+        elif vad_method == "silero_custom":
+            vad_model = SileroCustom(**default_vad_options)
         elif vad_method == "pyannote":
             vad_model = Pyannote(torch.device(device), use_auth_token=None, **default_vad_options)
         else:
