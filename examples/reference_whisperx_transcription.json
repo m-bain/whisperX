@@ -1,0 +1,117 @@
+{
+    "segments": [
+        {
+            "start": 0.151,
+            "end": 3.863,
+            "text": " Okay, got it.",
+            "words": [
+                {
+                    "word": "Okay,",
+                    "start": 0.151,
+                    "end": 0.513,
+                    "score": 0.672
+                },
+                {
+                    "word": "got",
+                    "start": 0.553,
+                    "end": 0.894,
+                    "score": 0.795
+                },
+                {
+                    "word": "it.",
+                    "start": 3.643,
+                    "end": 3.863,
+                    "score": 0.788
+                }
+            ]
+        },
+        {
+            "start": 7.395,
+            "end": 8.318,
+            "text": "I don't, I don't know.",
+            "words": [
+                {
+                    "word": "I",
+                    "start": 7.395,
+                    "end": 7.455,
+                    "score": 0.97
+                },
+                {
+                    "word": "don't,",
+                    "start": 7.495,
+                    "end": 7.696,
+                    "score": 0.864
+                },
+                {
+                    "word": "I",
+                    "start": 7.836,
+                    "end": 7.876,
+                    "score": 0.962
+                },
+                {
+                    "word": "don't",
+                    "start": 7.916,
+                    "end": 8.097,
+                    "score": 0.805
+                },
+                {
+                    "word": "know.",
+                    "start": 8.137,
+                    "end": 8.318,
+                    "score": 0.868
+                }
+            ]
+        }
+    ],
+    "word_segments": [
+        {
+            "word": "Okay,",
+            "start": 0.151,
+            "end": 0.513,
+            "score": 0.672
+        },
+        {
+            "word": "got",
+            "start": 0.553,
+            "end": 0.894,
+            "score": 0.795
+        },
+        {
+            "word": "it.",
+            "start": 3.643,
+            "end": 3.863,
+            "score": 0.788
+        },
+        {
+            "word": "I",
+            "start": 7.395,
+            "end": 7.455,
+            "score": 0.97
+        },
+        {
+            "word": "don't,",
+            "start": 7.495,
+            "end": 7.696,
+            "score": 0.864
+        },
+        {
+            "word": "I",
+            "start": 7.836,
+            "end": 7.876,
+            "score": 0.962
+        },
+        {
+            "word": "don't",
+            "start": 7.916,
+            "end": 8.097,
+            "score": 0.805
+        },
+        {
+            "word": "know.",
+            "start": 8.137,
+            "end": 8.318,
+            "score": 0.868
+        }
+    ],
+    "language": "en"
+}

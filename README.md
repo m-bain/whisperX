@@ -333,3 +333,8 @@ If you use this in your research, please cite the paper:
   ```
   pip install  -e .
   ```
+
+Run on Example:
+  ```
+  whisperx examples/example.wav --model large-v3
+  ```
