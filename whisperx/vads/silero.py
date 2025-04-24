@@ -20,10 +20,11 @@ class Silero(Vad):
 
         self.vad_onset = kwargs['vad_onset']
         self.chunk_size = kwargs['chunk_size']
+        self.vad_onnx = kwargs['vad_onnx']
         self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                                       model='silero_vad',
                                                       force_reload=False,
-                                                      onnx=False,
+                                                      onnx=self.vad_onnx,
                                                       trust_repo=True)
         (self.get_speech_timestamps, _, self.read_audio, _, _) = vad_utils
 

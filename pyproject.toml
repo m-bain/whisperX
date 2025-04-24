@@ -1,7 +1,7 @@
 [project]
 urls = { repository = "https://github.com/m-bain/whisperx" }
 authors = [{ name = "Max Bain" }]
-name = "whisperx"
+name = "whisperx-smart"
 version = "3.3.1"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
@@ -9,7 +9,7 @@ requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2>=4.5.0",
+    "ctranslate2==4.4.0",
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
     "numpy>=2.0.2",
@@ -23,7 +23,7 @@ dependencies = [
 
 
 [project.scripts]
-whisperx = "whisperx.transcribe:cli"
+whisperx-smart = "whisperx.transcribe:cli"
 
 [build-system]
 requires = ["setuptools"]

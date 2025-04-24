@@ -20,36 +20,46 @@ class Vad:
     def merge_chunks(segments,
                      chunk_size,
                      onset: float,
-                     offset: Optional[float]):
+                     offset: Optional[float],
+                     individual_segment: bool = False):
         """
          Merge operation described in paper
          """
-        curr_end = 0
-        merged_segments = []
-        seg_idxs: list[tuple]= []
-        speaker_idxs: list[Optional[str]] = []
+        if not individual_segment:  
+            curr_end = 0
+            merged_segments = []
+            seg_idxs: list[tuple]= []
+            speaker_idxs: list[Optional[str]] = []
 
-        curr_start = segments[0].start
-        for seg in segments:
-            if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:
+            curr_start = segments[0].start
+            for seg in segments:
+                if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:
+                    merged_segments.append({
+                        "start": curr_start,
+                        "end": curr_end,
+                        "segments": seg_idxs,
+                    })
+                    curr_start = seg.start
+                    seg_idxs = []
+                    speaker_idxs = []
+                curr_end = seg.end
+                seg_idxs.append((seg.start, seg.end))
+                speaker_idxs.append(seg.speaker)
+            # add final
+            merged_segments.append({
+                "start": curr_start,
+                "end": curr_end,
+                "segments": seg_idxs,
+            })
+        else:
+            # For individual segments, just return each segment as is
+            merged_segments = []
+            for seg in segments:
                 merged_segments.append({
-                    "start": curr_start,
-                    "end": curr_end,
-                    "segments": seg_idxs,
+                    "start": seg.start,
+                    "end": seg.end,
+                    "segments": [(seg.start, seg.end)],
                 })
-                curr_start = seg.start
-                seg_idxs = []
-                speaker_idxs = []
-            curr_end = seg.end
-            seg_idxs.append((seg.start, seg.end))
-            speaker_idxs.append(seg.speaker)
-        # add final
-        merged_segments.append({
-            "start": curr_start,
-            "end": curr_end,
-            "segments": seg_idxs,
-        })
-
         return merged_segments
 
     # Unused function
