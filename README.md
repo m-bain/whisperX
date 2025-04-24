@@ -336,5 +336,5 @@ If you use this in your research, please cite the paper:
 
 Run on Example:
   ```
-  whisperx examples/example.wav --model large-v3
+  whisperx-smart examples/example.wav --model large-v3
   ```
