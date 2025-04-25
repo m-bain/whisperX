@@ -326,15 +326,20 @@ If you use this in your research, please cite the paper:
    - Gives each VAD segment individually to be transcribed
    - Improves handling of speech segments for better transcription quality
 
+4. **Transcrition and Token Probabilities**
+   - Improved and more accurate language detection
+   - Returns token probabilities for each segment
 
-
-
-  Install:
+# Installation
   ```
+  git clone https://github.com/aayush9753/whisperX-Smart.git
+  cd whisperX-Smart
+  conda create -n whisperx python=3.12 # Tested with Python 3.12 and Cuda 12.1 cuDNN 8.2
+  conda activate whisperx
   pip install  -e .
   ```
 
-Run on Example:
+# Run on Example:
   ```
-  whisperx-smart examples/example.wav --model large-v3
+  smart-whisper examples/example.wav --use_openai_model --return_token_probabilities
   ```
