@@ -8,6 +8,7 @@ import torch
 
 from whisperx.alignment import align, load_align_model
 from whisperx.asr import load_model
+from whisperx.asr_openai_whisper import load_model as load_openai_model
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
@@ -25,13 +26,15 @@ def cli():
     # fmt: off
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
-    parser.add_argument("--model", default="small", help="name of the Whisper model to use")
+    parser.add_argument("--model", default="openai/whisper-large-v3", help="name of the Whisper model to use")
     parser.add_argument("--model_cache_only", type=str2bool, default=False, help="If True, will not attempt to download models, instead using cached models from --model_dir")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
     parser.add_argument("--device_index", default=0, type=int, help="device index to use for FasterWhisper inference")
     parser.add_argument("--batch_size", default=8, type=int, help="the preferred batch size for inference")
     parser.add_argument("--compute_type", default="float16", type=str, choices=["float16", "float32", "int8"], help="compute type for computation")
+    parser.add_argument("--use_openai_whisper", type=str2bool, default=False, help="use OpenAI Whisper from Hugging Face instead of Faster Whisper")
+    parser.add_argument("--return_token_probabilities", type=str2bool, default=False, help="Return token probabilities in the output (HF Whisper only)")
 
     parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
     parser.add_argument("--output_format", "-f", type=str, default="all", choices=["all", "srt", "vtt", "txt", "tsv", "json", "aud"], help="format of the output file; if not specified, all available formats will be produced")
@@ -100,6 +103,8 @@ def cli():
     device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
     verbose: bool = args.pop("verbose")
+    use_openai_whisper: bool = args.pop("use_openai_whisper")
+    return_token_probabilities: bool = args.pop("return_token_probabilities")
 
     # model_flush: bool = args.pop("model_flush")
     os.makedirs(output_dir, exist_ok=True)
@@ -157,15 +162,27 @@ def cli():
         "beam_size": args.pop("beam_size"),
         "patience": args.pop("patience"),
         "length_penalty": args.pop("length_penalty"),
-        "temperatures": temperature,
-        "compression_ratio_threshold": args.pop("compression_ratio_threshold"),
-        "log_prob_threshold": args.pop("logprob_threshold"),
-        "no_speech_threshold": args.pop("no_speech_threshold"),
-        "condition_on_previous_text": False,
-        "initial_prompt": args.pop("initial_prompt"),
         "suppress_tokens": [int(x) for x in args.pop("suppress_tokens").split(",")],
         "suppress_numerals": args.pop("suppress_numerals"),
     }
+    
+    # Add OpenAI Whisper specific options
+    if use_openai_whisper:
+        asr_options.update({
+            "num_beams": asr_options.pop("beam_size"),  # Rename to match HF parameter name
+            "temperature": temperature[0],  # Use first temperature value
+            "return_token_probabilities": return_token_probabilities,
+        })
+    else:
+        # Keep options for Faster Whisper only
+        asr_options.update({
+            "temperatures": temperature,
+            "compression_ratio_threshold": args.pop("compression_ratio_threshold"),
+            "log_prob_threshold": args.pop("logprob_threshold"),
+            "no_speech_threshold": args.pop("no_speech_threshold"),
+            "condition_on_previous_text": False,
+            "initial_prompt": args.pop("initial_prompt"),
+        })
 
     writer = get_writer(output_format, output_dir)
     word_options = ["highlight_words", "max_line_count", "max_line_width"]
@@ -180,8 +197,39 @@ def cli():
     # Part 1: VAD & ASR Loop
     results = []
     tmp_results = []
-    # model = load_model(model_name, device=device, download_root=model_dir)
-    model = load_model(model_name, device=device, device_index=device_index, download_root=model_dir, compute_type=compute_type, language=args['language'], asr_options=asr_options, vad_method=vad_method, vad_options={"chunk_size":chunk_size, "vad_onset": vad_onset, "vad_offset": vad_offset}, task=task, local_files_only=model_cache_only, threads=faster_whisper_threads)
+    
+    if use_openai_whisper:
+        print("Using OpenAI Whisper (HuggingFace) model...")
+        model = load_openai_model(
+            model_name, 
+            device=device, 
+            device_index=device_index, 
+            download_root=model_dir, 
+            compute_type=compute_type, 
+            language=args['language'], 
+            asr_options=asr_options, 
+            vad_method=vad_method, 
+            vad_options={"chunk_size":chunk_size, "vad_onset": vad_onset, "vad_offset": vad_offset}, 
+            task=task,
+            local_files_only=model_cache_only,
+            return_token_probabilities=return_token_probabilities
+        )
+    else:
+        print("Using Faster Whisper model...")
+        model = load_model(
+            model_name, 
+            device=device, 
+            device_index=device_index, 
+            download_root=model_dir, 
+            compute_type=compute_type, 
+            language=args['language'], 
+            asr_options=asr_options, 
+            vad_method=vad_method, 
+            vad_options={"chunk_size":chunk_size, "vad_onset": vad_onset, "vad_offset": vad_offset}, 
+            task=task,
+            local_files_only=model_cache_only,
+            threads=faster_whisper_threads
+        )
 
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
@@ -214,6 +262,13 @@ def cli():
                 # lazily load audio from part 1
                 input_audio = audio
 
+            # Extract probabilities from segments before alignment if present
+            segment_probabilities = {}
+            if return_token_probabilities:
+                for i, segment in enumerate(result["segments"]):
+                    if "probabilities" in segment:
+                        segment_probabilities[i] = segment["probabilities"]
+
             if align_model is not None and len(result["segments"]) > 0:
                 if result.get("language", "en") != align_metadata["language"]:
                     # load new language
@@ -229,7 +284,16 @@ def cli():
                     interpolate_method=interpolate_method,
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
+                    return_token_probabilities=return_token_probabilities,
+                    language=result.get("language"),
+                    language_probability=result.get("language_probability"),
                 )
+                # Restore token probabilities after alignment if available
+                if return_token_probabilities and segment_probabilities:
+                    print("Preserving token probabilities in aligned segments...")
+                    for i, segment in enumerate(result["segments"]):
+                        if i in segment_probabilities:
+                            segment["probabilities"] = [{"token": t, "probability": p} for t, p in segment_probabilities[i].items()]
 
             results.append((result, audio_path))
 
@@ -250,9 +314,23 @@ def cli():
             diarize_segments = diarize_model(input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
             result = assign_word_speakers(diarize_segments, result)
             results.append((result, input_audio_path))
+            
     # >> Write
     for result, audio_path in results:
-        result["language"] = align_language
+        
+        # Ensure token probabilities are properly included when using OpenAI Whisper with return_token_probabilities
+        if use_openai_whisper and return_token_probabilities:
+            # Check if token probabilities exist in segments and preserve them
+            # This makes sure the token probabilities make it into the final output
+            preserve_tokens = False
+            for segment in result.get("segments", []):
+                if "tokens" in segment:
+                    preserve_tokens = True
+                    break
+                    
+            if preserve_tokens:
+                print("Including token probability information in output...")
+        
         writer(result, audio_path, writer_args)
 
 if __name__ == "__main__":

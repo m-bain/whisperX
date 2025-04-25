@@ -21,6 +21,7 @@ from whisperx.types import (
     SingleAlignedSegment,
     SingleWordSegment,
     SegmentData,
+    TokenProbability,
 )
 from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
 
@@ -84,7 +85,8 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         else:
             print(f"There is no default alignment model set for this language ({language_code}).\
                 Please find a wav2vec2.0 model finetuned on this language in https://huggingface.co/models, then pass the model name in --align_model [MODEL_NAME]")
-            raise ValueError(f"No default align-model for language: {language_code}")
+            print("Using multilingual model as default")
+            model_name = "voidful/wav2vec2-xlsr-multilingual-56"
 
     if model_name in torchaudio.pipelines.__all__:
         pipeline_type = "torchaudio"
@@ -120,9 +122,29 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
+    return_token_probabilities: bool = False,
+    language: Optional[str] = None,
+    language_probability: Optional[float] = None,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
+    
+    Args:
+        transcript: List of segments to align
+        model: Alignment model
+        align_model_metadata: Metadata for alignment model
+        audio: Audio data
+        device: Device to run model on
+        interpolate_method: Method to interpolate timestamps
+        return_char_alignments: Whether to return character-level alignments
+        print_progress: Whether to print progress
+        combined_progress: Whether progress is combined with other steps
+        return_token_probabilities: Whether to preserve token probabilities in segments
+        language: Language code
+        language_probability: Probability of language detection
+    
+    Returns:
+        Aligned transcription result
     """
     
     if not torch.is_tensor(audio):
@@ -137,6 +159,16 @@ def align(
     model_dictionary = align_model_metadata["dictionary"]
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
+
+    # Store original token probabilities
+    segment_tokens = {}
+    if return_token_probabilities:
+        for idx, segment in enumerate(transcript):
+            if "probabilities" in segment:
+                segment_tokens[idx] = [
+                    {"token": token, "probability": prob} 
+                    for token, prob in segment["probabilities"].items()
+                ]
 
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
@@ -376,8 +408,47 @@ def align(
     word_segments: List[SingleWordSegment] = []
     for segment in aligned_segments:
         word_segments += segment["words"]
+        
+    # Restore token probabilities if available
+    if return_token_probabilities and segment_tokens:
+        # Map original segments to aligned segments
+        original_to_aligned = {}
+        for i, orig_segment in enumerate(transcript):
+            for j, aligned_segment in enumerate(aligned_segments):
+                # Check if segments match by text and overlap in time
+                if (aligned_segment["text"] in orig_segment["text"] or 
+                    orig_segment["text"] in aligned_segment["text"]):
+                    # Check if times overlap
+                    orig_start, orig_end = orig_segment["start"], orig_segment["end"]
+                    aligned_start, aligned_end = aligned_segment["start"], aligned_segment["end"]
+                    
+                    # If times overlap, associate them
+                    if (orig_start <= aligned_end and orig_end >= aligned_start):
+                        if i not in original_to_aligned:
+                            original_to_aligned[i] = []
+                        original_to_aligned[i].append(j)
+        
+        # Transfer token probabilities to aligned segments
+        for orig_idx, aligned_indices in original_to_aligned.items():
+            if orig_idx in segment_tokens:
+                for aligned_idx in aligned_indices:
+                    if aligned_idx < len(aligned_segments):
+                        aligned_segments[aligned_idx]["token_probabilities"] = segment_tokens[orig_idx]
 
-    return {"segments": aligned_segments, "word_segments": word_segments}
+    result = {
+        "segments": aligned_segments, 
+        "word_segments": word_segments,
+    }
+    
+    # Include language and language probability in result if provided
+    if language is not None:
+        print(f"Setting language to {language}")
+        result["language"] = language
+    if language_probability is not None:
+        print(f"Setting language probability to {language_probability}")
+        result["language_probability"] = language_probability
+        
+    return result
 
 """
 source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html

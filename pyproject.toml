@@ -23,7 +23,7 @@ dependencies = [
 
 
 [project.scripts]
-whisperx-smart = "whisperx.transcribe:cli"
+smart-whisper = "whisperx.transcribe:cli"
 
 [build-system]
 requires = ["setuptools"]

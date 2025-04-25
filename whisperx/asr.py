@@ -1,3 +1,12 @@
+"""
+Automatic Speech Recognition (ASR) components for WhisperX.
+
+This module provides the core ASR functionality for WhisperX, including:
+- The WhisperModel class that extends faster-whisper for batched inference
+- A Hugging Face Pipeline wrapper for easier integration
+- Functions for loading and configuring the ASR models
+"""
+
 import os
 from typing import List, Optional, Union
 from dataclasses import replace
@@ -17,6 +26,21 @@ from whisperx.vads import Vad, Silero, Pyannote, SileroCustom
 
 
 def find_numeral_symbol_tokens(tokenizer):
+    """
+    Find tokens in the tokenizer vocabulary that contain numerals or symbols.
+    
+    Used for optionally suppressing these tokens during transcription.
+    
+    Parameters
+    ----------
+    tokenizer : Tokenizer
+        The Whisper tokenizer
+        
+    Returns
+    -------
+    List[int]
+        List of token IDs that contain numerals or symbols
+    """
     numeral_symbol_tokens = []
     for i in range(tokenizer.eot):
         token = tokenizer.decode([i]).removeprefix(" ")
@@ -25,11 +49,18 @@ def find_numeral_symbol_tokens(tokenizer):
             numeral_symbol_tokens.append(i)
     return numeral_symbol_tokens
 
+
 class WhisperModel(faster_whisper.WhisperModel):
-    '''
-    FasterWhisperModel provides batched inference for faster-whisper.
-    Currently only works in non-timestamp mode and fixed prompt for all samples in batch.
-    '''
+    """
+    Extended WhisperModel that provides batched inference for faster-whisper.
+    
+    This class extends the faster_whisper.WhisperModel to add support for
+    batched inference, which can significantly speed up processing of multiple
+    audio segments.
+    
+    Currently only works in non-timestamp mode and with fixed prompts for all
+    samples in a batch.
+    """
 
     def generate_segment_batched(
         self,
@@ -38,14 +69,40 @@ class WhisperModel(faster_whisper.WhisperModel):
         options: TranscriptionOptions,
         encoder_output=None,
     ):
+        """
+        Generate transcriptions for a batch of audio features.
+        
+        Parameters
+        ----------
+        features : np.ndarray
+            Batch of log mel spectrograms, shape [batch_size, n_mels, n_frames]
+        tokenizer : Tokenizer
+            Whisper tokenizer for the current language and task
+        options : TranscriptionOptions
+            Transcription options including beam size, patience, etc.
+        encoder_output : Optional
+            Pre-computed encoder output if available
+            
+        Returns
+        -------
+        List[str]
+            List of transcribed text for each item in the batch
+        """
         batch_size = features.shape[0]
+        
+        # Prepare prompts
         all_tokens = []
         prompt_reset_since = 0
+        
+        # Handle initial prompt if provided
         if options.initial_prompt is not None:
             initial_prompt = " " + options.initial_prompt.strip()
             initial_prompt_tokens = tokenizer.encode(initial_prompt)
             all_tokens.extend(initial_prompt_tokens)
+            
         previous_tokens = all_tokens[prompt_reset_since:]
+        
+        # Get the prompt tokens
         prompt = self.get_prompt(
             tokenizer,
             previous_tokens,
@@ -54,45 +111,65 @@ class WhisperModel(faster_whisper.WhisperModel):
             hotwords=options.hotwords
         )
 
-        encoder_output = self.encode(features)
+        # Encode the audio features if not already done
+        if encoder_output is None:
+            encoder_output = self.encode(features)
 
+        # Calculate max initial timestamp
         max_initial_timestamp_index = int(
             round(options.max_initial_timestamp / self.time_precision)
         )
 
+        # Run the model inference
         result = self.model.generate(
-                encoder_output,
-                [prompt] * batch_size,
-                beam_size=options.beam_size,
-                patience=options.patience,
-                length_penalty=options.length_penalty,
-                max_length=self.max_length,
-                suppress_blank=options.suppress_blank,
-                suppress_tokens=options.suppress_tokens,
-            )
+            encoder_output,
+            [prompt] * batch_size,
+            beam_size=options.beam_size,
+            patience=options.patience,
+            length_penalty=options.length_penalty,
+            max_length=self.max_length,
+            suppress_blank=options.suppress_blank,
+            suppress_tokens=options.suppress_tokens,
+        )
 
+        # Extract token IDs from the result
         tokens_batch = [x.sequences_ids[0] for x in result]
 
-        def decode_batch(tokens: List[List[int]]) -> str:
+        # Decode tokens to text
+        def decode_batch(tokens: List[List[int]]) -> List[str]:
+            """Decode a batch of tokens to text, removing end-of-text tokens."""
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
-            # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
-
         return text
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
+        """
+        Encode audio features using the Whisper encoder.
+        
+        Parameters
+        ----------
+        features : np.ndarray
+            Log mel spectrogram features, can be a batch [batch_size, n_mels, n_frames]
+            or a single sample [n_mels, n_frames]
+            
+        Returns
+        -------
+        ctranslate2.StorageView
+            Encoded features that can be used for generation
+        """
         # When the model is running on multiple GPUs, the encoder output should be moved
         # to the CPU since we don't know which GPU will handle the next job.
         to_cpu = self.model.device == "cuda" and len(self.model.device_index) > 1
-        # unsqueeze if batch size = 1
+        
+        # Add batch dimension if needed
         if len(features.shape) == 2:
             features = np.expand_dims(features, 0)
+            
         features = get_ctranslate2_storage(features)
-
         return self.model.encode(features, to_cpu=to_cpu)
 
 class FasterWhisperPipeline(Pipeline):
@@ -369,8 +446,8 @@ def load_model(
         "without_timestamps": True,
         "max_initial_timestamp": 0.0,
         "word_timestamps": False,
-        "prepend_punctuations": "\"'“¿([{-",
-        "append_punctuations": "\"'.。,，!！?？:：”)]}、",
+        "prepend_punctuations": "\"'""¿([{-",
+        "append_punctuations": "\"'.。,，!！?？:："")]}、",
         "multilingual": model.model.is_multilingual,
         "suppress_numerals": False,
         "max_new_tokens": None,
