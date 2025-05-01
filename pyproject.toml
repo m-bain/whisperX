@@ -9,11 +9,11 @@ requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2>=4.5.0",
+    "ctranslate2<4.5.0",
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
     "numpy>=2.0.2",
-    "onnxruntime==1.19",
+    "onnxruntime>=1.19",
     "pandas>=2.2.3",
     "pyannote-audio>=3.3.2",
     "torch>=2.5.1",
