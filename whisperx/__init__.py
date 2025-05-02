@@ -29,12 +29,3 @@ def load_audio(*args, **kwargs):
 def assign_word_speakers(*args, **kwargs):
     diarize = _lazy_import("diarize")
     return diarize.assign_word_speakers(*args, **kwargs)
-
-
-class DiarizationPipeline:
-    def __init__(self, *args, **kwargs):
-        diarize = _lazy_import("diarize")
-        self._pipeline = diarize.DiarizationPipeline(*args, **kwargs)
-
-    def __getattr__(self, name):
-        return getattr(self._pipeline, name)
