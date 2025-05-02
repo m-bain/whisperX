@@ -62,54 +62,41 @@ This repository provides fast automatic speech recognition (70x realtime with la
 - Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with *60-70x REAL TIME speed.
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
-Tested for PyTorch 2.0, Python 3.10 (use other versions at your own risk!)
 
-GPU execution requires the NVIDIA libraries cuBLAS 11.x and cuDNN 8.x to be installed on the system. Please refer to the [CTranslate2 documentation](https://opennmt.net/CTranslate2/installation.html).
+### 1. Simple Installation (Recommended)
 
-
-### 1. Create Python3.10 environment
-
-`conda create --name whisperx python=3.10`
-
-`conda activate whisperx`
-
-
-### 2. Install PyTorch, e.g. for Linux and Windows CUDA11.8:
-
-`conda install pytorch==2.0.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia`
-
-See other methods [here.](https://pytorch.org/get-started/previous-versions/#v200)
-
-### 3. Install WhisperX
-
-You have several installation options:
-
-#### Option A: Stable Release (recommended)
-Install the latest stable version from PyPI:
+The easiest way to install WhisperX is through PyPi:
 
 ```bash
 pip install whisperx
 ```
 
-#### Option B: Development Version
-Install the latest development version directly from GitHub (may be unstable):
+Or if using [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools):
 
 ```bash
-pip install git+https://github.com/m-bain/whisperx.git
+uvx whisperx
 ```
 
-If already installed, update to the most recent commit:
+### 2. Advanced Installation Options
+
+These installation methods are for developers or users with specific needs. If you're not sure, stick with the simple installation above.
+
+#### Option A: Install from GitHub
+
+To install directly from the GitHub repository:
 
 ```bash
-pip install git+https://github.com/m-bain/whisperx.git --upgrade
+uvx git+https://github.com/m-bain/whisperX.git
 ```
 
-#### Option C: Development Mode
-If you wish to modify the package, clone and install in editable mode:
+#### Option B: Developer Installation
+
+If you want to modify the code or contribute to the project:
+
 ```bash
 git clone https://github.com/m-bain/whisperX.git
 cd whisperX
-pip install -e .
+uv sync --all-extras --dev
 ```
 
 > **Note**: The development version may contain experimental features and bugs. Use the stable PyPI release for production environments.
@@ -117,11 +104,11 @@ pip install -e .
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
 ### Speaker Diarization
+
 To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation-3.0) and [Speaker-Diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) (if you choose to use Speaker-Diarization 2.x, follow requirements [here](https://huggingface.co/pyannote/speaker-diarization) instead.)
 
 > **Note**<br>
 > As of Oct 11, 2023, there is a known issue regarding slow performance with pyannote/Speaker-Diarization-3.0 in whisperX. It is due to dependency conflicts between faster-whisper and pyannote-audio 3.0.0. Please see [this issue](https://github.com/m-bain/whisperX/issues/499) for more details and potential workarounds.
-
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
 

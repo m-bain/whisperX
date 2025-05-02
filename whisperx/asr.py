@@ -11,9 +11,10 @@ from faster_whisper.transcribe import TranscriptionOptions, get_ctranslate2_stor
 from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
-from .audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
-from .types import SingleSegment, TranscriptionResult
-from .vads import Vad, Silero, Pyannote
+from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
+from whisperx.types import SingleSegment, TranscriptionResult
+from whisperx.vads import Vad, Silero, Pyannote
+
 
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
@@ -50,6 +51,7 @@ class WhisperModel(faster_whisper.WhisperModel):
             previous_tokens,
             without_timestamps=options.without_timestamps,
             prefix=options.prefix,
+            hotwords=options.hotwords
         )
 
         encoder_output = self.encode(features)
