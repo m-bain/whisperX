@@ -17,6 +17,9 @@ jobs:
           version: "0.5.14"
           python-version: "3.9"
 
+      - name: Check if lockfile is up to date
+        run: uv lock --check
+
       - name: Build package
         run: uv build
 
