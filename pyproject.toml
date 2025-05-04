@@ -16,8 +16,8 @@ dependencies = [
     "onnxruntime>=1.19",
     "pandas>=2.2.3",
     "pyannote-audio>=3.3.2",
-    "torch>=2.5.1",
-    "torchaudio>=2.5.1",
+    "torch<2.4.0",
+    "torchaudio",
     "transformers>=4.48.0",
 ]
 
