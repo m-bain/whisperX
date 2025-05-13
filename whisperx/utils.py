@@ -410,7 +410,7 @@ class WriteJSON(ResultWriter):
 
 def get_writer(
     output_format: str, output_dir: str
-) -> Callable[[dict, TextIO, dict], None]:
+) -> Callable[[dict, str, dict], None]:
     writers = {
         "txt": WriteTXT,
         "vtt": WriteVTT,
@@ -425,7 +425,7 @@ def get_writer(
     if output_format == "all":
         all_writers = [writer(output_dir) for writer in writers.values()]
 
-        def write_all(result: dict, file: TextIO, options: dict):
+        def write_all(result: dict, file: str, options: dict):
             for writer in all_writers:
                 writer(result, file, options)
 
