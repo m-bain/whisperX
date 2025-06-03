@@ -52,23 +52,3 @@ class Vad:
 
         return merged_segments
 
-    # Unused function
-    @staticmethod
-    def merge_vad(vad_arr, pad_onset=0.0, pad_offset=0.0, min_duration_off=0.0, min_duration_on=0.0):
-        active = Annotation()
-        for k, vad_t in enumerate(vad_arr):
-            region = Segment(vad_t[0] - pad_onset, vad_t[1] + pad_offset)
-            active[region, k] = 1
-
-        if pad_offset > 0.0 or pad_onset > 0.0 or min_duration_off > 0.0:
-            active = active.support(collar=min_duration_off)
-
-        # remove tracks shorter than min_duration_on
-        if min_duration_on > 0:
-            for segment, track in list(active.itertracks()):
-                if segment.duration < min_duration_on:
-                    del active[segment, track]
-
-        active = active.for_json()
-        active_segs = pd.DataFrame([x['segment'] for x in active['content']])
-        return active_segs
