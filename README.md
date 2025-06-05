@@ -97,6 +97,18 @@ uv sync --all-extras --dev
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
+### 3. Docker Images
+
+Execute pre-built WhisperX container images:
+
+```bash
+docker run --gpus all -it -v ".:/app" ghcr.io/jim60105/whisperx:base-en     -- --output_format srt audio.mp3
+docker run --gpus all -it -v ".:/app" ghcr.io/jim60105/whisperx:large-v3-ja -- --output_format srt audio.mp3
+docker run --gpus all -it -v ".:/app" ghcr.io/jim60105/whisperx:no_model    -- --model tiny --language en --output_format srt audio.mp3
+```
+
+Review the tag lists in this repository: [jim60105/docker-whisperX](https://github.com/jim60105/docker-whisperX)
+
 ### Common Issues & Troubleshooting 🔧
 
 #### libcudnn Dependencies (GPU Users)
