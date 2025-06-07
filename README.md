@@ -189,7 +189,7 @@ result = model.transcribe(audio, batch_size=batch_size)
 print(result["segments"]) # before alignment
 
 # delete model if low on GPU resources
-# import gc; gc.collect(); torch.cuda.empty_cache(); del model
+# import gc; import torch; gc.collect(); torch.cuda.empty_cache(); del model
 
 # 2. Align whisper output
 model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
@@ -198,7 +198,7 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 print(result["segments"]) # after alignment
 
 # delete model if low on GPU resources
-# import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
+# import gc; import torch; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
 diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
