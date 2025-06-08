@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union
+from typing import Optional, Union, Callable, Any
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
@@ -26,6 +26,7 @@ class DiarizationPipeline:
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
+        hook: Optional[Callable[[str, Any, str, float, float], None]] = None,
     ):
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -33,10 +34,21 @@ class DiarizationPipeline:
             'waveform': torch.from_numpy(audio[None, :]),
             'sample_rate': SAMPLE_RATE
         }
-        segments = self.model(audio_data, num_speakers = num_speakers, min_speakers=min_speakers, max_speakers=max_speakers)
+        
+        # Call the model with the pyannote hook
+        segments = self.model(
+            audio_data, 
+            num_speakers=num_speakers, 
+            min_speakers=min_speakers, 
+            max_speakers=max_speakers,
+            hook=hook
+        )
+        
+        # Convert to DataFrame
         diarize_df = pd.DataFrame(segments.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
+        
         return diarize_df
 
 
@@ -44,7 +56,7 @@ def assign_word_speakers(
     diarize_df: pd.DataFrame,
     transcript_result: Union[AlignedTranscriptionResult, TranscriptionResult],
     fill_nearest=False,
-) -> dict:
+) -> Union[AlignedTranscriptionResult, TranscriptionResult]:
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
