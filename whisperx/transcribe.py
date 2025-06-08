@@ -57,6 +57,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
+    num_speakers: int = args.pop("num_speakers")
     diarize_model_name: str = args.pop("diarize_model")
     print_progress: bool = args.pop("print_progress")
 
@@ -210,7 +211,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
             diarize_segments = diarize_model(
-                input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers
+                input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers, num_speakers=num_speakers
             )
             result = assign_word_speakers(diarize_segments, result)
             results.append((result, input_audio_path))
