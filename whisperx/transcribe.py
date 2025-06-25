@@ -213,12 +213,19 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         results = []
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
-            diarize_segments, speaker_embeddings = diarize_model(
+            diarize_result = diarize_model(
                 input_audio_path, 
                 min_speakers=min_speakers, 
                 max_speakers=max_speakers, 
                 return_embeddings=return_speaker_embeddings
             )
+
+            if return_speaker_embeddings:
+                diarize_segments, speaker_embeddings = diarize_result
+            else:
+                diarize_segments = diarize_result
+                speaker_embeddings = None
+
             result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
             results.append((result, input_audio_path))
     # >> Write
