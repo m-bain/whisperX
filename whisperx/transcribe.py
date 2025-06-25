@@ -60,6 +60,10 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     num_speakers: int = args.pop("num_speakers")
     diarize_model_name: str = args.pop("diarize_model")
     print_progress: bool = args.pop("print_progress")
+    return_speaker_embeddings: bool = args.pop("speaker_embeddings")
+
+    if return_speaker_embeddings and not diarize:
+        warnings.warn("--speaker_embeddings has no effect without --diarize")
 
     if args["language"] is not None:
         args["language"] = args["language"].lower()
@@ -210,10 +214,21 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         results = []
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
-            diarize_segments = diarize_model(
-                input_audio_path, min_speakers=min_speakers, max_speakers=max_speakers, num_speakers=num_speakers
+            diarize_result = diarize_model(
+                input_audio_path, 
+                min_speakers=min_speakers, 
+                max_speakers=max_speakers, 
+                num_speakers=num_speakers, 
+                return_embeddings=return_speaker_embeddings
             )
-            result = assign_word_speakers(diarize_segments, result)
+
+            if return_speaker_embeddings:
+                diarize_segments, speaker_embeddings = diarize_result
+            else:
+                diarize_segments = diarize_result
+                speaker_embeddings = None
+
+            result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
