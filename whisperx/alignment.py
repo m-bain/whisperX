@@ -424,7 +424,8 @@ def get_wildcard_emission(frame_emission, tokens, blank_id):
     wildcard_mask = (tokens == -1)
 
     # Get scores for non-wildcard positions
-    regular_scores = frame_emission[tokens.clamp(min=0)]  # clamp to avoid -1 index
+    clamped_tokens = tokens.tokens.clamp(min=0).long() # clamp to avoid -1 index and ensure long data type.
+    regular_scores = frame_emission[clamped_tokens] 
 
     # Create a mask and compute the maximum value without modifying frame_emission
     max_valid_score = frame_emission.clone()   # Create a copy
