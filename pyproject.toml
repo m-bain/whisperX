@@ -13,11 +13,11 @@ dependencies = [
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
     "numpy>=2.0.2",
-    "onnxruntime>=1.19",
+    "onnxruntime>=1.19,<1.20.0",
     "pandas>=2.2.3",
     "pyannote-audio>=3.3.2",
-    "torch>=2.5.1",
-    "torchaudio>=2.5.1",
+    "torch<2.4.0",
+    "torchaudio",
     "transformers>=4.48.0",
 ]
 
