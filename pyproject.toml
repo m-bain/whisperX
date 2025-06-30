@@ -20,6 +20,7 @@ dependencies = [
     "torch>=2.7.1",
     "torchaudio",
     "transformers>=4.48.0",
+    "triton>=3.3.0" # Support arm64
 ]
 
 
