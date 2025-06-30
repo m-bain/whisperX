@@ -5,16 +5,17 @@ name = "whisperx"
 version = "3.4.2"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
     "ctranslate2>=4.5.0",
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
-    "numpy>=2.0.2",
-    "onnxruntime>=1.19",
-    "pandas>=2.2.3",
+    # Restrict numpy, onnxruntime, pandas to be compatible with Python 3.9
+    "numpy>=2.0.2,<2.1.0",
+    "onnxruntime>=1.19,<1.20.0",
+    "pandas>=2.2.3,<2.3.0",
     "pyannote-audio>=3.3.2",
     "torch>=2.7.1",
     "torchaudio",
@@ -35,6 +36,18 @@ include-package-data = true
 where = ["."]
 include = ["whisperx*"]
 
+[tool.uv.sources]
+torch = [
+  { index = "pytorch" },
+]
+torchaudio = [
+  { index = "pytorch" },
+]
+triton = [
+  { index = "pytorch" },
+]
+
 [[tool.uv.index]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu128"
+explicit = true
