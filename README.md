@@ -106,25 +106,6 @@ uv sync --all-extras --dev
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
-### Common Issues & Troubleshooting 🔧
-
-#### libcudnn Dependencies (GPU Users)
-
-If you're using WhisperX with GPU support and encounter errors like:
-
-- `Could not load library libcudnn_ops_infer.so.8`
-- `Unable to load any of {libcudnn_cnn.so.9.1.0, libcudnn_cnn.so.9.1, libcudnn_cnn.so.9, libcudnn_cnn.so}`
-- `libcudnn_ops_infer.so.8: cannot open shared object file: No such file or directory`
-
-This means your system is missing the CUDA Deep Neural Network library (cuDNN). This library is needed for GPU acceleration but isn't always installed by default.
-
-**Install cuDNN (example for apt based systems):**
-
-```bash
-sudo apt update
-sudo apt install libcudnn8 libcudnn8-dev -y
-```
-
 ### Speaker Diarization
 
 To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation-3.0) and [Speaker-Diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) (if you choose to use Speaker-Diarization 2.x, follow requirements [here](https://huggingface.co/pyannote/speaker-diarization) instead.)
