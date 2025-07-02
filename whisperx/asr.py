@@ -1,6 +1,8 @@
 import os
-from typing import List, Optional, Union
 from dataclasses import replace
+import warnings
+from typing import List, Union, Optional, NamedTuple, Callable
+from enum import Enum
 
 import ctranslate2
 import faster_whisper
@@ -103,6 +105,12 @@ class FasterWhisperPipeline(Pipeline):
     # - add support for timestamp mode
     # - add support for custom inference kwargs
 
+    class TranscriptionState(Enum):
+        LOADING_AUDIO = "loading_audio"
+        GENERATING_VAD_SEGMENTS = "generating_vad_segments"
+        TRANSCRIBING = "transcribing"
+        FINISHED = "finished"
+
     def __init__(
         self,
         model: WhisperModel,
@@ -197,8 +205,12 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+            on_progress: Callable[[TranscriptionState, Optional[int], Optional[int]], None] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
+            if on_progress:
+                on_progress(self.__class__.TranscriptionState.LOADING_AUDIO)
+
             audio = load_audio(audio)
 
         def data(audio, segments):
@@ -216,6 +228,8 @@ class FasterWhisperPipeline(Pipeline):
         else:
             waveform = Pyannote.preprocess_audio(audio)
             merge_chunks = Pyannote.merge_chunks
+        if on_progress:
+            on_progress(self.__class__.TranscriptionState.GENERATING_VAD_SEGMENTS)
 
         vad_segments = self.vad_model({"waveform": waveform, "sample_rate": SAMPLE_RATE})
         vad_segments = merge_chunks(
@@ -255,16 +269,22 @@ class FasterWhisperPipeline(Pipeline):
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
+
+        if on_progress:
+            on_progress(self.__class__.TranscriptionState.TRANSCRIBING, 0, total_segments)
+
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
                 percent_complete = base_progress / 2 if combined_progress else base_progress
                 print(f"Progress: {percent_complete:.2f}%...")
+
+            if on_progress:
+                on_progress(self.__class__.TranscriptionState.TRANSCRIBING, idx + 1, total_segments)
+
             text = out['text']
             if batch_size in [0, 1, None]:
                 text = text[0]
-            if verbose:
-                print(f"Transcript: [{round(vad_segments[idx]['start'], 3)} --> {round(vad_segments[idx]['end'], 3)}] {text}")
             segments.append(
                 {
                     "text": text,
@@ -272,6 +292,9 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]['end'], 3)
                 }
             )
+
+        if on_progress:
+            on_progress(self.__class__.TranscriptionState.FINISHED)
 
         # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
