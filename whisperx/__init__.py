@@ -29,3 +29,13 @@ def load_audio(*args, **kwargs):
 def assign_word_speakers(*args, **kwargs):
     diarize = _lazy_import("diarize")
     return diarize.assign_word_speakers(*args, **kwargs)
+
+
+def load_pipeline(*args, **kwargs):
+    pipeline = _lazy_import("pipeline")
+    return pipeline.load_pipeline(*args, **kwargs)
+
+
+def load_mlx_pipeline(*args, **kwargs):
+    pipeline = _lazy_import("pipeline")
+    return pipeline.load_mlx_pipeline(*args, **kwargs)

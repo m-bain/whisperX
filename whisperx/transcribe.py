@@ -12,6 +12,7 @@ from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
+from whisperx.process_separation import ProcessSeparatedPipeline
 
 
 def transcribe_task(args: dict, parser: argparse.ArgumentParser):
@@ -24,6 +25,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # fmt: off
 
     model_name: str = args.pop("model")
+    backend: str = args.pop("backend")
     batch_size: int = args.pop("batch_size")
     model_dir: str = args.pop("model_dir")
     model_cache_only: bool = args.pop("model_cache_only")
@@ -120,25 +122,47 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # Part 1: VAD & ASR Loop
     results = []
     tmp_results = []
-    # model = load_model(model_name, device=device, download_root=model_dir)
-    model = load_model(
-        model_name,
-        device=device,
-        device_index=device_index,
-        download_root=model_dir,
-        compute_type=compute_type,
-        language=args["language"],
-        asr_options=asr_options,
-        vad_method=vad_method,
-        vad_options={
-            "chunk_size": chunk_size,
-            "vad_onset": vad_onset,
-            "vad_offset": vad_offset,
-        },
-        task=task,
-        local_files_only=model_cache_only,
-        threads=faster_whisper_threads,
-    )
+    
+    # Use process separation for MLX backend to avoid PyTorch/MLX conflicts
+    if backend == "mlx":
+        print(">>Using process-separated pipeline for MLX backend...")
+        model = ProcessSeparatedPipeline(
+            asr_backend=backend,
+            model_name=model_name,
+            vad_method=vad_method,
+            device="mlx",  # MLX always uses MLX device
+            language=args["language"],
+            compute_type=compute_type,
+            asr_options=asr_options,
+            vad_options={
+                "chunk_size": chunk_size,
+                "vad_onset": vad_onset,
+                "vad_offset": vad_offset,
+            },
+            task=task,
+            threads=faster_whisper_threads,
+        )
+    else:
+        # Standard model loading for other backends
+        model = load_model(
+            model_name,
+            backend=backend,
+            device=device,
+            device_index=device_index,
+            download_root=model_dir,
+            compute_type=compute_type,
+            language=args["language"],
+            asr_options=asr_options,
+            vad_method=vad_method,
+            vad_options={
+                "chunk_size": chunk_size,
+                "vad_onset": vad_onset,
+                "vad_offset": vad_offset,
+            },
+            task=task,
+            local_files_only=model_cache_only,
+            threads=faster_whisper_threads,
+        )
 
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
