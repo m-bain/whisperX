@@ -30,6 +30,8 @@ class ProcessSeparatedPipeline:
         compute_type: str = "float16",
         asr_options: Optional[Dict] = None,
         vad_options: Optional[Dict] = None,
+        use_batch_processing: bool = True,
+        batch_size: int = 8,
         **kwargs
     ):
         self.asr_backend = asr_backend
@@ -40,6 +42,8 @@ class ProcessSeparatedPipeline:
         self.compute_type = compute_type
         self.asr_options = asr_options or {}
         self.vad_options = vad_options or {}
+        self.use_batch_processing = use_batch_processing
+        self.batch_size = batch_size
         self.kwargs = kwargs
         
     def transcribe(
@@ -173,52 +177,160 @@ class ProcessSeparatedPipeline:
         verbose: bool = False,
         print_progress: bool = False,
     ) -> List[Dict]:
-        """Run MLX ASR on segments."""
-        import mlx_whisper
+        """Run MLX ASR on segments with optional batch processing."""
         
-        all_segments = []
-        
-        for i, vad_seg in enumerate(vad_segments):
-            if print_progress:
-                print(f"Processing segment {i+1}/{len(vad_segments)}...")
+        if self.use_batch_processing and len(vad_segments) > 1:
+            # Use batch processor for efficiency
+            from whisperx.backends.mlx_batch_processor import BatchedMLXWhisperBackend
             
-            # Extract audio segment
-            start_sample = int(vad_seg["start"] * SAMPLE_RATE)
-            end_sample = int(vad_seg["end"] * SAMPLE_RATE)
-            audio_segment = audio[start_sample:end_sample]
+            if verbose:
+                print(f"Using batch processing with batch_size={self.batch_size}")
             
-            # Transcribe with MLX
-            # Map model names to MLX repo names
-            mlx_model_map = {
-                "tiny": "mlx-community/whisper-tiny",
-                "base": "mlx-community/whisper-base",
-                "small": "mlx-community/whisper-small",
-                "medium": "mlx-community/whisper-medium",
-                "large": "mlx-community/whisper-large-mlx",
-                "large-v2": "mlx-community/whisper-large-v2",
-                "large-v3": "mlx-community/whisper-large-v3-mlx",
-                "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"
-            }
-            
-            mlx_model = mlx_model_map.get(self.model_name, f"mlx-community/whisper-{self.model_name}")
-            
-            result = mlx_whisper.transcribe(
-                audio_segment,
-                path_or_hf_repo=mlx_model,
-                verbose=verbose,
-                language=self.language,
-                temperature=0.01,
+            # Initialize batched backend
+            backend = BatchedMLXWhisperBackend(
+                model_name=self.model_name,
+                batch_size=self.batch_size,
+                use_batching=True,
+                device=self.device,
+                compute_type=self.compute_type,
+                asr_options=self.asr_options
             )
             
-            text = result["text"].strip()
+            # Prepare segments with audio data
+            segments_with_audio = []
+            for vad_seg in vad_segments:
+                start_sample = int(vad_seg["start"] * SAMPLE_RATE)
+                end_sample = int(vad_seg["end"] * SAMPLE_RATE)
+                audio_segment = audio[start_sample:end_sample]
+                
+                segments_with_audio.append({
+                    'start': vad_seg["start"],
+                    'end': vad_seg["end"],
+                    'audio': audio_segment
+                })
             
-            all_segments.append({
-                "start": round(vad_seg["start"], 3),
-                "end": round(vad_seg["end"], 3),
-                "text": text
-            })
-        
-        return all_segments
+            # Process with batching
+            results = backend.transcribe_segments(
+                segments_with_audio,
+                language=self.language,
+                task=self.kwargs.get('task', 'transcribe'),
+                verbose=verbose
+            )
+            
+            # Format output segments
+            all_segments = []
+            for seg, result in zip(segments_with_audio, results):
+                # Extract text from result
+                text = result.get("text", "").strip()
+                
+                # If word timestamps are available, include them
+                segments = result.get("segments", [])
+                words = []
+                if segments and self.asr_options.get("word_timestamps", False):
+                    for segment in segments:
+                        if "words" in segment:
+                            # Adjust word timestamps relative to segment start
+                            for word in segment["words"]:
+                                words.append({
+                                    "word": word["word"],
+                                    "start": seg["start"] + word["start"],
+                                    "end": seg["start"] + word["end"],
+                                    "probability": word.get("probability", 1.0)
+                                })
+                
+                segment_dict = {
+                    "start": round(seg["start"], 3),
+                    "end": round(seg["end"], 3),
+                    "text": text
+                }
+                
+                if words:
+                    segment_dict["words"] = words
+                
+                all_segments.append(segment_dict)
+            
+            # Get performance report
+            if verbose:
+                perf_report = backend.get_performance_report()
+                print(f"\nBatch Processing Performance:")
+                print(f"  Total segments: {perf_report['total_segments']}")
+                if 'total_batches' in perf_report:
+                    print(f"  Total batches: {perf_report['total_batches']}")
+                print(f"  Total time: {perf_report['total_time']:.2f}s")
+                if 'avg_time_per_segment' in perf_report:
+                    print(f"  Avg time per segment: {perf_report['avg_time_per_segment']:.3f}s")
+                if 'segments_per_second' in perf_report:
+                    print(f"  Segments per second: {perf_report['segments_per_second']:.1f}")
+                if 'estimated_speedup' in perf_report:
+                    print(f"  Estimated speedup: {perf_report['estimated_speedup']:.2f}x")
+            
+            return all_segments
+            
+        else:
+            # Fall back to segment-by-segment processing
+            import mlx_whisper
+            
+            all_segments = []
+            
+            for i, vad_seg in enumerate(vad_segments):
+                if print_progress:
+                    print(f"Processing segment {i+1}/{len(vad_segments)}...")
+                
+                # Extract audio segment
+                start_sample = int(vad_seg["start"] * SAMPLE_RATE)
+                end_sample = int(vad_seg["end"] * SAMPLE_RATE)
+                audio_segment = audio[start_sample:end_sample]
+                
+                # Transcribe with MLX
+                # Map model names to MLX repo names
+                mlx_model_map = {
+                    "tiny": "mlx-community/whisper-tiny",
+                    "base": "mlx-community/whisper-base-mlx",
+                    "small": "mlx-community/whisper-small-mlx",
+                    "medium": "mlx-community/whisper-medium-mlx",
+                    "large": "mlx-community/whisper-large-mlx",
+                    "large-v2": "mlx-community/whisper-large-v2-mlx",
+                    "large-v3": "mlx-community/whisper-large-v3-mlx",
+                    "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"
+                }
+                
+                mlx_model = mlx_model_map.get(self.model_name, f"mlx-community/whisper-{self.model_name}")
+                
+                result = mlx_whisper.transcribe(
+                    audio_segment,
+                    path_or_hf_repo=mlx_model,
+                    verbose=verbose,
+                    language=self.language,
+                    temperature=0.01,
+                    word_timestamps=self.asr_options.get("word_timestamps", False)
+                )
+                
+                text = result["text"].strip()
+                
+                segment_dict = {
+                    "start": round(vad_seg["start"], 3),
+                    "end": round(vad_seg["end"], 3),
+                    "text": text
+                }
+                
+                # Include word timestamps if available
+                if self.asr_options.get("word_timestamps", False) and "segments" in result:
+                    words = []
+                    for res_seg in result["segments"]:
+                        if "words" in res_seg:
+                            for word in res_seg["words"]:
+                                words.append({
+                                    "word": word["word"],
+                                    "start": vad_seg["start"] + word["start"],
+                                    "end": vad_seg["start"] + word["end"],
+                                    "probability": word.get("probability", 1.0)
+                                })
+                    if words:
+                        segment_dict["words"] = words
+                
+                all_segments.append(segment_dict)
+            
+            return all_segments
 
 
 def _vad_worker(audio: np.ndarray, vad_method: str, vad_options: Dict, result_queue: mp.Queue):
