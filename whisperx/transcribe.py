@@ -126,6 +126,9 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # Use process separation for MLX backend to avoid PyTorch/MLX conflicts
     if backend == "mlx":
         print(">>Using process-separated pipeline for MLX backend...")
+        # Enable word timestamps if align_model is specified
+        if align_model and not no_align:
+            asr_options["word_timestamps"] = True
         model = ProcessSeparatedPipeline(
             asr_backend=backend,
             model_name=model_name,
@@ -183,7 +186,8 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     torch.cuda.empty_cache()
 
     # Part 2: Align Loop
-    if not no_align:
+    # Skip alignment for MLX backend when word timestamps are enabled (already included)
+    if not no_align and not (backend == "mlx" and align_model):
         tmp_results = results
         results = []
         align_model, align_metadata = load_align_model(

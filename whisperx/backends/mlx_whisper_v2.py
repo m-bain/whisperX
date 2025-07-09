@@ -105,6 +105,10 @@ class MlxWhisperBackend(WhisperBackend):
         
         Uses mlx_whisper.transcribe() directly for auto-download support.
         """
+        # Disable numba JIT to avoid OpenMP conflicts with PyTorch
+        import os
+        os.environ['NUMBA_DISABLE_JIT'] = '1'
+        
         # Import MLX whisper
         import mlx_whisper
         
@@ -216,6 +220,10 @@ class MlxWhisperBackend(WhisperBackend):
     
     def detect_language(self, audio: Union[str, np.ndarray]) -> str:
         """Detect language of audio."""
+        # Disable numba JIT to avoid OpenMP conflicts
+        import os
+        os.environ['NUMBA_DISABLE_JIT'] = '1'
+        
         import mlx_whisper
         
         # Ensure audio is loaded
@@ -325,6 +333,10 @@ class MlxWhisper:
         # Load audio using WhisperX helper
         from whisperx.audio import load_audio
         audio = load_audio(wav_path, sr=16_000)
+        
+        # Disable numba JIT to avoid OpenMP conflicts
+        import os
+        os.environ['NUMBA_DISABLE_JIT'] = '1'
         
         # Transcribe
         import mlx_whisper

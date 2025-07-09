@@ -1,3 +1,13 @@
+import sys
+import os
+
+# Check if MLX backend is requested and set environment variables BEFORE any other imports
+if "--backend" in sys.argv and len(sys.argv) > sys.argv.index("--backend") + 1:
+    if sys.argv[sys.argv.index("--backend") + 1] == "mlx":
+        os.environ['NUMBA_DISABLE_JIT'] = '1'  # Fix MLX word timestamp hanging
+        os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+        os.environ['OMP_NUM_THREADS'] = '1'
+
 import argparse
 import importlib.metadata
 import platform

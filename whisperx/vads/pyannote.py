@@ -4,6 +4,23 @@ from typing import Optional
 
 import numpy as np
 import torch
+
+# Handle PyTorch 2.6+ weights_only requirement
+if hasattr(torch.serialization, 'add_safe_globals'):
+    try:
+        import omegaconf.listconfig
+        import omegaconf.dictconfig
+        torch.serialization.add_safe_globals([
+            omegaconf.listconfig.ListConfig,
+            omegaconf.dictconfig.DictConfig,
+            'collections.OrderedDict'
+        ])
+    except ImportError:
+        torch.serialization.add_safe_globals([
+            'omegaconf.listconfig.ListConfig',
+            'omegaconf.dictconfig.DictConfig',
+            'collections.OrderedDict'
+        ])
 from pyannote.audio import Model
 from pyannote.audio.core.io import AudioFile
 from pyannote.audio.pipelines import VoiceActivityDetection

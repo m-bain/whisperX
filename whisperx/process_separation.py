@@ -188,9 +188,23 @@ class ProcessSeparatedPipeline:
             audio_segment = audio[start_sample:end_sample]
             
             # Transcribe with MLX
+            # Map model names to MLX repo names
+            mlx_model_map = {
+                "tiny": "mlx-community/whisper-tiny",
+                "base": "mlx-community/whisper-base",
+                "small": "mlx-community/whisper-small",
+                "medium": "mlx-community/whisper-medium",
+                "large": "mlx-community/whisper-large-mlx",
+                "large-v2": "mlx-community/whisper-large-v2",
+                "large-v3": "mlx-community/whisper-large-v3-mlx",
+                "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"
+            }
+            
+            mlx_model = mlx_model_map.get(self.model_name, f"mlx-community/whisper-{self.model_name}")
+            
             result = mlx_whisper.transcribe(
                 audio_segment,
-                path_or_hf_repo=f"mlx-community/whisper-{self.model_name}",
+                path_or_hf_repo=mlx_model,
                 verbose=verbose,
                 language=self.language,
                 temperature=0.01,
@@ -215,6 +229,34 @@ def _vad_worker(audio: np.ndarray, vad_method: str, vad_options: Dict, result_qu
         os.environ["MKL_NUM_THREADS"] = "1"
         
         # Import here to isolate from main process
+        # Handle PyTorch 2.6+ weights_only requirement for pyannote
+        import torch
+        if hasattr(torch.serialization, 'add_safe_globals'):
+            # Add safe globals for pyannote models
+            try:
+                import omegaconf.listconfig
+                import omegaconf.dictconfig
+                import pyannote.core.annotation
+                import pyannote.core.segment
+                import asteroid_filterbanks
+                
+                torch.serialization.add_safe_globals([
+                    omegaconf.listconfig.ListConfig,
+                    omegaconf.dictconfig.DictConfig,
+                    'collections.OrderedDict',
+                    'pyannote.core.annotation.Annotation',
+                    'pyannote.core.segment.Segment',
+                    'asteroid_filterbanks.enc_dec.Encoder',
+                    'asteroid_filterbanks.enc_dec.Decoder'
+                ])
+            except ImportError:
+                # If imports fail, just add the string names
+                torch.serialization.add_safe_globals([
+                    'omegaconf.listconfig.ListConfig',
+                    'omegaconf.dictconfig.DictConfig',
+                    'collections.OrderedDict'
+                ])
+        
         from whisperx.vads import Silero, Pyannote
         
         # Extract VAD options
@@ -226,7 +268,6 @@ def _vad_worker(audio: np.ndarray, vad_method: str, vad_options: Dict, result_qu
         if vad_method == "silero":
             vad = Silero(vad_onset=vad_onset, vad_offset=vad_offset, chunk_size=chunk_size)
         else:
-            import torch
             device = torch.device("cpu")
             vad = Pyannote(device, use_auth_token=None, vad_onset=vad_onset)
         
