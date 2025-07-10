@@ -32,6 +32,7 @@ class ProcessSeparatedPipeline:
         vad_options: Optional[Dict] = None,
         use_batch_processing: bool = True,
         batch_size: int = 8,
+        quantization: Optional[str] = None,
         **kwargs
     ):
         self.asr_backend = asr_backend
@@ -44,6 +45,7 @@ class ProcessSeparatedPipeline:
         self.vad_options = vad_options or {}
         self.use_batch_processing = use_batch_processing
         self.batch_size = batch_size
+        self.quantization = quantization
         self.kwargs = kwargs
         
     def transcribe(
@@ -186,14 +188,15 @@ class ProcessSeparatedPipeline:
             if verbose:
                 print(f"Using batch processing with batch_size={self.batch_size}")
             
-            # Initialize batched backend
+            # Initialize batched backend with quantization support
             backend = BatchedMLXWhisperBackend(
                 model_name=self.model_name,
                 batch_size=self.batch_size,
                 use_batching=True,
                 device=self.device,
                 compute_type=self.compute_type,
-                asr_options=self.asr_options
+                asr_options=self.asr_options,
+                quantization=self.quantization
             )
             
             # Prepare segments with audio data
@@ -282,28 +285,52 @@ class ProcessSeparatedPipeline:
                 audio_segment = audio[start_sample:end_sample]
                 
                 # Transcribe with MLX
-                # Map model names to MLX repo names
-                mlx_model_map = {
-                    "tiny": "mlx-community/whisper-tiny",
-                    "base": "mlx-community/whisper-base-mlx",
-                    "small": "mlx-community/whisper-small-mlx",
-                    "medium": "mlx-community/whisper-medium-mlx",
-                    "large": "mlx-community/whisper-large-mlx",
-                    "large-v2": "mlx-community/whisper-large-v2-mlx",
-                    "large-v3": "mlx-community/whisper-large-v3-mlx",
-                    "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"
-                }
-                
-                mlx_model = mlx_model_map.get(self.model_name, f"mlx-community/whisper-{self.model_name}")
-                
-                result = mlx_whisper.transcribe(
-                    audio_segment,
-                    path_or_hf_repo=mlx_model,
-                    verbose=verbose,
-                    language=self.language,
-                    temperature=0.01,
-                    word_timestamps=self.asr_options.get("word_timestamps", False)
-                )
+                # Use quantized backend if requested
+                if self.quantization and self.quantization != "none":
+                    from whisperx.backends.mlx_quantized import QuantizedMLXWhisperBackend
+                    
+                    if verbose:
+                        print(f"Using {self.quantization} quantized model")
+                    
+                    quantized_backend = QuantizedMLXWhisperBackend(
+                        model_name=self.model_name,
+                        quantization=self.quantization,
+                        device=self.device,
+                        language=self.language,
+                        asr_options=self.asr_options
+                    )
+                    
+                    result = quantized_backend.mlx_whisper.transcribe(
+                        audio_segment,
+                        path_or_hf_repo=quantized_backend.model_path,
+                        verbose=verbose,
+                        language=self.language,
+                        temperature=0.01,
+                        word_timestamps=self.asr_options.get("word_timestamps", False)
+                    )
+                else:
+                    # Map model names to MLX repo names
+                    mlx_model_map = {
+                        "tiny": "mlx-community/whisper-tiny",
+                        "base": "mlx-community/whisper-base-mlx",
+                        "small": "mlx-community/whisper-small-mlx",
+                        "medium": "mlx-community/whisper-medium-mlx",
+                        "large": "mlx-community/whisper-large-mlx",
+                        "large-v2": "mlx-community/whisper-large-v2-mlx",
+                        "large-v3": "mlx-community/whisper-large-v3-mlx",
+                        "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"
+                    }
+                    
+                    mlx_model = mlx_model_map.get(self.model_name, f"mlx-community/whisper-{self.model_name}")
+                    
+                    result = mlx_whisper.transcribe(
+                        audio_segment,
+                        path_or_hf_repo=mlx_model,
+                        verbose=verbose,
+                        language=self.language,
+                        temperature=0.01,
+                        word_timestamps=self.asr_options.get("word_timestamps", False)
+                    )
                 
                 text = result["text"].strip()
                 

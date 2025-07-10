@@ -144,6 +144,9 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             },
             task=task,
             threads=faster_whisper_threads,
+            quantization=args.get("quantization"),
+            batch_size=batch_size,
+            use_batch_processing=True,
         )
     else:
         # Standard model loading for other backends

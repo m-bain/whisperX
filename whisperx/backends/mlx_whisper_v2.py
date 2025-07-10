@@ -162,7 +162,7 @@ class MlxWhisperBackend(WhisperBackend):
         decode_options.update(kwargs)
         
         # Remove unsupported options
-        for key in ["vad_filter", "vad_parameters", "max_new_tokens"]:
+        for key in ["vad_filter", "vad_parameters", "max_new_tokens", "batch_size", "num_workers"]:
             decode_options.pop(key, None)
         
         # Transcribe using MLX (auto-downloads model if needed)
