@@ -1,9 +1,8 @@
-from .faster_whisper import FasterWhisperBackend
+"""
+WhisperX Backends - MLX Only
 
-# Conditional import for MLX backend (only available on Apple Silicon)
-try:
-    from .mlx_whisper import MlxWhisperBackend
-    __all__ = ["FasterWhisperBackend", "MlxWhisperBackend"]
-except ImportError:
-    __all__ = ["FasterWhisperBackend"]
-    MlxWhisperBackend = None
+This MLX-only fork of WhisperX exclusively uses the MLX backend for Apple Silicon.
+"""
+from .mlx_whisper import MlxWhisperBackend
+
+__all__ = ["MlxWhisperBackend"]
