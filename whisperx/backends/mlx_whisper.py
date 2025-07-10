@@ -34,7 +34,25 @@ class MlxWhisperBackend(WhisperBackend):
         batch_size: int = 8,
         **kwargs
     ):
-        self.model_path = model
+        # Convert model name to MLX format if needed
+        if not model.startswith("mlx-community/"):
+            # Map common names to MLX model names
+            model_map = {
+                "tiny": "mlx-community/whisper-tiny-mlx",
+                "base": "mlx-community/whisper-base-mlx", 
+                "small": "mlx-community/whisper-small-mlx",
+                "medium": "mlx-community/whisper-medium-mlx",
+                "large": "mlx-community/whisper-large-mlx",
+                "large-v2": "mlx-community/whisper-large-v2-mlx",
+                "large-v3": "mlx-community/whisper-large-v3-mlx",
+            }
+            # Also handle quantized versions
+            if compute_type in ["int4", "q4"]:
+                model_map = {k: v + "-4bit" for k, v in model_map.items()}
+            
+            self.model_path = model_map.get(model, model)
+        else:
+            self.model_path = model
         self.batch_size = batch_size
         self.dtype = compute_type
         self.language = language
@@ -189,7 +207,8 @@ class MlxWhisperBackend(WhisperBackend):
                               'repetition_penalty', 'no_repeat_ngram_size', 
                               'prompt_reset_on_temperature', 'prefix', 'suppress_blank',
                               'suppress_tokens', 'without_timestamps', 'max_initial_timestamp',
-                              'multilingual', 'hotwords', 'batch_size', 'num_workers']:
+                              'multilingual', 'hotwords', 'batch_size', 'num_workers',
+                              'vad_segments', 'combined_progress', 'chunk_size', 'print_progress']:
                 transcribe_options.pop(unsupported, None)
             
             result = mlx_whisper.transcribe(
