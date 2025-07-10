@@ -1,16 +1,17 @@
 [project]
-urls = { repository = "https://github.com/m-bain/whisperx" }
-authors = [{ name = "Max Bain" }]
-name = "whisperx"
+urls = { repository = "https://github.com/sooth/whisperx-mlx" }
+authors = [{ name = "Max Bain" }, { name = "MLX Fork Contributors" }]
+name = "whisperx-mlx"
 version = "3.4.2"
-description = "Time-Accurate Automatic Speech Recognition using Whisper."
+description = "Time-Accurate Automatic Speech Recognition using Whisper - MLX Fork for Apple Silicon."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2<4.5.0",
-    "faster-whisper>=1.1.1",
+    "mlx>=0.26.0",
+    "mlx-whisper @ git+https://github.com/sooth/mlx-whisper.git@whisperx-optimizations#subdirectory=whisper",
+    "librosa>=0.10.0",
     "nltk>=3.9.1",
     "numpy>=2.0.2",
     "onnxruntime>=1.19",

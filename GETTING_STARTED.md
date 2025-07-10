@@ -24,11 +24,13 @@ python3 -m venv venv
 source venv/bin/activate  # On macOS/Linux
 ```
 
-### 3. Install WhisperX
+### 3. Install WhisperX MLX Fork
 
 ```bash
 pip install -e .
 ```
+
+Note: This will install our custom mlx-whisper fork with performance optimizations.
 
 This will install WhisperX and all required dependencies including:
 - mlx-whisper (Apple Silicon optimized Whisper)
