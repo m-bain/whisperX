@@ -1,9 +1,9 @@
 [project]
-urls = { repository = "https://github.com/m-bain/whisperx" }
-authors = [{ name = "Max Bain" }]
-name = "whisperx"
+urls = { repository = "https://github.com/sooth/whisperx-mlx" }
+authors = [{ name = "Max Bain" }, { name = "MLX Contributors" }]
+name = "whisperx-mlx"
 version = "3.4.2"
-description = "Time-Accurate Automatic Speech Recognition using Whisper."
+description = "Time-Accurate Automatic Speech Recognition using Whisper with MLX backend support."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
@@ -19,6 +19,8 @@ dependencies = [
     "torch>=2.5.1",
     "torchaudio>=2.5.1",
     "transformers>=4.48.0",
+    "mlx>=0.8.0",
+    "mlx-whisper>=0.3.0",
 ]
 
 
