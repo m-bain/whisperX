@@ -106,7 +106,10 @@ class MlxWhisperBackend(WhisperBackend):
         elif vad_method == "pyannote":
             # VAD runs on CPU for now
             vad_device = torch.device("cpu")
-            self.vad_model = Pyannote(vad_device, use_auth_token=None, **default_vad_options)
+            # Remove device from options if it exists to avoid duplicate argument
+            pyannote_options = default_vad_options.copy()
+            pyannote_options.pop('device', None)
+            self.vad_model = Pyannote(vad_device, use_auth_token=None, **pyannote_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
     
