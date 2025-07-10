@@ -232,5 +232,19 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
-        result["language"] = align_language
+        # Handle case where result might be a TranscriptionResult object
+        if isinstance(result, dict):
+            # Already processed
+            if "language" not in result and not no_align:
+                result["language"] = align_language
+        else:
+            # Convert TranscriptionResult to dict if needed
+            result = dict(result)
+        
+        # Ensure language is set
+        if "language" not in result:
+            # Use the language from the first segment or model's detected language
+            if result.get("segments") and len(result["segments"]) > 0:
+                result["language"] = result.get("language", args.get("language", "en"))
+        
         writer(result, audio_path, writer_args)
