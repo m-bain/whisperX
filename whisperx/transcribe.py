@@ -24,6 +24,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # fmt: off
 
     model_name: str = args.pop("model")
+    backend: str = args.pop("backend", "auto")
     batch_size: int = args.pop("batch_size")
     model_dir: str = args.pop("model_dir")
     model_cache_only: bool = args.pop("model_cache_only")
@@ -138,6 +139,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         task=task,
         local_files_only=model_cache_only,
         threads=faster_whisper_threads,
+        backend=backend,
     )
 
     for audio_path in args.pop("audio"):
