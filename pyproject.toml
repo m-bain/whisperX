@@ -9,8 +9,9 @@ requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2<4.5.0",
-    "faster-whisper>=1.1.1",
+    "mlx>=0.26.0",
+    "mlx-whisper @ git+https://github.com/sooth/mlx-whisper.git@whisperx-optimizations#subdirectory=whisper",
+    "librosa>=0.10.0",
     "nltk>=3.9.1",
     "numpy>=2.0.2",
     "onnxruntime>=1.19",
