@@ -1,0 +1,34 @@
+name: Build and release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.14"
+          python-version: "3.9"
+
+      - name: Check if lockfile is up to date
+        run: uv lock --check
+
+      - name: Build package
+        run: uv build
+
+      - name: Release to Github
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
+
+      - name: Publish package to PyPi
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

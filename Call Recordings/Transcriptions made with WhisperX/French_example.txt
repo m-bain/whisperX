@@ -1,0 +1,54 @@
+[SPEAKER_02]: Bonjour.
+[SPEAKER_00]: Allô?
+[SPEAKER_00]: Bonjour, est-ce que je parle à Denise?
+[SPEAKER_01]: Oui, c'est moi-même.
+[SPEAKER_00]: Oui, c'est que si vous voulez jeter l'eau, ça va bien?
+[SPEAKER_01]: Oui, ça va bien vous-même.
+[SPEAKER_00]: Super bien, merci.
+[SPEAKER_00]: Dans le fond, je vous appelle aujourd'hui concernant des offres exclusives qu'on a en ce moment sur l'Internet résidentiel.
+[SPEAKER_00]: Je viens de m'abonner avec vous autres.
+[SPEAKER_00]: Vous venez vous abonner à l'Internet avec TELUS?
+[SPEAKER_00]: Oui.
+[SPEAKER_00]: Est-ce que vous avez pris aussi la télé avec ça?
+[SPEAKER_00]: Oui.
+[SPEAKER_02]: Excellent.
+[SPEAKER_02]: Tandis que je vous ai, dans le forfait télé,
+[SPEAKER_02]: Tout ce qu'on a comme poste dans le menu, c'est des postes en anglais.
+[SPEAKER_02]: Il n'y a pratiquement rien en français.
+[SPEAKER_02]: C'est supposé être le forfait franco plus je ne sais pas trop quoi.
+[SPEAKER_00]: On n'a presque pas de... C'est vous qui a décidé les chaînes ou vous avez pris les chaînes de base dans le fond?
+[SPEAKER_02]: On a pris les chaînes de base.
+[SPEAKER_00]: Les chaînes de base, OK, parce que c'est supposé de venir avec TVA, TVA Nouvelles, TV5, c'est supposé de venir avec des chaînes en téléphone.
+[SPEAKER_02]: On a vu passer TVA.
+[SPEAKER_02]: Oui.
+[SPEAKER_02]: Non, il n'est pas dedans.
+[SPEAKER_00]: Il n'est pas dedans.
+[SPEAKER_00]: OK.
+[SPEAKER_02]: Est-ce qu'il faut qu'on lui dise qu'on est franco?
+[SPEAKER_02]: Parce que ça, c'était le forfait.
+[SPEAKER_02]: C'est plutôt le forfait anglo qu'on a.
+[SPEAKER_00]: Ce que je peux faire pour vous, parce que moi, en tant que tel, je n'ai pas vraiment accès à ça.
+[SPEAKER_00]: Je ne peux pas vraiment le changer en tant que tel.
+[SPEAKER_00]: Ce que je peux faire, c'est que je peux vous donner le numéro de téléphone du service clientèle.
+[SPEAKER_00]: Ah bien ça, je vais le trouver moi-même.
+[SPEAKER_00]: Ok, c'est ça.
+[SPEAKER_00]: Faites juste essayer de contacter le service clientèle puis leur demander, voir si eux, de leur côté, vont pouvoir le changer.
+[SPEAKER_00]: C'est 310-12-12, ça?
+[SPEAKER_00]: Comment?
+[SPEAKER_02]: Le service à clientèle, c'est 310-12-12?
+[SPEAKER_00]: Non, ce n'est pas ça.
+[SPEAKER_00]: Non, c'est le 558-2273.
+[SPEAKER_02]: 558, tu peux mettre le crayon d'abord?
+[SPEAKER_00]: Oui.
+[SPEAKER_00]: 558-2273.
+[SPEAKER_00]: 2273, donc c'est le 866-558-2273.
+[SPEAKER_02]: 5-5-8 ou 7-7-8?
+[SPEAKER_00]: 5-5-8.
+[SPEAKER_00]: 2-2-7-3.
+[SPEAKER_00]: Excellent.
+[SPEAKER_00]: J'ai la bonne affaire.
+[SPEAKER_00]: Parfait.
+[SPEAKER_00]: Je ne vais pas prendre plus de votre temps.
+[SPEAKER_00]: Excellent.
+[SPEAKER_00]: Bonne soirée à vous.
+[SPEAKER_00]: Bye-bye.
