@@ -2,7 +2,7 @@
 urls = { repository = "https://github.com/m-bain/whisperx" }
 authors = [{ name = "Max Bain" }]
 name = "whisperx"
-version = "3.3.4"
+version = "3.4.2"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
