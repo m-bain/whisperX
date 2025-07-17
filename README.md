@@ -57,6 +57,15 @@ This repository provides fast automatic speech recognition (70x realtime with la
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 
+### 0. CUDA Installation
+
+To use WhisperX with GPU acceleration, install the CUDA toolkit 12.8 before WhisperX. Skip this step if using only the CPU.
+
+- For **Linux** users, install the CUDA toolkit 12.8 following this guide:
+  [CUDA Installation Guide for Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/).
+- For **Windows** users, download and install the CUDA toolkit 12.8:
+  [CUDA Downloads](https://developer.nvidia.com/cuda-12-8-1-download-archive).
+
 ### 1. Simple Installation (Recommended)
 
 The easiest way to install WhisperX is through PyPi:
@@ -96,25 +105,6 @@ uv sync --all-extras --dev
 > **Note**: The development version may contain experimental features and bugs. Use the stable PyPI release for production environments.
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
-
-### Common Issues & Troubleshooting 🔧
-
-#### libcudnn Dependencies (GPU Users)
-
-If you're using WhisperX with GPU support and encounter errors like:
-
-- `Could not load library libcudnn_ops_infer.so.8`
-- `Unable to load any of {libcudnn_cnn.so.9.1.0, libcudnn_cnn.so.9.1, libcudnn_cnn.so.9, libcudnn_cnn.so}`
-- `libcudnn_ops_infer.so.8: cannot open shared object file: No such file or directory`
-
-This means your system is missing the CUDA Deep Neural Network library (cuDNN). This library is needed for GPU acceleration but isn't always installed by default.
-
-**Install cuDNN (example for apt based systems):**
-
-```bash
-sudo apt update
-sudo apt install libcudnn8 libcudnn8-dev -y
-```
 
 ### Speaker Diarization
 

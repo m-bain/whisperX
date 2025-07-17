@@ -9,16 +9,18 @@ requires-python = ">=3.9, <3.13"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2<4.5.0",
+    "ctranslate2>=4.5.0",
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
-    "numpy>=2.0.2",
-    "onnxruntime>=1.19",
-    "pandas>=2.2.3",
+    # Restrict numpy, onnxruntime, pandas to be compatible with Python 3.9
+    "numpy>=2.0.2,<2.1.0",
+    "onnxruntime>=1.19,<1.20.0",
+    "pandas>=2.2.3,<2.3.0",
     "pyannote-audio>=3.3.2",
-    "torch>=2.5.1",
-    "torchaudio>=2.5.1",
+    "torch>=2.7.1",
+    "torchaudio",
     "transformers>=4.48.0",
+    "triton>=3.3.0; sys_platform == 'linux'" # only install triton on Linux
 ]
 
 
@@ -34,3 +36,26 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["whisperx*"]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+  { index = "pytorch", marker = "sys_platform != 'darwin'" },
+]
+torchaudio = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+  { index = "pytorch", marker = "sys_platform != 'darwin'" },
+]
+triton = [
+  { index = "pytorch", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
