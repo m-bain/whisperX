@@ -20,7 +20,7 @@ dependencies = [
     "torch>=2.7.1",
     "torchaudio",
     "transformers>=4.48.0",
-    "triton>=3.3.0; sys_platform != 'win32'" # avoid build issues on Windows
+    "triton>=3.3.0; sys_platform == 'linux'" # only install triton on Linux
 ]
 
 
@@ -39,16 +39,23 @@ include = ["whisperx*"]
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+  { index = "pytorch", marker = "sys_platform != 'darwin'" },
 ]
 torchaudio = [
-  { index = "pytorch" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+  { index = "pytorch", marker = "sys_platform != 'darwin'" },
 ]
 triton = [
-  { index = "pytorch" },
+  { index = "pytorch", marker = "sys_platform == 'linux'" },
 ]
 
 [[tool.uv.index]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
 explicit = true
