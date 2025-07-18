@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import zlib
+from pathlib import Path
 from typing import Callable, Optional, TextIO
 
 LANGUAGES = {
@@ -198,9 +199,8 @@ class ResultWriter:
     def __call__(self, result: dict, audio_path: str, options: dict):
         audio_basename = os.path.basename(audio_path)
         audio_basename = os.path.splitext(audio_basename)[0]
-        output_path = os.path.join(
-            self.output_dir, audio_basename + "." + self.extension
-        )
+        output_path = Path(self.output_dir).joinpath(audio_basename + "." + self.extension)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as f:
             self.write_result(result, file=f, options=options)
