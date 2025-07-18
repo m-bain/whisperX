@@ -3,7 +3,6 @@ import os
 import re
 import sys
 import zlib
-from pathlib import Path
 from typing import Callable, Optional, TextIO
 
 LANGUAGES = {
@@ -199,8 +198,14 @@ class ResultWriter:
     def __call__(self, result: dict, audio_path: str, options: dict):
         audio_basename = os.path.basename(audio_path)
         audio_basename = os.path.splitext(audio_basename)[0]
-        output_path = Path(self.output_dir).joinpath(audio_basename + "." + self.extension)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Convert output_dir to absolute path to avoid issues with relative paths
+        abs_output_dir = os.path.abspath(self.output_dir)
+
+        # Ensure output directory exists
+        os.makedirs(abs_output_dir, exist_ok=True)
+
+        output_path = os.path.join(abs_output_dir, audio_basename + "." + self.extension)
 
         with open(output_path, "w", encoding="utf-8") as f:
             self.write_result(result, file=f, options=options)
@@ -383,14 +388,14 @@ class WriteAudacity(ResultWriter):
     Write a transcript to a text file that audacity can import as labels.
     The extension used is "aud" to distinguish it from the txt file produced by WriteTXT.
     Yet this is not an audacity project but only a label file!
-    
-    Please note : Audacity uses seconds in timestamps not ms! 
+
+    Please note : Audacity uses seconds in timestamps not ms!
     Also there is no header expected.
 
     If speaker is provided it is prepended to the text between double square brackets [[]].
     """
 
-    extension: str = "aud"    
+    extension: str = "aud"
 
     def write_result(self, result: dict, file: TextIO, options: dict):
         ARROW = "	"
@@ -399,7 +404,7 @@ class WriteAudacity(ResultWriter):
             print(segment["end"], file=file, end=ARROW)
             print( ( ("[[" + segment["speaker"] + "]]") if "speaker" in segment else "") + segment["text"].strip().replace("\t", " "), file=file, flush=True)
 
-            
+
 
 class WriteJSON(ResultWriter):
     extension: str = "json"
