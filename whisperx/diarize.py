@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union
+from typing import Optional, Union, Callable, Any
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
@@ -26,6 +26,7 @@ class DiarizationPipeline:
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
+        hook: Optional[Callable[[str, Any, str, float, float], None]] = None,
         return_embeddings: bool = False,
     ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
@@ -36,6 +37,7 @@ class DiarizationPipeline:
             num_speakers: Exact number of speakers (if known)
             min_speakers: Minimum number of speakers to detect
             max_speakers: Maximum number of speakers to detect
+            hook: Optional callback function for pyannote progress
             return_embeddings: Whether to return speaker embeddings
 
         Returns:
@@ -57,6 +59,7 @@ class DiarizationPipeline:
                 num_speakers=num_speakers,
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
+                hook=hook,
                 return_embeddings=True,
             )
         else:
@@ -65,6 +68,7 @@ class DiarizationPipeline:
                 num_speakers=num_speakers,
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
+                hook=hook,
             )
             embeddings = None
 
