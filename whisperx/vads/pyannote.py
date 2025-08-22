@@ -35,7 +35,9 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
     if os.path.exists(model_fp) and not os.path.isfile(model_fp):
         raise RuntimeError(f"{model_fp} exists and is not a regular file")
 
-    model_bytes = open(model_fp, "rb").read()
+    # Use context manager to properly handle file closing
+    with open(model_fp, "rb") as f:
+        model_bytes = f.read()
 
     vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
     hyperparameters = {"onset": vad_onset,

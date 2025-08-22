@@ -3,7 +3,8 @@ import os
 import re
 import sys
 import zlib
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional, TextIO, Union, Dict, Any
+import pandas as pd
 
 LANGUAGES = {
     "en": "english",
@@ -130,24 +131,66 @@ system_encoding = sys.getdefaultencoding()
 
 if system_encoding != "utf-8":
 
-    def make_safe(string):
+    def make_safe(string: str) -> str:
+        """Replace characters not representable in system encoding with '?'.
+        
+        Args:
+            string: Input string to make safe
+            
+        Returns:
+            String with unsafe characters replaced
+        """
         # replaces any character not representable using the system default encoding with an '?',
         # avoiding UnicodeEncodeError (https://github.com/openai/whisper/discussions/729).
         return string.encode(system_encoding, errors="replace").decode(system_encoding)
 
 else:
 
-    def make_safe(string):
+    def make_safe(string: str) -> str:
+        """Return string as-is for UTF-8 encoding.
+        
+        Args:
+            string: Input string
+            
+        Returns:
+            Unchanged string (UTF-8 can encode any Unicode)
+        """
         # utf-8 can encode any Unicode code point, so no need to do the round-trip encoding
         return string
 
 
-def exact_div(x, y):
-    assert x % y == 0
+def exact_div(x: int, y: int) -> int:
+    """Perform exact integer division.
+    
+    Args:
+        x: Dividend
+        y: Divisor
+        
+    Returns:
+        Integer division result
+        
+    Raises:
+        AssertionError: If x is not exactly divisible by y
+        ZeroDivisionError: If y is zero
+    """
+    if y == 0:
+        raise ZeroDivisionError("Division by zero")
+    assert x % y == 0, f"{x} is not exactly divisible by {y}"
     return x // y
 
 
-def str2bool(string):
+def str2bool(string: str) -> bool:
+    """Convert string representation to boolean.
+    
+    Args:
+        string: String to convert ("True" or "False")
+        
+    Returns:
+        Boolean value
+        
+    Raises:
+        ValueError: If string is not "True" or "False"
+    """
     str2val = {"True": True, "False": False}
     if string in str2val:
         return str2val[string]
@@ -155,12 +198,44 @@ def str2bool(string):
         raise ValueError(f"Expected one of {set(str2val.keys())}, got {string}")
 
 
-def optional_int(string):
-    return None if string == "None" else int(string)
+def optional_int(string: str) -> Optional[int]:
+    """Convert string to optional integer.
+    
+    Args:
+        string: String to convert
+        
+    Returns:
+        Integer value or None if string is "None"
+        
+    Raises:
+        ValueError: If string cannot be converted to int
+    """
+    if string == "None":
+        return None
+    try:
+        return int(string)
+    except ValueError as e:
+        raise ValueError(f"Cannot convert '{string}' to integer: {e}")
 
 
-def optional_float(string):
-    return None if string == "None" else float(string)
+def optional_float(string: str) -> Optional[float]:
+    """Convert string to optional float.
+    
+    Args:
+        string: String to convert
+        
+    Returns:
+        Float value or None if string is "None"
+        
+    Raises:
+        ValueError: If string cannot be converted to float
+    """
+    if string == "None":
+        return None
+    try:
+        return float(string)
+    except ValueError as e:
+        raise ValueError(f"Cannot convert '{string}' to float: {e}")
 
 
 def compression_ratio(text) -> float:
@@ -435,7 +510,16 @@ def get_writer(
         return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
 
-def interpolate_nans(x, method='nearest'):
+def interpolate_nans(x: pd.Series, method: str = 'nearest') -> pd.Series:
+    """Interpolate NaN values in a pandas Series.
+    
+    Args:
+        x: Pandas Series with potential NaN values
+        method: Interpolation method (default: 'nearest')
+        
+    Returns:
+        Series with NaN values interpolated
+    """
     if x.notnull().sum() > 1:
         return x.interpolate(method=method).ffill().bfill()
     else:

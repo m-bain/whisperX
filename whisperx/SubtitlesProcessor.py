@@ -1,7 +1,16 @@
 import math
+from typing import List, Dict, Any, Optional, Tuple
 from whisperx.conjunctions import get_conjunctions, get_comma
 
-def normal_round(n):
+def normal_round(n: float) -> int:
+    """Round a number using normal rounding rules.
+    
+    Args:
+        n: Number to round
+        
+    Returns:
+        Rounded integer value
+    """
     if n - math.floor(n) < 0.5:
         return math.floor(n)
     return math.ceil(n)
@@ -31,7 +40,20 @@ def format_timestamp(seconds: float, is_vtt: bool = False):
 
 
 class SubtitlesProcessor:
-    def __init__(self, segments, lang, max_line_length = 45, min_char_length_splitter = 30, is_vtt = False):
+    """Process segments into subtitles with proper formatting and timing.
+    
+    Attributes:
+        segments: List of transcription segments
+        lang: Language code
+        max_line_length: Maximum characters per subtitle line
+        min_char_length_splitter: Minimum characters for splitting
+        is_vtt: Whether to format as VTT (vs SRT)
+    """
+    
+    def __init__(self, segments: List[Dict[str, Any]], lang: str, 
+                 max_line_length: int = 45, 
+                 min_char_length_splitter: int = 30, 
+                 is_vtt: bool = False):
         self.comma = get_comma(lang)
         self.conjunctions = set(get_conjunctions(lang))
         self.segments = segments
@@ -44,7 +66,8 @@ class SubtitlesProcessor:
             self.max_line_length = 30
             self.min_char_length_splitter = 20
 
-    def estimate_timestamp_for_word(self, words, i, next_segment_start_time=None):
+    def estimate_timestamp_for_word(self, words: List[Dict[str, Any]], i: int, 
+                                   next_segment_start_time: Optional[float] = None) -> Tuple[float, float]:
         k = 0.25
         has_prev_end = i > 0 and 'end' in words[i - 1]
         has_next_start = i < len(words) - 1 and 'start' in words[i + 1]

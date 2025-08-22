@@ -96,10 +96,12 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         try:
             processor = Wav2Vec2Processor.from_pretrained(model_name, cache_dir=model_dir)
             align_model = Wav2Vec2ForCTC.from_pretrained(model_name, cache_dir=model_dir)
-        except Exception as e:
-            print(e)
-            print(f"Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models")
-            raise ValueError(f'The chosen align_model "{model_name}" could not be found in huggingface (https://huggingface.co/models) or torchaudio (https://pytorch.org/audio/stable/pipelines.html#id14)')
+        except (OSError, RuntimeError, KeyError) as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error loading model '{model_name}' from HuggingFace: {e}")
+            logger.info(f"Check https://huggingface.co/models for finetuned wav2vec2.0 models")
+            raise ValueError(f'The chosen align_model "{model_name}" could not be found in huggingface (https://huggingface.co/models) or torchaudio (https://pytorch.org/audio/stable/pipelines.html#id14)') from e
         pipeline_type = "huggingface"
         align_model = align_model.to(device)
         labels = processor.tokenizer.get_vocab()
