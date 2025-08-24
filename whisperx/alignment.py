@@ -415,8 +415,6 @@ def get_wildcard_emission(frame_emission, tokens, blank_id):
     Returns:
         tensor: Maximum probability score for each token position
     """
-    assert 0 <= blank_id < len(frame_emission)
-
     # Convert tokens to a tensor if they are not already
     tokens = torch.tensor(tokens) if not isinstance(tokens, torch.Tensor) else tokens
 
@@ -424,7 +422,6 @@ def get_wildcard_emission(frame_emission, tokens, blank_id):
     wildcard_mask = (tokens == -1)
 
     # Get scores for non-wildcard positions
-    ### Patched by uduntuntu 2025-08-24
     # regular_scores = frame_emission[tokens.clamp(min=0).long()]  # clamp to avoid -1 index
     V = frame_emission.size(0)
     assert V > 0 and 0 <= blank_id < V, "empty emissions or invalid blank_id"
