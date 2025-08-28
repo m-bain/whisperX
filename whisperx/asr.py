@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from dataclasses import replace
 
 import ctranslate2
@@ -198,6 +198,8 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+        progress_callback: Optional[Callable[[int], None]] = None,
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -256,12 +258,21 @@ class FasterWhisperPipeline(Pipeline):
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
+
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
+
+            progress_percent = int((idx / total_segments) * 100)
+            if progress_callback:
+                progress_callback(progress_percent)
             if print_progress:
-                base_progress = ((idx + 1) / total_segments) * 100
-                percent_complete = base_progress / 2 if combined_progress else base_progress
+                base_progress = progress_percent
+                percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
                 print(f"Progress: {percent_complete:.2f}%...")
+            if status_callback and idx % max(1, total_segments // 10) == 0:
+                status_callback(f"Processed {idx}/{total_segments} audio segments")
+
             text = out['text']
+
             if batch_size in [0, 1, None]:
                 text = text[0]
             if verbose:
@@ -314,7 +325,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
-    auto_detect_hardware: bool = True,
+    auto_detect_hardware: bool = False,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -342,17 +353,18 @@ def load_model(
             cuda_env = detect_cuda_environment()
             hardware_caps = assess_optimal_settings(gpus, cuda_env, whisper_arch)
 
-            # Apply hardware recommendations if no explicit device specified
-            if device == "auto" or (device == "cuda" and not torch.cuda.is_available()):
-                device = hardware_caps.recommended_device
-                device_index = hardware_caps.recommended_device_index
-                print(f">>Hardware recommendation: device={device}, device_index={device_index}")
-
-            # Apply compute type recommendation if using default
-            if compute_type == "auto" or (
-                    device == "cuda" and compute_type == "float16" and not hardware_caps.can_use_gpu):
-                compute_type = hardware_caps.recommended_compute_type
-                print(f">>Hardware recommendation: compute_type={compute_type}")
+            #TODO: disable temporarily
+            # # Apply hardware recommendations if no explicit device specified
+            # if device == "auto" or (device == "cuda" and not torch.cuda.is_available()):
+            #     device = hardware_caps.recommended_device
+            #     device_index = hardware_caps.recommended_device_index
+            #     print(f">>Hardware recommendation: device={device}, device_index={device_index}")
+            #
+            # # Apply compute type recommendation if using default
+            # if compute_type == "auto" or (
+            #         device == "cuda" and compute_type == "float16" and not hardware_caps.can_use_gpu):
+            #     compute_type = hardware_caps.recommended_compute_type
+            #     print(f">>Hardware recommendation: compute_type={compute_type}")
 
             # Display warnings
             if hardware_caps.warning_messages:

@@ -5,7 +5,7 @@ C. Max Bain
 import math
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, List
+from typing import Iterable, Optional, Union, List, Callable
 
 import numpy as np
 import pandas as pd
@@ -120,6 +120,8 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
+    progress_callback: Optional[Callable[[int], None]] = None,
+    status_callback: Optional[Callable[[str], None]] = None,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -144,10 +146,16 @@ def align(
     segment_data: dict[int, SegmentData] = {}
     for sdx, segment in enumerate(transcript):
         # strip spaces at beginning / end, but keep track of the amount.
-        if print_progress:
-            base_progress = ((sdx + 1) / total_segments) * 100
-            percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
+        base_progress = ((sdx + 1) / total_segments) * 100
+        percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
+
+        if progress_callback:
+            progress_callback(int(percent_complete))
+        elif print_progress:
             print(f"Progress: {percent_complete:.2f}%...")
+
+        if status_callback and (sdx + 1) % max(1, total_segments // 10) == 0:
+            status_callback(f"Aligning segment {sdx + 1}/{total_segments}")
             
         num_leading = len(segment["text"]) - len(segment["text"].lstrip())
         num_trailing = len(segment["text"]) - len(segment["text"].rstrip())

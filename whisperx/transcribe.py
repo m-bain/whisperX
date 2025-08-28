@@ -12,7 +12,7 @@ from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
-
+from typing import Callable, Optional
 
 def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     """Transcription task to be called from CLI.
@@ -232,3 +232,142 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     for result, audio_path in results:
         result["language"] = align_language
         writer(result, audio_path, writer_args)
+
+
+def transcribe_with_callbacks(
+        audio_file: str,
+        model_name: str = "base",
+        device: str = "auto",
+        language: Optional[str] = None,
+        enable_alignment: bool = True,
+        enable_diarization: bool = False,
+        progress_callback: Optional[Callable[[int], None]] = None,
+        status_callback: Optional[Callable[[str], None]] = None,
+        **kwargs
+) -> dict:
+    """
+    Transcribe audio with progress callbacks for GUI integration.
+    Uses actual progress values from WhisperX instead of hardcoded values.
+    """
+
+    # Progress phase allocation
+    phase_weights = {
+        'loading': 10,
+        'transcription': 50,
+        'alignment': 25,
+        'diarization': 15
+    }
+
+    current_phase_start = 0
+
+    def phase_progress_callback(phase: str, progress: int):
+        """Convert phase-specific progress to overall progress."""
+        if progress_callback:
+            phase_weight = phase_weights[phase]
+            overall_progress = current_phase_start + int((progress * phase_weight) / 100)
+            progress_callback(min(overall_progress, 100))
+
+    try:
+        # Phase 1: Loading
+        if status_callback:
+            status_callback("Loading audio...")
+        phase_progress_callback('loading', 20)
+
+        audio = load_audio(audio_file)
+        phase_progress_callback('loading', 50)
+
+        if status_callback:
+            status_callback("Loading ASR model...")
+
+        model = load_model(
+            whisper_arch=model_name,
+            device=device,
+            language=language,
+            **{k: v for k, v in kwargs.items() if k in ['device_index', 'compute_type', 'batch_size']}
+        )
+
+        phase_progress_callback('loading', 100)
+        current_phase_start += phase_weights['loading']
+
+        # Phase 2: Transcription with real progress
+        if status_callback:
+            status_callback("Transcribing audio...")
+
+        result = model.transcribe(
+            audio,
+            batch_size=kwargs.get('batch_size', 8),
+            language=language,
+            print_progress=False,  # Disable printing, use callback
+            combined_progress=False,  # We handle phase combination
+            progress_callback=lambda p: phase_progress_callback('transcription', p),
+            status_callback=status_callback
+        )
+
+        current_phase_start += phase_weights['transcription']
+        final_result = {"transcription": result}
+
+        # Phase 3: Alignment with real progress
+        if enable_alignment:
+            if status_callback:
+                status_callback("Aligning timestamps...")
+
+            model_a, metadata = load_align_model(
+                language_code=language or "en",
+                device=device
+            )
+
+            result_aligned = align(
+                result["segments"],
+                model_a,
+                metadata,
+                audio,
+                device,
+                interpolate_method="linear",
+                print_progress=False,  # Disable printing, use callback
+                combined_progress=False,  # We handle phase combination
+                progress_callback=lambda p: phase_progress_callback('alignment', p),
+                status_callback=status_callback
+            )
+
+            final_result["aligned"] = result_aligned
+
+        current_phase_start += phase_weights['alignment']
+
+        # Phase 4: Diarization (manual progress since pyannote doesn't expose it)
+        if enable_diarization:
+            if status_callback:
+                status_callback("Identifying speakers...")
+
+            phase_progress_callback('diarization', 10)
+
+            diarize_model = DiarizationPipeline(
+                use_auth_token=kwargs.get('hf_token'),
+                device=torch.device(device)
+            )
+
+            phase_progress_callback('diarization', 40)
+
+            diarize_segments = diarize_model(audio_file)
+            final_result["diarization"] = diarize_segments
+
+            phase_progress_callback('diarization', 80)
+
+            # Assign speakers
+            result_segments = final_result.get("aligned", final_result["transcription"])
+            final_result["segments_with_speakers"] = assign_word_speakers(
+                diarize_segments, result_segments
+            )
+
+            phase_progress_callback('diarization', 100)
+
+        if status_callback:
+            status_callback("Transcription completed successfully")
+        if progress_callback:
+            progress_callback(100)
+
+        return final_result
+
+    except Exception as e:
+        if status_callback:
+            status_callback(f"Error: {str(e)}")
+        raise e

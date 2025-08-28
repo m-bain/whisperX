@@ -10,6 +10,8 @@ from PySide6.QtCore import Qt
 # Enable high-DPI scaling
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
+from PySide6.QtCore import QThreadPool
+from transcription_manager import TranscriptionManager
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -23,6 +25,15 @@ class MainWindow(QMainWindow):
 
         self.transcriptionActive = False
 
+        self.threadPool = QThreadPool()
+        self.transcriptionManager = TranscriptionManager(self.threadPool)
+
+        # transcription manager signals
+        self.transcriptionManager.progress_updated.connect(self.onProgressUpdate)
+        self.transcriptionManager.status_updated.connect(self.onStatusUpdate)
+        self.transcriptionManager.transcription_completed.connect(self.onTranscriptionCompleted)
+        self.transcriptionManager.error_occurred.connect(self.onTranscriptionError)
+        self.transcriptionManager.models_loaded.connect(self.onModelsLoaded)
 
 
         self.mainWindow = QWidget()
@@ -318,7 +329,7 @@ class MainWindow(QMainWindow):
     def showLanguageMenu(self):
         # position menu below button
         button_pos = self.languageDropdown.mapToGlobal(self.languageDropdown.rect().bottomLeft())
-        self.languageMenu.exec_(button_pos)
+        self.languageMenu.exec(button_pos)
 
     def selectLanguage(self, display_name, code):
         self.languageDropdown.setText(display_name)
@@ -362,9 +373,29 @@ class MainWindow(QMainWindow):
         self.runTranscriptionButton.setEnabled(bool(text.strip()))
 
     def runTranscription(self):
+        """Start transcription process using threading."""
+        if self.transcriptionManager.is_running():
+            return
+
+        # Collect UI configuration
+        ui_config = self.getUIConfig()
+        audio_file = self.filePathEdit.text().strip()
+
+        if not audio_file:
+            self.onTranscriptionError("No audio file selected")
+            return
+
+        # Reset UI state
         self.transcriptionActive = True
         self.resultsPageButton.setEnabled(True)
+        self.progressResultsBar.setValue(0)
+        self.statusLabel.setText("Starting transcription...")
+
+        # Switch to results page
         self.switchToPage(1)
+
+        # Start transcription
+        self.transcriptionManager.start_transcription(audio_file, ui_config)
 
 
     # GETTERS
@@ -374,6 +405,54 @@ class MainWindow(QMainWindow):
 
     def getDiarizationEnabled(self):
         return self.diarizationChecbox.isChecked()
+
+    def getUIConfig(self):
+        """Collect configuration from UI elements."""
+        return {
+            'enable_alignment': self.getTimestampAlignmentEnabled(),
+            'enable_diarization': self.getDiarizationEnabled(),
+            'language': self.selectLanguageCode if hasattr(self, 'selectLanguageCode') else None,
+            'show_timestamps': getattr(self, 'showTimestampsCheckbox',
+                                       None) and self.showTimestampsCheckbox.isChecked(),
+            'show_speakers': getattr(self, 'showSpeakersCheckbox', None) and self.showSpeakersCheckbox.isChecked(),
+        }
+
+    def onProgressUpdate(self, progress):
+        """Handle progress updates from transcription manager."""
+        self.progressResultsBar.setValue(progress)
+
+    def onStatusUpdate(self, status):
+        """Handle status updates from transcription manager."""
+        self.statusLabel.setText(status)
+
+    def onTranscriptionCompleted(self, result):
+        """Handle transcription completion."""
+        self.transcriptionActive = False
+
+        # Update transcription display with results
+        if 'formatted' in result:
+            formatted = result['formatted']
+            self.fullTranscription = formatted.get('full', 'Transcription completed')
+            self.timestampedTranscription = formatted.get('timestamped', 'Transcription completed')
+            self.speakerTranscription = formatted.get('speakers', 'Transcription completed')
+            self.rawTranscription = formatted.get('raw', 'Transcription completed')
+
+        # Update display
+        self.updateTranscriptionDisplay()
+        self.statusLabel.setText("Transcription completed successfully")
+
+    def onTranscriptionError(self, error_message):
+        """Handle transcription errors."""
+        self.transcriptionActive = False
+        self.progressResultsBar.setValue(0)
+        self.statusLabel.setText(f"Error: {error_message}")
+
+        # Show error in transcription area
+        self.transcriptionTextArea.setPlainText(f"Transcription failed: {error_message}")
+
+    def onModelsLoaded(self):
+        """Handle model loading completion."""
+        self.statusLabel.setText("Models loaded, starting transcription...")
 
 app = QApplication(sys.argv)
 
