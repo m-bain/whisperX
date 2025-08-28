@@ -15,12 +15,18 @@ dependencies = [
     "numpy>=2.0.2",
     "onnxruntime>=1.19",
     "pandas>=2.2.3",
+    "psutil>=5.9.0",
+    "pyinstaller>=5.0",
     "pyannote-audio>=3.3.2",
     "torch>=2.5.1",
     "torchaudio>=2.5.1",
     "transformers>=4.48.0",
 ]
 
+[project.optional-dependencies]
+installer = [
+    "requests>=2.28.0",  # For downloading dependencies
+]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"

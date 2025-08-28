@@ -6,6 +6,7 @@ import torch
 
 from whisperx.utils import (LANGUAGES, TO_LANGUAGE_CODE, optional_float,
                             optional_int, str2bool)
+from whisperx.hardware import assess_optimal_settings, detect_gpu_capabilities, detect_cuda_environment
 
 
 def cli():
@@ -15,10 +16,18 @@ def cli():
     parser.add_argument("--model", default="small", help="name of the Whisper model to use")
     parser.add_argument("--model_cache_only", type=str2bool, default=False, help="If True, will not attempt to download models, instead using cached models from --model_dir")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device to use for PyTorch inference")
+    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"],
+                        help="device to use for PyTorch inference (auto=detect best available)")
     parser.add_argument("--device_index", default=0, type=int, help="device index to use for FasterWhisper inference")
     parser.add_argument("--batch_size", default=8, type=int, help="the preferred batch size for inference")
-    parser.add_argument("--compute_type", default="float16", type=str, choices=["float16", "float32", "int8"], help="compute type for computation")
+    parser.add_argument("--compute_type", default="auto", choices=["auto", "float16", "float32", "int8"],
+                       help="compute type for computation (auto=detect optimal)")
+
+    parser.add_argument("--no_hardware_detection", type=str2bool, default=False,
+                       help="disable automatic hardware detection and optimization")
+    parser.add_argument("--show_hardware_info", type=str2bool, default=False,
+                       help="display detailed hardware information and exit")
+
 
     parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
     parser.add_argument("--output_format", "-f", type=str, default="all", choices=["all", "srt", "vtt", "txt", "tsv", "json", "aud"], help="format of the output file; if not specified, all available formats will be produced")
@@ -80,10 +89,129 @@ def cli():
 
     args = parser.parse_args().__dict__
 
+    if args.pop("show_hardware_info"):
+        show_hardware_info()
+        return
+
+    if not args.pop("no_hardware_detection"):
+        args = apply_hardware_optimization(args)
+
     from whisperx.transcribe import transcribe_task
 
     transcribe_task(args, parser)
 
+
+def show_hardware_info():
+    """Display comprehensive hardware information."""
+    print("=== WhisperX Hardware Information ===\n")
+
+    try:
+        # Detect hardware
+        gpus = detect_gpu_capabilities()
+        cuda_env = detect_cuda_environment()
+        hardware_caps = assess_optimal_settings(gpus, cuda_env)
+
+        # Display system info
+        print(f"System: {platform.system()} {platform.release()}")
+        print(f"CPU Cores: {hardware_caps.cpu_cores}")
+        print(f"System RAM: {hardware_caps.system_ram} MB")
+        print()
+
+        # Display CUDA info
+        print("CUDA Environment:")
+        print(f"  CUDA Available: {cuda_env.cuda_available}")
+        if cuda_env.cuda_available:
+            print(f"  PyTorch CUDA Version: {cuda_env.pytorch_cuda_version}")
+            print(f"  System CUDA Version: {cuda_env.cuda_version or 'Not detected'}")
+            print(f"  cuDNN Version: {cuda_env.cudnn_version or 'Not detected'}")
+            print(f"  Compatible: {cuda_env.is_compatible}")
+            if cuda_env.compatibility_issues:
+                print(f"  Issues: {', '.join(cuda_env.compatibility_issues)}")
+        print()
+
+        # Display GPU info
+        if gpus:
+            print("Detected GPUs:")
+            for gpu in gpus:
+                print(f"  GPU {gpu.index}: {gpu.name}")
+                print(f"    VRAM: {gpu.vram_total} MB total, {gpu.vram_free} MB free")
+                print(f"    Compute Capability: {gpu.compute_capability[0]}.{gpu.compute_capability[1]}")
+                if gpu.cuda_cores:
+                    print(f"    CUDA Cores: {gpu.cuda_cores}")
+        else:
+            print("No GPUs detected")
+        print()
+
+        # Display recommendations
+        print("Recommended Settings:")
+        print(f"  Device: {hardware_caps.recommended_device}")
+        if hardware_caps.recommended_device == "cuda":
+            print(f"  Device Index: {hardware_caps.recommended_device_index}")
+        print(f"  Compute Type: {hardware_caps.recommended_compute_type}")
+        print(f"  Batch Size: {hardware_caps.recommended_batch_size} (max: {hardware_caps.max_batch_size})")
+        print(f"  Expected Speedup: {hardware_caps.estimated_speedup:.1f}x")
+
+        if hardware_caps.warning_messages:
+            print("\nWarnings:")
+            for warning in hardware_caps.warning_messages:
+                print(f"  - {warning}")
+
+    except Exception as e:
+        print(f"Error detecting hardware: {e}")
+
+
+def apply_hardware_optimization(args: dict) -> dict:
+    """Apply hardware-based optimization to arguments."""
+    try:
+        # Get model size for optimization
+        model_size = args.get("model", "small")
+
+        # Detect hardware capabilities
+        gpus = detect_gpu_capabilities()
+        cuda_env = detect_cuda_environment()
+        hardware_caps = assess_optimal_settings(gpus, cuda_env, model_size)
+
+        # Apply auto device selection
+        if args.get("device") == "auto":
+            args["device"] = hardware_caps.recommended_device
+            args["device_index"] = hardware_caps.recommended_device_index
+            print(f">>Auto-detected device: {args['device']}")
+
+        # Apply auto compute type selection
+        if args.get("compute_type") == "auto":
+            args["compute_type"] = hardware_caps.recommended_compute_type
+            print(f">>Auto-detected compute type: {args['compute_type']}")
+
+        # Apply auto batch size selection
+        if args.get("batch_size") == "auto":
+            args["batch_size"] = hardware_caps.recommended_batch_size
+            print(f">>Auto-detected batch size: {args['batch_size']}")
+        elif isinstance(args.get("batch_size"), str) and args["batch_size"].isdigit():
+            args["batch_size"] = int(args["batch_size"])
+
+        # Display hardware summary
+        if hardware_caps.can_use_gpu:
+            best_gpu = max(hardware_caps.gpus, key=lambda g: g.vram_total)
+            print(f">>Using GPU: {best_gpu.name} ({best_gpu.vram_total}MB VRAM)")
+        else:
+            print(">>Using CPU processing")
+
+        # Display warnings
+        if hardware_caps.warning_messages:
+            for warning in hardware_caps.warning_messages:
+                print(f">>Warning: {warning}")
+
+    except Exception as e:
+        print(f">>Hardware detection failed: {e}, using default settings")
+        # Fallback to basic detection
+        if args.get("device") == "auto":
+            args["device"] = "cuda" if torch.cuda.is_available() else "cpu"
+        if args.get("compute_type") == "auto":
+            args["compute_type"] = "float16" if torch.cuda.is_available() else "int8"
+        if args.get("batch_size") == "auto":
+            args["batch_size"] = 8
+
+    return args
 
 if __name__ == "__main__":
     cli()

@@ -14,6 +14,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from whisperx.types import SingleSegment, TranscriptionResult
 from whisperx.vads import Vad, Silero, Pyannote
+from whisperx.hardware import assess_optimal_settings, detect_gpu_capabilities, detect_cuda_environment
 
 
 def find_numeral_symbol_tokens(tokenizer):
@@ -313,6 +314,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    auto_detect_hardware: bool = True,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -332,6 +334,40 @@ def load_model(
 
     if whisper_arch.endswith(".en"):
         language = "en"
+
+    if auto_detect_hardware:
+        try:
+            print(">>Detecting hardware capabilities...")
+            gpus = detect_gpu_capabilities()
+            cuda_env = detect_cuda_environment()
+            hardware_caps = assess_optimal_settings(gpus, cuda_env, whisper_arch)
+
+            # Apply hardware recommendations if no explicit device specified
+            if device == "auto" or (device == "cuda" and not torch.cuda.is_available()):
+                device = hardware_caps.recommended_device
+                device_index = hardware_caps.recommended_device_index
+                print(f">>Hardware recommendation: device={device}, device_index={device_index}")
+
+            # Apply compute type recommendation if using default
+            if compute_type == "auto" or (
+                    device == "cuda" and compute_type == "float16" and not hardware_caps.can_use_gpu):
+                compute_type = hardware_caps.recommended_compute_type
+                print(f">>Hardware recommendation: compute_type={compute_type}")
+
+            # Display warnings
+            if hardware_caps.warning_messages:
+                for warning in hardware_caps.warning_messages:
+                    print(f">>Hardware warning: {warning}")
+
+            if hardware_caps.can_use_gpu:
+                best_gpu = max(hardware_caps.gpus, key=lambda g: g.vram_total)
+                print(f">>Using GPU: {best_gpu.name} ({best_gpu.vram_total}MB VRAM)")
+                print(f">>Estimated speedup: {hardware_caps.estimated_speedup:.1f}x")
+            else:
+                print(">>Using CPU (GPU not suitable or available)")
+
+        except Exception as e:
+            print(f">>Hardware detection failed: {e}, using manual settings")
 
     model = model or WhisperModel(whisper_arch,
                          device=device,
