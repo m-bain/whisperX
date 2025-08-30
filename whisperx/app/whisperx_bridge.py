@@ -2,7 +2,7 @@
 Bridge between Qt application and WhisperX functionality.
 Adapts WhisperX modules for use in Qt threading environment.
 """
-
+import time
 import os
 from typing import Dict, Any, Optional, Callable
 import torch
@@ -141,24 +141,29 @@ class WhisperXBridge:
             if progress_callback:
                 progress_callback(0)
 
+            start = time.time()
             audio = load_audio(config.audio_file)
+            end = time.time()
             current_phase_start += phase_weights['audio']
+            print(f"Audio loading took {end - start:.2f} seconds")
 
             # Phase 2: Transcribe with real progress
             if status_callback:
                 status_callback("Performing speech recognition...")
 
             asr_model = models['asr']
+            start = time.time()
             transcribe_result = asr_model.transcribe(
                 audio=audio,
-                # batch_size=config.batch_size,
+                batch_size=config.batch_size,
                 # chunk_size=config.chunk_size,
                 print_progress=False,  # Disable print, use callback
                 combined_progress=False,  # We handle combination ourselves
                 progress_callback=lambda p: phase_progress_callback('transcription', p),
                 status_callback=phase_status_callback
             )
-
+            end = time.time()
+            print(f"Transcription took {end - start:.2f} seconds")
             result['transcription'] = transcribe_result
             current_phase_start += phase_weights['transcription']
 
@@ -169,7 +174,7 @@ class WhisperXBridge:
 
                 align_model = models['alignment']['model']
                 align_metadata = models['alignment']['metadata']
-
+                start = time.time()
                 aligned_result = align(
                     transcript=transcribe_result["segments"],
                     model=align_model,
@@ -181,8 +186,9 @@ class WhisperXBridge:
                     progress_callback=lambda p: phase_progress_callback('alignment', p),
                     status_callback=phase_status_callback
                 )
-
+                end = time.time()
                 result['aligned_transcription'] = aligned_result
+                print(f"Alignment took {end - start:.2f} seconds")
 
             current_phase_start += phase_weights['alignment']
 
@@ -193,7 +199,7 @@ class WhisperXBridge:
 
                 # Diarization progress (manual since pyannote doesn't expose progress)
                 phase_progress_callback('diarization', 20)
-
+                start = time.time()
                 diarization_pipeline = models['diarization']
                 diarization_result = diarization_pipeline(config.audio_file)
 
@@ -204,7 +210,8 @@ class WhisperXBridge:
                     diarization_result,
                     result.get('aligned_transcription', transcribe_result)
                 )
-
+                end = time.time()
+                print(f"Diarization took {end - start:.2f} seconds")
                 result['diarization'] = diarization_result
                 result['segments_with_speakers'] = segments_with_speakers
 

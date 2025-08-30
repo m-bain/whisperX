@@ -29,7 +29,7 @@ class TranscriptionConfig:
     language: Optional[str] = None
 
     # Advanced settings
-    # batch_size: int = 8
+    batch_size: int = 8
     # chunk_size: int = 30
     # vad_method: str = "pyannote"
     # vad_onset: float = 0.500
@@ -46,7 +46,7 @@ class TranscriptionConfig:
             'device': self.device,
             'device_index': self.device_index,
             'compute_type': self.compute_type,
-            # 'batch_size': self.batch_size,
+            'batch_size': self.batch_size,
             # 'chunk_size': self.chunk_size,
             'language': self.language,
             # 'vad_method': self.vad_method,
