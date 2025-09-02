@@ -151,7 +151,7 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     -------
     A NumPy array containing the audio waveform, in float32 dtype.
     """
-    try
+    try:
         return load_audio_ram(file, sr);
     except:
         print('call to load_audio_ram() failed. Trying again, this time using temporary files');
