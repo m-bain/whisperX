@@ -9,6 +9,8 @@ import torch.nn.functional as F
 
 from whisperx.utils import exact_div
 
+import gc;
+
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
 N_FFT = 400
@@ -69,6 +71,7 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     # file is already in the required format and load it directly with np.fromfile()
     r = np.frombuffer(out, np.int16);
     del out;
+    gc.collect();
 
     r = r.flatten();
     r = r.astype(np.float32) / 32768.0
