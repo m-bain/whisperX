@@ -153,7 +153,7 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     """
     try
         return load_audio_ram(file, sr);
-    except
+    except:
         print('call to load_audio_ram() failed. Trying again, this time using temporary files');
         return load_audio_tmpfile(file, sr);
 
