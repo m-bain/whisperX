@@ -135,7 +135,7 @@ def load_audio_tmpfile(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     
     return r;
 
-def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
+def load_audio(file: str, sr: int = SAMPLE_RATE, useTmpFile=False) -> np.ndarray:
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -147,15 +147,25 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     sr: int
         The sample rate to resample the audio if necessary
 
+    useTmpFile: bool
+        If true, resample the audio using a temporary file. 
+        Might be the only way to load very long audio files
+        without running out of RAM
+
     Returns
     -------
     A NumPy array containing the audio waveform, in float32 dtype.
-    """
-    try:
-        return load_audio_ram(file, sr);
-    except:
-        print('call to load_audio_ram() failed. Trying again, this time using temporary files');
+    """    
+    #try:
+    #    return load_audio_ram(file, sr);
+    #except:
+    #    print('call to load_audio_ram() failed. Trying again, this time using temporary files');
+    #    return load_audio_tmpfile(file, sr);
+    # unfortunately the above does not work, so we will rely on the user
+    if(useTmpFile):
         return load_audio_tmpfile(file, sr);
+    else:
+        return load_audio_ram(file, sr);
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
