@@ -62,7 +62,18 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    # doing this is parts, instead of as a "one-liner" allows us to free the memory
+    # used by {out}, which can be quite a lot in case of very long audio files.
+    # This should help minimize crashes caused by running out of RAM. 
+    # Another alternative would be using temporary files and/or check if the audio
+    # file is already in the required format and load it directly with np.fromfile()
+    r = np.frombuffer(out, np.int16);
+    del out;
+
+    r = r.flatten();
+    r = r.astype(np.float32) / 32768.0
+    
+    return r;
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
