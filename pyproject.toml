@@ -18,7 +18,13 @@ dependencies = [
     "pyannote-audio>=3.3.2",
     "torch>=2.5.1",
     "torchaudio>=2.5.1",
-    "transformers>=4.48.0",
+    # apparently they changed some default arguments values after transformers v4.51.0
+    # I believe num_beams is the culprit. It used to be 1, now it is set to 5. See
+    # https://github.com/huggingface/transformers/issues/40682
+    # So, according to them if you pass num_beams=1 to the pipeline, versions >4.51.0
+    # be as fast as before. But, since I am not exactly sure where to put that, I'll
+    # just lock the version for now.
+    "transformers>=4.48.0, <=4.51.0",
 ]
 
 
