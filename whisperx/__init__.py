@@ -11,6 +11,8 @@ if TYPE_CHECKING:
         SingleSegment,
     )
 
+    from whisperx.diarize import DiarizationPipeline
+
 
 def load_align_model(
     language_code: str,
@@ -82,6 +84,29 @@ def load_audio(file: str, sr: int = 16000) -> "np.ndarray":
     """
     import whisperx.audio as audio
     return audio.load_audio(file, sr)
+
+
+def load_diarization_pipeline(
+    model_name=None,
+    use_auth_token=None,
+    device: Optional[Union[str, "torch.device"]] = "cpu",
+ ) -> "DiarizationPipeline":
+    """Create a speaker diarization pipeline.
+    
+    Args:
+        model_name: Name of the diarization model to use
+        use_auth_token: HuggingFace authentication token if required
+        device: Device to run the model on ('cpu', 'cuda', or torch.device)
+    
+    Returns:
+        DiarizationPipeline instance
+    """
+    import whisperx.diarize as diarize
+    return diarize.DiarizationPipeline(
+        model_name=model_name,
+        use_auth_token=use_auth_token,
+        device=device
+    )
 
 
 def assign_word_speakers(
