@@ -8,7 +8,10 @@ from whisperx.audio import load_audio, SAMPLE_RATE
 from whisperx.types import TranscriptionResult, AlignedTranscriptionResult
 
 
-class DiarizationPipeline:
+class DiarizationPipeline:  # [too-few-public-methods]
+    """
+    Speaker diarization using pyannote.audio pretrained pipelines.
+    """
     def __init__(
         self,
         model_name=None,
