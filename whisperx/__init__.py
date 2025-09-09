@@ -5,6 +5,7 @@ from typing import Any
 
 # This list defines the public API. It is the single source of truth
 # for what this package will lazily export at runtime.
+
 __all__ = [
     "load_align_model",
     "align",
@@ -12,6 +13,13 @@ __all__ = [
     "load_audio",
     "assign_word_speakers",
     "DiarizationPipeline",
+    "FasterWhisperPipeline",
+    "AlignedTranscriptionResult",
+    "SingleSegment",
+    "SingleAlignedSegment",
+    "SingleWordSegment",
+    "SingleCharSegment",
+    "TranscriptionResult",
 ]
 
 
@@ -25,15 +33,24 @@ def __getattr__(name: str) -> Any:
     # Map the requested function to its source submodule.
     if name in ("load_align_model", "align"):
         module_path = ".alignment"
-    elif name == "load_model":
+    elif name in ("FasterWhisperPipeline", "load_model"):
         module_path = ".asr"
     elif name == "load_audio":
         module_path = ".audio"
     elif name in (
         "assign_word_speakers",
-        "DiarizationPipeline"
+        "DiarizationPipeline",
     ):
         module_path = ".diarize"
+    elif name in (
+        "AlignedTranscriptionResult",
+        "SingleSegment",
+        "SingleAlignedSegment",
+        "SingleWordSegment",
+        "SingleCharSegment",
+        "TranscriptionResult",
+    ):
+        module_path = ".types"
     else:
         # This case should not be reached if __all__ is accurate.
         raise ImportError(f"Cannot determine the source for {name}")
