@@ -1,10 +1,26 @@
 # public interface for whisperx
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .alignment import align, load_align_model
+    from .asr import load_model, FasterWhisperPipeline
+    from .audio import load_audio
+    from .diarize import (
+        assign_word_speakers,
+        DiarizationPipeline,
+    )
+    from .types import (
+        AlignedTranscriptionResult,
+        SingleSegment,
+        SingleAlignedSegment,
+        SingleWordSegment,
+        SingleCharSegment,
+        TranscriptionResult,
+    )
 
 # This list defines the public API. It is the single source of truth
 # for what this package will lazily export at runtime.
-
 __all__ = [
     "load_align_model",
     "align",
@@ -22,7 +38,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str):
     """
     Lazily import functions when they are first accessed, based on PEP 562.
     """
@@ -51,7 +67,7 @@ def __getattr__(name: str) -> Any:
     ):
         module_path = ".types"
     else:
-        # This case should not be reached if __all__ is accurate.
+        # This case should not be reached if __all__ matches the mappings above.
         raise ImportError(f"Cannot determine the source for {name}")
 
     # Perform the actual import of the submodule.
@@ -60,9 +76,7 @@ def __getattr__(name: str) -> Any:
     # Get the function from the imported module.
     attribute = getattr(module, name)
 
-    # Cache the attribute in this module's globals. This is a crucial
-    # optimization that ensures this function is not called again for the
-    # same name.
+    # Cache the attribute in this module's globals.
     globals()[name] = attribute
 
     return attribute
