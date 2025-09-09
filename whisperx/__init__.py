@@ -73,7 +73,7 @@ def __getattr__(name: str):
     # Perform the actual import of the submodule.
     module = importlib.import_module(module_path, __name__)
 
-    # Get the function from the imported module.
+    # Get the function, class, value from the imported module.
     attribute = getattr(module, name)
 
     # Cache the attribute in this module's globals.
