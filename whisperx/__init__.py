@@ -1,5 +1,4 @@
-# whisperx/__init__.py
-
+# public interface for whisperx
 import importlib
 from typing import Any
 
