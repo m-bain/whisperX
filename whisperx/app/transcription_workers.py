@@ -1,11 +1,11 @@
 from PySide6.QtCore import QRunnable, QObject, Signal
 
 import traceback
-
+import time
 from typing import Optional, Dict, Any, Callable
 
-from app_config import TranscriptionConfig
-from whisperx_bridge import WhisperXBridge
+from whisperx.app.app_config import TranscriptionConfig
+from whisperx.app.whisperx_bridge import WhisperXBridge
 
 class WorkerSignals(QObject):
     """Signals for worker thread communication."""
@@ -78,8 +78,19 @@ class TranscriptionWorker(QRunnable):
         self._progress_callback = self._on_progress_update
         self._status_callback = self._on_status_update
 
+        self._last_progress_time = 0
+        self._last_progress_value = -1
+
     def _on_progress_update(self, progress: int) -> None:
-        self.signals.progress_updated.emit(progress)
+        # Only emit progress updates every 2% or every 500ms
+        current_time = time.time()
+        if (progress - self._last_progress_value >= 2 or
+            current_time - self._last_progress_time >= 2):
+            self.signals.progress_updated.emit(progress)
+            self._last_progress_time = current_time
+            self._last_progress_value = progress
+
+
 
     def _on_status_update(self, status: str) -> None:
         self.signals.status_updated.emit(status)
@@ -94,6 +105,7 @@ class TranscriptionWorker(QRunnable):
             self.signals.progress_updated.emit(0)
 
             # perform transcription
+            print("WORKER RUN CONFIG ", str(self.config))
             result = self.bridge.transcribe_audio(
                 config=self.config,
                 models=self.models,

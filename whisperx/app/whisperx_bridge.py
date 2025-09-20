@@ -14,7 +14,7 @@ from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.types import TranscriptionResult
 
-from app_config import TranscriptionConfig
+from whisperx.app.app_config import TranscriptionConfig
 
 class WhisperXBridge:
     def __init__(self):
@@ -159,8 +159,8 @@ class WhisperXBridge:
                 # chunk_size=config.chunk_size,
                 print_progress=False,  # Disable print, use callback
                 combined_progress=False,  # We handle combination ourselves
-                progress_callback=lambda p: phase_progress_callback('transcription', p),
-                status_callback=phase_status_callback
+                progress_callback=None, #lambda p: phase_progress_callback('transcription', p),
+                status_callback=None #phase_status_callback
             )
             end = time.time()
             print(f"Transcription took {end - start:.2f} seconds")

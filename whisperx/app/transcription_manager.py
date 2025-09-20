@@ -2,12 +2,14 @@
 Orchestrates the WhisperX transcription process for the Qt application.
 Manages model lifecycle, worker coordination, and state management.
 """
+import time
 
 from PySide6.QtCore import QObject, Signal, QThreadPool
 from typing import Dict, Any, Optional
 
-from app_config import AppConfig, TranscriptionConfig
-from transcription_workers import ModelLoaderWorker, TranscriptionWorker
+from whisperx.app.app_config import AppConfig, TranscriptionConfig
+from whisperx.app.transcription_workers import ModelLoaderWorker, TranscriptionWorker
+from whisperx.app.whisperx_bridge import WhisperXBridge
 
 
 class TranscriptionManager(QObject):
@@ -40,14 +42,15 @@ class TranscriptionManager(QObject):
 
         try:
             # Update configuration from UI
-            print("BEFORE: ",self.app_config)
+            print("BEFORE: ", str(self.app_config))
             self.app_config.update_config(
                 audio_file=audio_file,
                 **ui_config
             )
-            print("AFTER: ", self.app_config)
+            print("AFTER: ", str(self.app_config))
 
             config = self.app_config.get_current_config()
+            print("AFTER ONLY CONGIF: ", str(config))
 
             self._is_running = True
 
@@ -103,6 +106,45 @@ class TranscriptionManager(QObject):
 
         self.current_worker = worker
         self.thread_pool.start(worker)
+
+    def start_transcription_direct(self, audio_file: str, ui_config: Dict[str, Any]) -> None:
+        """Test: Run transcription directly on main thread."""
+        if self._is_running:
+            self.error_occurred.emit("Transcription already in progress")
+            return
+
+        try:
+            # Update configuration
+            self.app_config.update_config(audio_file=audio_file, **ui_config)
+            config = self.app_config.get_current_config()
+            self._is_running = True
+
+            # Load models if needed (on main thread)
+            if self._models_need_loading(config):
+                bridge = WhisperXBridge()
+                models = bridge.load_models(config, None, None)  # No callbacks
+                self.loaded_models = models
+
+            # Run transcription DIRECTLY on main thread (no worker thread)
+            bridge = WhisperXBridge()
+            start_time = time.time()
+            result = bridge.transcribe_audio(
+                config=config,
+                models=self.loaded_models,
+                progress_callback=None,  # No callbacks
+                status_callback=None
+            )
+            end_time = time.time()
+
+            print(f"Direct main thread transcription took: {end_time - start_time:.2f} seconds")
+
+            # Emit results
+            self.transcription_completed.emit(result)
+            self._is_running = False
+
+        except Exception as e:
+            self._is_running = False
+            self.error_occurred.emit(str(e))
 
     def _on_models_loaded(self, models: Dict[str, Any]) -> None:
         """Handle successful model loading."""

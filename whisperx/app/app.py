@@ -396,6 +396,7 @@ class MainWindow(QMainWindow):
 
         # Start transcription
         self.transcriptionManager.start_transcription(audio_file, ui_config)
+        # self.transcriptionManager.start_transcription_direct(audio_file, ui_config)
 
 
     # GETTERS

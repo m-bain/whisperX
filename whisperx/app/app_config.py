@@ -18,7 +18,7 @@ class TranscriptionConfig:
     audio_file: str = ""
 
     # Model settings
-    model_name: str = "large-v2"
+    model_name: str = "medium"
     device: str = "cpu"
     device_index: int = 0
     compute_type: str = "int8"
@@ -73,14 +73,20 @@ class AppConfig:
         self.load_config()
         self.load_presets()
 
+    def __str__(self):
+        return str(self.config_dir) + " | " + str(self.config_file) + " | " + str(self.presets_file) + " | " +  str(self._presets) + " |\ "
+
     def get_current_config(self) -> TranscriptionConfig:
         """Get current transcription configuration."""
         return self._current_config
 
     def update_config(self, **kwargs) -> None:
         """Update current configuration with new values."""
+        print("Updating config")
         for key, value in kwargs.items():
+            print("KEY VAL", key, " ", value)
             if hasattr(self._current_config, key):
+                print("HAS KEY VAL", key, " ", value)
                 setattr(self._current_config, key, value)
         self.save_config()
 
