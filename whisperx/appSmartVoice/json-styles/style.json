@@ -1,0 +1,198 @@
+{
+  "QtBinding": "PySide6",
+  "ShowLogs": true,
+  "LiveCompileQss": true,
+  "CheckForMissingIcons": false,
+  "QMainWindow": [
+    {
+      "tittle": "SmartVoice",
+      "icon": ":/font_awesome/brands/icons/font_awesome/brands/fort-awesome-alt.png",
+      "frameless": false,
+      "translucentBg": true,
+      "sizeGrip": "sizeGrip",
+      "navigation":[
+				{
+					"minimize":"minimizeBtn",
+                    "close": "closeBtn",
+                    "restore":[
+						{
+							"buttonName": "restoreBtn",
+							"normalIcon": ":/feather/icons/feather/square.png",
+							"maximizedIcon": ":/feather/icons/feather/minimize-2.png"
+						}
+					],
+                    "moveWindow": "header",
+                    "tittleBar": "header"
+                }
+			]
+    }
+  ],
+  "QSettings": [
+    {
+      "ThemeSettings": [
+        {
+          "CustomTheme": [
+            {
+              "Background-color": "#262625",
+              "Text-color": "#f0e8d3",
+              "Accent-color": "#4dc9c3",
+              "Icons-color": "#f0e8d3",
+              "Theme-name": "Default-theme",
+              "Default-Theme": true
+            }
+          ]
+        }
+      ],
+      "AppSettings": {
+        "OrginizationName": "SmartVoice",
+        "ApplicationName": "SmartVoice Company",
+        "OrginizationDormain": "SmartVoice.org"
+      }
+    }
+  ],
+  "QPushButtonGroup": [
+		{
+			"Buttons": [
+				"setupBtn",
+				"resultsBtn",
+				"settingsBtn",
+				"infoBtn",
+				"helpBtn"
+			],
+          "ActiveButton": "setupBtn",
+			"Style":[{
+                    "Active": "QPushButton{background-color: THEME.COLOR_ACCENT_1; color: THEME.COLOR_BACKGROUND_3; font-weight: bold; border-top: 2px solid THEME.COLOR_ACCENT_4; border-left: 2px solid THEME.COLOR_ACCENT_4; border-bottom: 2px solid THEME.COLOR_ACCENT_4;}"
+			}]
+		},
+        {
+			"Buttons": [
+				"historyBtn",
+				"profileBtn"
+			],
+			"Style":[{
+							"Active": "QPushButton{background-color: THEME.COLOR_BACKGROUND_2; font-weight: bold; border-radius: 5px} QPushButton::hover{background-color: THEME.COLOR_ACCENT_1}",
+							"NotActive": "QPushButton{background-color: transparent; font-weight: normal; border-radius: 5px} QPushButton::hover{background-color: THEME.COLOR_ACCENT_1}"
+			}]
+		}
+  ],
+  "QCustomSlideMenu": [
+	  {
+		"name": "leftMenu",
+		"defaultSize": [
+		  {
+			"width": 45,
+			"height": "parent"
+		  }
+		],
+		"collapsedSize": [
+		  {
+			"width": 45,
+			"height": "parent"
+		  }
+		],
+		"expandedSize": [
+		  {
+			"width": 190,
+			"height": "parent"
+		  }
+		],
+		"toggleButton": [
+		  {
+			"buttonName": "menuBtn",
+			"icons": [
+			  {
+				"whenMenuIsCollapsed": ":/feather/icons/feather/align-justify.png",
+				"whenMenuIsExpanded": ":/feather/icons/feather/arrow-left-circle.png"
+			  }
+			]
+		  }
+		],
+		"menuTransitionAnimation": [
+		  {
+			"animationDuration": 300,
+			"animationEasingCurve": "Linear"
+		  }
+		]
+	  },
+    {
+      "name": "rightMenu",
+      "defaultSize": [
+        {
+        "width": 0,
+        "height": "parent"
+        }
+      ],
+      "collapsedSize": [
+        {
+        "width": 0,
+        "height": "parent"
+        }
+      ],
+      "expandedSize": [
+        {
+        "width": 300,
+        "height": "parent"
+        }
+      ],
+      "menuTransitionAnimation": [
+        {
+        "animationDuration": 300,
+        "animationEasingCurve": "Linear"
+        }
+      ]
+    }
+  ],
+  "QCustomQStackedWidget": [
+	  {
+		"name": "stackedMainPages",
+		"navigation": [
+		  {
+			"navigationButtons": [
+			  {
+				"setupBtn": "setupPage",
+				"resultsBtn": "resultsPage",
+				"settingsBtn": "settingsPage",
+				"infoBtn": "informationPage",
+				"helpBtn": "helpPage"
+			  }
+			]
+		  }
+		],
+		"transitionAnimation": [
+		  {
+			"fade": [
+			  {
+				"active": true,
+				"duration": 500,
+				"easingCurve": "InSine"
+			  }
+			]
+		  }
+		]
+	  },
+	  {
+		"name": "rightMenuStacked",
+		"navigation": [
+		  {
+			"navigationButtons": [
+			  {
+				"historyBtn": "historyPage",
+				"profileBtn": "profilePage"
+			  }
+			]
+		  }
+		],
+    "transitionAnimation": [
+		  {
+            "fade": [
+			  {
+				"active": true,
+				"duration": 500,
+				"easingCurve": "InSine"
+			  }
+			]
+		  }
+		]
+	  }
+	]
+}

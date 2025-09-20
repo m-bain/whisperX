@@ -1,0 +1,62 @@
+{
+  "QPushButton": [
+    {
+      "name": "menuBtn",
+      "icon": "Qss/icons/icons/feather/menu.png"
+    },
+    {
+      "name": "setupBtn",
+      "icon": "Qss/icons/icons/material_design/display_settings.png"
+    },
+    {
+      "name": "resultsBtn",
+      "icon": "Qss/icons/icons/feather/file-text.png"
+    },
+    {
+      "name": "settingsBtn",
+      "icon": "Qss/icons/icons/feather/settings.png"
+    },
+    {
+      "name": "infoBtn",
+      "icon": "Qss/icons/icons/feather/info.png"
+    },
+    {
+      "name": "helpBtn",
+      "icon": "Qss/icons/icons/feather/help-circle.png"
+    },
+    {
+      "name": "historyBtn",
+      "icon": "Qss/icons/icons/material_design/view_list.png"
+    },
+    {
+      "name": "profileBtn",
+      "icon": "Qss/icons/icons/feather/user.png"
+    },
+    {
+      "name": "minimizeBtn",
+      "icon": "Qss/icons/icons/feather/minus.png"
+    },
+    {
+      "name": "restoreBtn",
+      "icon": "Qss/icons/icons/feather/square.png"
+    },
+    {
+      "name": "closeBtn",
+      "icon": "Qss/icons/icons/feather/window_close.png"
+    },
+    {
+      "name": "languageDropdownBtn",
+      "icon": "Qss/icons/icons/feather/arrow_down.png"
+    },
+    {
+      "name": "rightMenuBtn",
+      "icon": "Qss/icons/icons/feather/chevrons-right.png"
+    }
+  ],
+  "QLabel": [
+    {
+      "name": "label_5",
+      "pixmap": "Qss/icons/icons/feather/search.png"
+    }
+  ]
+}
