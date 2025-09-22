@@ -21,6 +21,7 @@ class GUIFunctions():
         self.ui.searchBtn.clicked.connect(self.showSearchResults)
         self.ui.fileBrowseBtn.clicked.connect(self.selectFile)
         self.ui.runTranscriptionBtn.clicked.connect(self.runTranscription)
+        self.ui.downloadSRTBtn.clicked.connect(self.main.downloadSRTFile)
 
         # Results display mode
         self.ui.showTimestamps.stateChanged.connect(self.main.updateTranscriptionDisplay)

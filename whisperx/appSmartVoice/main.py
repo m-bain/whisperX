@@ -19,13 +19,14 @@ from Custom_Widgets.QAppSettings import QAppSettings
 from Custom_Widgets.QCustomQToolTip import QCustomQToolTipFilter
 ########################################################################
 from PySide6.QtCore import QThreadPool
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 ########################################################################
 ## MAIN WINDOW CLASS
 ########################################################################
 from whisperx.app.transcription_manager import TranscriptionManager
 from whisperx.appSmartVoice.src.gui_functions import GUIFunctions
-
+from whisperx.SubtitlesProcessor import SubtitlesProcessor
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -36,6 +37,8 @@ class MainWindow(QMainWindow):
         ########################
         # ADDING WORKERS FOR TRANSCRIPTION PROCESSING AND MODEL LOADING
         ##########
+        self.transcriptionResult = None
+        self.lastAudioFile = None
         self.transcriptionActive = False
 
         self.threadPool = QThreadPool()
@@ -92,6 +95,13 @@ class MainWindow(QMainWindow):
         """Handle transcription completion."""
         self.transcriptionActive = False
 
+        # Store the complete transcription result for SRT download
+        self.transcriptionResult = result
+
+        # Store the audio file path for naming the SRT file
+        if hasattr(self, 'app_functions') and hasattr(self.app_functions, 'ui'):
+            self.lastAudioFile = self.ui.lineEdit.text().strip()
+
         # Update transcription display with results
         if 'formatted' in result:
             formatted = result['formatted']
@@ -134,6 +144,84 @@ class MainWindow(QMainWindow):
             # Show raw transcription
             self.ui.transcriptionTextArea.setPlainText(self.rawTranscription)
 
+    def downloadSRTFile(self):
+        """Generate and download an SRT file containing the final transcription."""
+        if not hasattr(self, 'transcriptionResult') or not self.transcriptionResult:
+            QMessageBox.warning(self, "No Transcription", "No transcription data available to download.")
+            return
+
+        try:
+            # Get save location from user
+            suggested_filename = "transcription.srt"
+            if hasattr(self, 'lastAudioFile') and self.lastAudioFile:
+                base_name = os.path.splitext(os.path.basename(self.lastAudioFile))[0]
+                suggested_filename = f"{base_name}_transcription.srt"
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save SRT File",
+                suggested_filename,
+                "SRT Files (*.srt);;All Files (*)"
+            )
+
+            if not file_path:
+                return  # User cancelled
+
+            # Ensure .srt extension
+            if not file_path.lower().endswith('.srt'):
+                file_path += '.srt'
+
+            # Get the segments from transcription result
+            segments = self._getTranscriptionSegments()
+            if not segments:
+                QMessageBox.warning(self, "No Data", "No transcription segments available.")
+                return
+
+            # Detect language from transcription result
+            language = self.transcriptionResult.get('transcription', {}).get('language', 'en')
+            if not language:
+                # Try other possible locations for language
+                language = (self.transcriptionResult.get('aligned_transcription', {}).get('language') or
+                            self.transcriptionResult.get('segments_with_speakers', {}).get('language') or 'en')
+
+            # Create SubtitlesProcessor and generate SRT
+            processor = SubtitlesProcessor(segments, language, is_vtt=False)
+            subtitle_count = processor.save(file_path, advanced_splitting=True)
+
+            QMessageBox.information(
+                self,
+                "SRT Downloaded",
+                f"SRT file saved successfully!\nLocation: {file_path}\nSubtitles: {subtitle_count}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save SRT file:\n{str(e)}")
+
+    def _getTranscriptionSegments(self):
+        """Extract segments from transcription result for SRT generation."""
+        if not self.transcriptionResult:
+            return None
+
+        # Try to get segments with speakers first (most complete), then aligned, then basic
+        if 'segments_with_speakers' in self.transcriptionResult:
+            segments_data = self.transcriptionResult['segments_with_speakers']
+            if isinstance(segments_data, dict) and 'segments' in segments_data:
+                return segments_data['segments']
+            return segments_data
+
+        elif 'aligned_transcription' in self.transcriptionResult:
+            segments_data = self.transcriptionResult['aligned_transcription']
+            if isinstance(segments_data, dict) and 'segments' in segments_data:
+                return segments_data['segments']
+            return segments_data
+
+        elif 'transcription' in self.transcriptionResult:
+            segments_data = self.transcriptionResult['transcription']
+            if isinstance(segments_data, dict) and 'segments' in segments_data:
+                return segments_data['segments']
+            return segments_data
+
+        return None
 ########################################################################
 ## EXECUTE APP
 ########################################################################

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1043</width>
-    <height>635</height>
+    <height>662</height>
    </rect>
   </property>
   <property name="font">
@@ -867,6 +867,13 @@
                      </widget>
                     </item>
                    </layout>
+                  </widget>
+                 </item>
+                 <item alignment="Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignBottom">
+                  <widget class="QPushButton" name="downloadSRTBtn">
+                   <property name="text">
+                    <string>Download SRT</string>
+                   </property>
                   </widget>
                  </item>
                 </layout>

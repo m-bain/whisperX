@@ -13,7 +13,7 @@ from whisperx.alignment import load_align_model, align
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.types import TranscriptionResult
-
+from whisperx.utils import format_timestamp
 from whisperx.app.app_config import TranscriptionConfig
 
 class WhisperXBridge:
@@ -232,11 +232,9 @@ class WhisperXBridge:
         except Exception as e:
             raise RuntimeError(f"Transcription failed: {str(e)}")
 
-
     def _format_transcription_result(self, result: Dict[str, Any],
                                      config: TranscriptionConfig) -> Dict[str, str]:
-        """Format transcription results for display."""
-
+        """Format transcription results for display using SRT timestamp format."""
         formatted = {
             'raw': '',
             'timestamped': '',
@@ -267,10 +265,14 @@ class WhisperXBridge:
                 # Raw text
                 raw_text.append(text)
 
-                # Timestamped text
+                # Format timestamps in SRT format (HH:MM:SS,mmm)
                 start = segment.get('start', 0)
                 end = segment.get('end', 0)
-                timestamped_text.append(f"[{start:.1f} - {end:.1f}] {text}")
+                start_srt = format_timestamp(start, always_include_hours=True, decimal_marker=',')
+                end_srt = format_timestamp(end, always_include_hours=True, decimal_marker=',')
+
+                # Timestamped text with SRT format
+                timestamped_text.append(f"[{start_srt} --> {end_srt}] {text}")
 
                 # Speaker text
                 speaker = segment.get('speaker', 'Unknown')
@@ -279,11 +281,11 @@ class WhisperXBridge:
                 else:
                     speaker_text.append(text)
 
-                # Full text (timestamps + speakers)
+                # Full text (timestamps + speakers) with SRT format
                 if speaker and speaker != 'Unknown':
-                    full_text.append(f"[{start:.1f} - {end:.1f}] {speaker}: {text}")
+                    full_text.append(f"[{start_srt} --> {end_srt}] {speaker}: {text}")
                 else:
-                    full_text.append(f"[{start:.1f} - {end:.1f}] {text}")
+                    full_text.append(f"[{start_srt} --> {end_srt}] {text}")
 
             formatted['raw'] = ' '.join(raw_text)
             formatted['timestamped'] = '\n'.join(timestamped_text)

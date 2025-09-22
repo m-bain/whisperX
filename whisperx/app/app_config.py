@@ -18,10 +18,10 @@ class TranscriptionConfig:
     audio_file: str = ""
 
     # Model settings
-    model_name: str = "medium"
-    device: str = "cpu"
+    model_name: str = "large-v2"
+    device: str = "cuda"
     device_index: int = 0
-    compute_type: str = "int8"
+    compute_type: str = "float16"
 
     # Processing options
     enable_alignment: bool = True

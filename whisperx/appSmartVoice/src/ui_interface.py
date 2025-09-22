@@ -27,7 +27,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1043, 635)
+        MainWindow.resize(1043, 662)
         font = QFont()
         font.setPointSize(10)
         MainWindow.setFont(font)
@@ -473,6 +473,11 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_12.addWidget(self.groupBox_4)
 
+        self.downloadSRTBtn = QPushButton(self.resultsPage)
+        self.downloadSRTBtn.setObjectName(u"downloadSRTBtn")
+
+        self.verticalLayout_12.addWidget(self.downloadSRTBtn, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignBottom)
+
         self.stackedMainPages.addWidget(self.resultsPage)
 
         self.verticalLayout_6.addWidget(self.stackedMainPages)
@@ -681,6 +686,7 @@ class Ui_MainWindow(object):
         self.showSpeakers.setText(QCoreApplication.translate("MainWindow", u"Speakers", None))
         self.groupBox_4.setTitle(QCoreApplication.translate("MainWindow", u"Transcription result", None))
         self.transcriptionTextArea.setPlaceholderText(QCoreApplication.translate("MainWindow", u"No results yet...", None))
+        self.downloadSRTBtn.setText(QCoreApplication.translate("MainWindow", u"Download SRT", None))
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"History", None))
 #if QT_CONFIG(tooltip)
         self.rightMenuBtn.setToolTip(QCoreApplication.translate("MainWindow", u"Close menu", None))
