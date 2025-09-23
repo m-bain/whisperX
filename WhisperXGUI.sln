@@ -1,0 +1,19 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WhisperXGUI", "WhisperXGUI\WhisperXGUI.csproj", "{5E12A4C6-3E3B-4D69-96E7-0941E4FF1E3A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5E12A4C6-3E3B-4D69-96E7-0941E4FF1E3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E12A4C6-3E3B-4D69-96E7-0941E4FF1E3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E12A4C6-3E3B-4D69-96E7-0941E4FF1E3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E12A4C6-3E3B-4D69-96E7-0941E4FF1E3A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
