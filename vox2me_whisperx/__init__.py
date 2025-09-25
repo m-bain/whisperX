@@ -2,7 +2,7 @@ import importlib
 
 
 def _lazy_import(name):
-    module = importlib.import_module(f"whisperx.{name}")
+    module = importlib.import_module(f"vox2me_whisperx.{name}")
     return module
 
 
