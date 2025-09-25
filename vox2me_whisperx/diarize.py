@@ -1,19 +1,19 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 import torch
 
-from whisperx.audio import load_audio, SAMPLE_RATE
-from whisperx.types import TranscriptionResult, AlignedTranscriptionResult
+from .audio import load_audio, SAMPLE_RATE
+from .types import TranscriptionResult, AlignedTranscriptionResult
 
 
 class DiarizationPipeline:
     def __init__(
-        self,
-        model_name=None,
-        use_auth_token=None,
-        device: Optional[Union[str, torch.device]] = "cpu",
+            self,
+            model_name=None,
+            use_auth_token=None,
+            device: Optional[Union[str, torch.device]] = "cpu",
     ):
         if isinstance(device, str):
             device = torch.device(device)
@@ -26,6 +26,8 @@ class DiarizationPipeline:
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
+        print_progress: bool = False,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
         return_embeddings: bool = False,
     ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
@@ -51,6 +53,21 @@ class DiarizationPipeline:
             'sample_rate': SAMPLE_RATE
         }
 
+        def progress_hook(step_name, step_artifact, file=None, total=None, completed=None):
+            if step_name != 'embeddings':
+                return
+
+            if completed is None:
+                completed = total = 1
+
+            percent = (completed / total) * 100
+
+            if print_progress:
+                print(f"Performing diarization {step_name}...")
+                print(f"Progress: {percent:.2f}%...")
+            if progress_callback:
+                progress_callback(percent, 'diarization')
+
         if return_embeddings:
             diarization, embeddings = self.model(
                 audio_data,
@@ -58,6 +75,7 @@ class DiarizationPipeline:
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
                 return_embeddings=True,
+                hook=progress_hook
             )
         else:
             diarization = self.model(
@@ -65,6 +83,7 @@ class DiarizationPipeline:
                 num_speakers=num_speakers,
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
+                hook=progress_hook
             )
             embeddings = None
 
@@ -75,7 +94,7 @@ class DiarizationPipeline:
         if return_embeddings and embeddings is not None:
             speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
             return diarize_df, speaker_embeddings
-        
+
         # For backwards compatibility
         if return_embeddings:
             return diarize_df, None
@@ -84,10 +103,10 @@ class DiarizationPipeline:
 
 
 def assign_word_speakers(
-    diarize_df: pd.DataFrame,
-    transcript_result: Union[AlignedTranscriptionResult, TranscriptionResult],
-    speaker_embeddings: Optional[dict[str, list[float]]] = None,
-    fill_nearest: bool = False,
+        diarize_df: pd.DataFrame,
+        transcript_result: Union[AlignedTranscriptionResult, TranscriptionResult],
+        speaker_embeddings: Optional[dict[str, list[float]]] = None,
+        fill_nearest: bool = False,
 ) -> Union[AlignedTranscriptionResult, TranscriptionResult]:
     """
     Assign speakers to words and segments in the transcript.
@@ -104,7 +123,8 @@ def assign_word_speakers(
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
-        diarize_df['intersection'] = np.minimum(diarize_df['end'], seg['end']) - np.maximum(diarize_df['start'], seg['start'])
+        diarize_df['intersection'] = np.minimum(diarize_df['end'], seg['end']) - np.maximum(diarize_df['start'],
+                                                                                            seg['start'])
         diarize_df['union'] = np.maximum(diarize_df['end'], seg['end']) - np.minimum(diarize_df['start'], seg['start'])
         # remove no hit, otherwise we look for closest (even negative intersection...)
         if not fill_nearest:
@@ -115,13 +135,15 @@ def assign_word_speakers(
             # sum over speakers
             speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
             seg["speaker"] = speaker
-        
+
         # assign speaker to words
         if 'words' in seg:
             for word in seg['words']:
                 if 'start' in word:
-                    diarize_df['intersection'] = np.minimum(diarize_df['end'], word['end']) - np.maximum(diarize_df['start'], word['start'])
-                    diarize_df['union'] = np.maximum(diarize_df['end'], word['end']) - np.minimum(diarize_df['start'], word['start'])
+                    diarize_df['intersection'] = np.minimum(diarize_df['end'], word['end']) - np.maximum(
+                        diarize_df['start'], word['start'])
+                    diarize_df['union'] = np.maximum(diarize_df['end'], word['end']) - np.minimum(diarize_df['start'],
+                                                                                                  word['start'])
                     # remove no hit
                     if not fill_nearest:
                         dia_tmp = diarize_df[diarize_df['intersection'] > 0]
@@ -140,7 +162,7 @@ def assign_word_speakers(
 
 
 class Segment:
-    def __init__(self, start:int, end:int, speaker:Optional[str]=None):
+    def __init__(self, start: int, end: int, speaker: Optional[str] = None):
         self.start = start
         self.end = end
         self.speaker = speaker

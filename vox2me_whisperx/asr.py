@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from dataclasses import replace
 
 import ctranslate2
@@ -190,13 +190,14 @@ class FasterWhisperPipeline(Pipeline):
         self,
         audio: Union[str, np.ndarray],
         batch_size: Optional[int] = None,
-        num_workers=0,
+        num_workers: int = 0,
         language: Optional[str] = None,
         task: Optional[str] = None,
-        chunk_size=30,
-        print_progress=False,
-        combined_progress=False,
-        verbose=False,
+        chunk_size: int = 30,
+        print_progress: bool = False,
+        combined_progress: bool = False,
+        verbose: bool= False,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -256,10 +257,12 @@ class FasterWhisperPipeline(Pipeline):
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
+            base_progress = ((idx + 1) / total_segments) * 100
+            percent_complete = base_progress / 2 if combined_progress else base_progress
             if print_progress:
-                base_progress = ((idx + 1) / total_segments) * 100
-                percent_complete = base_progress / 2 if combined_progress else base_progress
                 print(f"Progress: {percent_complete:.2f}%...")
+            if progress_callback:
+                progress_callback(percent_complete, 'transcribe')
             text = out['text']
             if batch_size in [0, 1, None]:
                 text = text[0]
