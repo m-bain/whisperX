@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from whisperx.utils import exact_div
+from vox2me_whisperx.utils import exact_div
 
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000

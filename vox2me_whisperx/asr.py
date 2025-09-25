@@ -11,9 +11,9 @@ from faster_whisper.transcribe import TranscriptionOptions, get_ctranslate2_stor
 from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
-from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
-from whisperx.types import SingleSegment, TranscriptionResult
-from whisperx.vads import Vad, Silero, Pyannote
+from vox2me_whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
+from vox2me_whisperx.types import SingleSegment, TranscriptionResult
+from vox2me_whisperx.vads import Vad, Silero, Pyannote
 
 
 def find_numeral_symbol_tokens(tokenizer):

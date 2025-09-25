@@ -4,7 +4,7 @@ import platform
 
 import torch
 
-from whisperx.utils import (LANGUAGES, TO_LANGUAGE_CODE, optional_float,
+from vox2me_whisperx.utils import (LANGUAGES, TO_LANGUAGE_CODE, optional_float,
                             optional_int, str2bool)
 
 
@@ -80,7 +80,7 @@ def cli():
 
     args = parser.parse_args().__dict__
 
-    from whisperx.transcribe import transcribe_task
+    from vox2me_whisperx.transcribe import transcribe_task
 
     transcribe_task(args, parser)
 

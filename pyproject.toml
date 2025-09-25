@@ -1,8 +1,8 @@
 [project]
-urls = { repository = "https://github.com/m-bain/whisperx" }
+urls = { repository = "https://github.com/vox2me/whisperX" }
 authors = [{ name = "Max Bain" }]
-name = "whisperx"
-version = "3.4.2"
+name = "vox2me_whisperx"
+version = "1.1.0"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
@@ -23,7 +23,7 @@ dependencies = [
 
 
 [project.scripts]
-whisperx = "whisperx.__main__:cli"
+vox2me_whisperx = "vox2me_whisperx.transcribe:cli"
 
 [build-system]
 requires = ["setuptools"]
@@ -33,4 +33,4 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["whisperx*"]
+include = ["vox2me_whisperx*"]

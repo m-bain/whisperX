@@ -6,12 +6,12 @@ import warnings
 import numpy as np
 import torch
 
-from whisperx.alignment import align, load_align_model
-from whisperx.asr import load_model
-from whisperx.audio import load_audio
-from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
-from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
+from vox2me_whisperx.alignment import align, load_align_model
+from vox2me_whisperx.asr import load_model
+from vox2me_whisperx.audio import load_audio
+from vox2me_whisperx.diarize import DiarizationPipeline, assign_word_speakers
+from vox2me_whisperx.types import AlignedTranscriptionResult, TranscriptionResult
+from vox2me_whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
 
 
 def transcribe_task(args: dict, parser: argparse.ArgumentParser):

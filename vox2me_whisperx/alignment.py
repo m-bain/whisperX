@@ -13,9 +13,9 @@ import torch
 import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
-from whisperx.audio import SAMPLE_RATE, load_audio
-from whisperx.utils import interpolate_nans
-from whisperx.types import (
+from vox2me_whisperx.audio import SAMPLE_RATE, load_audio
+from vox2me_whisperx.utils import interpolate_nans
+from vox2me_whisperx.types import (
     AlignedTranscriptionResult,
     SingleSegment,
     SingleAlignedSegment,
