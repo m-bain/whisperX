@@ -1,61 +1,194 @@
 <Window x:Class="WhisperXGUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="WhisperX Subtitle Generator" Height="540" Width="780" MinWidth="720" MinHeight="480">
+        Title="WhisperX Subtitle Generator - Enhanced" Height="650" Width="900" MinWidth="800" MinHeight="600">
+    <Window.Resources>
+        <!-- Enhanced styles for better visual appearance -->
+        <Style x:Key="ModernGroupBox" TargetType="GroupBox">
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="BorderBrush" Value="#DEE2E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style x:Key="InfoTextBlock" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#495057"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
+        
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="#007BFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#0056B3"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="4,0"/>
+        </Style>
+        
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+    </Window.Resources>
+    
     <Grid Margin="12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="Media File:" VerticalAlignment="Center"/>
-            <TextBox Width="430" Text="{Binding InputFile, UpdateSourceTrigger=PropertyChanged}" Margin="8,0,0,0"/>
-            <Button Content="Browse..." Width="90" Click="BrowseFile_Click" Margin="8,0,0,0"/>
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
-            <TextBlock Text="Output Folder:" VerticalAlignment="Center"/>
-            <TextBox Width="430" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" Margin="8,0,0,0"/>
-            <Button Content="Browse..." Width="90" Click="BrowseOutput_Click" Margin="8,0,0,0"/>
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="2">
-            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                <TextBlock Text="Model:" VerticalAlignment="Center"/>
-                <ComboBox Width="120" SelectedItem="{Binding SelectedModel}" ItemsSource="{Binding Models}" Margin="4,0,0,0"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                <TextBlock Text="Format:" VerticalAlignment="Center"/>
-                <ComboBox Width="90" SelectedItem="{Binding SelectedFormat}" ItemsSource="{Binding Formats}" Margin="4,0,0,0"/>
-            </StackPanel>
-            <CheckBox Content="Diarize" IsChecked="{Binding Diarize}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                <TextBlock Text="Language:" VerticalAlignment="Center"/>
-                <TextBox Width="70" Text="{Binding LanguageOverride}" Margin="4,0,0,0"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                <TextBlock Text="Device:" VerticalAlignment="Center"/>
-                <ComboBox Width="80" SelectedItem="{Binding SelectedDevice}" ItemsSource="{Binding Devices}" Margin="4,0,0,0"/>
-            </StackPanel>
-            <Button Content="Run" Width="80" Click="Run_Click" IsEnabled="{Binding CanRun}"/>
-            <Button Content="Cancel" Width="80" Click="Cancel_Click" IsEnabled="{Binding IsRunning}" Margin="8,0,0,0"/>
-        </StackPanel>
-
-        <GroupBox Header="Log" Grid.Row="3" Margin="0,0,0,8">
+        
+        <!-- File Input Section -->
+        <GroupBox Header="📁 File Selection" Style="{StaticResource ModernGroupBox}" Grid.Row="0">
             <Grid>
-                <TextBox Text="{Binding LogText}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Media File:" VerticalAlignment="Center" Width="90"/>
+                    <TextBox Width="500" Text="{Binding InputFile, UpdateSourceTrigger=PropertyChanged}" Margin="8,0,0,0"/>
+                    <Button Content="Browse..." Width="90" Click="BrowseFile_Click" Margin="8,0,0,0" Style="{StaticResource ActionButton}"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
+                    <TextBlock Text="Output Folder:" VerticalAlignment="Center" Width="90"/>
+                    <TextBox Width="500" Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" Margin="8,0,0,0"/>
+                    <Button Content="Browse..." Width="90" Click="BrowseOutput_Click" Margin="8,0,0,0" Style="{StaticResource ActionButton}"/>
+                </StackPanel>
+                
+                <!-- File Information Panel -->
+                <StackPanel Grid.Row="2" Visibility="{Binding HasFileInfo, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding FileInfoText}" Style="{StaticResource InfoTextBlock}"/>
+                    <TextBlock Text="{Binding ProcessingEstimate}" Style="{StaticResource InfoTextBlock}"/>
+                </StackPanel>
             </Grid>
         </GroupBox>
 
-        <StatusBar Grid.Row="4">
+        <!-- Configuration Section -->
+        <GroupBox Header="⚙️ Processing Configuration" Style="{StaticResource ModernGroupBox}" Grid.Row="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                        <TextBlock Text="Model:" VerticalAlignment="Center" Width="50"/>
+                        <ComboBox Width="120" SelectedItem="{Binding SelectedModel}" ItemsSource="{Binding Models}" Margin="4,0,0,0" SelectionChanged="Model_SelectionChanged"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                        <TextBlock Text="Format:" VerticalAlignment="Center" Width="50"/>
+                        <ComboBox Width="90" SelectedItem="{Binding SelectedFormat}" ItemsSource="{Binding Formats}" Margin="4,0,0,0"/>
+                    </StackPanel>
+                    <CheckBox Content="Diarize" IsChecked="{Binding Diarize}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                        <TextBlock Text="Language:" VerticalAlignment="Center" Width="60"/>
+                        <TextBox Width="70" Text="{Binding LanguageOverride}" Margin="4,0,0,0" ToolTip="Leave empty for auto-detection"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                        <TextBlock Text="Device:" VerticalAlignment="Center" Width="50"/>
+                        <ComboBox Width="80" SelectedItem="{Binding SelectedDevice}" ItemsSource="{Binding Devices}" Margin="4,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <!-- Model and Hardware Information -->
+                <StackPanel Grid.Row="1">
+                    <TextBlock Text="{Binding ModelInfo}" Style="{StaticResource InfoTextBlock}"/>
+                    <TextBlock Text="{Binding HardwareInfo}" Style="{StaticResource InfoTextBlock}"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- Processing Status Section -->
+        <GroupBox Header="📊 Processing Status" Style="{StaticResource ModernGroupBox}" Grid.Row="2" 
+                  Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock Text="Current Step:" Width="90"/>
+                    <TextBlock Text="{Binding CurrentStep}" FontWeight="Bold" Foreground="#007BFF"/>
+                    <TextBlock Text=" | Elapsed: " Margin="20,0,0,0"/>
+                    <TextBlock Text="{Binding ElapsedTime}" FontWeight="Bold"/>
+                    <TextBlock Text=" | Estimated: " Margin="20,0,0,0"/>
+                    <TextBlock Text="{Binding EstimatedTimeRemaining}" FontWeight="Bold"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Row="1">
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                        <TextBlock Text="{Binding ProgressText}" Width="200"/>
+                        <ProgressBar Width="300" Height="20" 
+                                     Value="{Binding ProgressValue}" 
+                                     Maximum="100"
+                                     IsIndeterminate="{Binding IsIndeterminate}"
+                                     Margin="8,0"/>
+                        <TextBlock Text="{Binding ProgressPercent}" FontWeight="Bold" Width="50"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- Action Buttons -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="3" Margin="0,0,0,8">
+            <Button Content="🚀 Run Processing" Width="120" Click="Run_Click" IsEnabled="{Binding CanRun}" Style="{StaticResource ActionButton}"/>
+            <Button Content="⏹️ Cancel" Width="100" Click="Cancel_Click" IsEnabled="{Binding IsRunning}" Margin="8,0,0,0" 
+                    Background="#DC3545" BorderBrush="#C82333" Foreground="White"/>
+        </StackPanel>
+
+        <!-- Enhanced Log Display -->
+        <GroupBox Header="📋 Processing Log" Style="{StaticResource ModernGroupBox}" Grid.Row="4">
+            <Grid>
+                <RichTextBox Name="LogDisplay" 
+                             IsReadOnly="True" 
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"
+                             FontSize="11"
+                             Background="#F8F9FA"
+                             Padding="8"
+                             BorderThickness="0">
+                    <FlowDocument>
+                        <Paragraph>
+                            <Run Text="WhisperX Enhanced GUI ready. Select a media file to begin." Foreground="#6C757D"/>
+                        </Paragraph>
+                    </FlowDocument>
+                </RichTextBox>
+                
+                <!-- Log Controls Overlay -->
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            VerticalAlignment="Top" 
+                            Margin="0,4,4,0"
+                            Background="White"
+                            Opacity="0.9">
+                    <Button Content="📋" Width="30" Height="24" Click="CopyLog_Click" ToolTip="Copy log to clipboard"/>
+                    <Button Content="💾" Width="30" Height="24" Click="SaveLog_Click" Margin="2,0,0,0" ToolTip="Save log to file"/>
+                    <Button Content="🗑️" Width="30" Height="24" Click="ClearLog_Click" Margin="2,0,0,0" ToolTip="Clear log"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- Enhanced Status Bar -->
+        <StatusBar Grid.Row="5" Background="#E9ECEF" Height="30">
             <StatusBarItem>
-                <TextBlock Text="{Binding Status}"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Status: "/>
+                    <TextBlock Text="{Binding Status}" FontWeight="Bold"/>
+                </StackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <ProgressBar Width="200" Height="16" IsIndeterminate="{Binding IsRunning}"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding SystemInfo}" Margin="0,0,20,0" Foreground="#6C757D"/>
+                    <TextBlock Text="Ready for processing" Foreground="#28A745"/>
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

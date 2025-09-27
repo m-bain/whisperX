@@ -177,3 +177,4 @@ WhisperXGUI/bin/*
 *.mp4
 *.wav
 output/*
+gui_output/*
