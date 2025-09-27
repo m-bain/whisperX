@@ -210,13 +210,38 @@ Manual overrides:
 | Avoid pyannote overhead | Force `--vad_method silero` |
 
 ## 🩺 Troubleshooting
+
+### Common Windows Issues
 | Symptom | Meaning | Fix |
 |---------|---------|-----|
+| `uv: command not found` | winget PATH not updated | Restart PowerShell or run `refreshenv` |
+| `ffmpeg not found in PATH` | FFmpeg not installed/accessible | Restart PowerShell after winget install |
+| `ModuleNotFoundError: torch` | Wrong Python interpreter | Use `.\.venv\Scripts\python.exe -m whisperx` |
+| `Video file detected but ffmpeg not available` | FFmpeg installation issue | `winget install -e --id Gyan.FFmpeg --scope machine` |
+| Long download pause | Model downloading (1-5GB) | Be patient, models cache for future use |
 | `Could not locate cudnn_ops_infer64_8.dll` | cuDNN not installed | `uv pip install nvidia-cudnn-cu12` |
 | Float16 error on CPU | No GPU path | Script auto-adds `float32` – or add manually |
 | Pyannote version mismatch spam | Legacy model metadata | Add `--vad_method silero` |
-| Slow start time | First-time model/VAD download | Re-run; cached afterwards |
-| `torch` CUDA errors | Driver / toolkit mismatch | Reinstall torch with correct CUDA wheel |
+| Permission denied errors | Antivirus blocking | Add project folder to antivirus exclusions |
+
+### Quick Fixes
+```powershell
+# Refresh PATH environment 
+$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+
+# Force reliable CPU mode
+.\run_whisperx.ps1 video.mp4 --device cpu --compute_type float32 --vad_method silero
+
+# Clean reinstall if issues persist
+Remove-Item -Recurse -Force .venv
+uv venv && uv pip install -e .
+```
+
+### Getting Help
+1. **Check Setup**: Run `.\setup_whisperx.ps1` to verify installation
+2. **Read Guide**: See `WINDOWS_SETUP_GUIDE.md` for detailed troubleshooting  
+3. **Test Components**: Verify `python`, `ffmpeg`, `dotnet`, `uv` individually
+4. **Use CPU Mode**: Add `--device cpu` for maximum compatibility
 
 Manual cuDNN install:
 ```pwsh
@@ -235,6 +260,14 @@ Force CPU for stability:
 - [ ] Inline translation mode (`--translate en`)
 - [ ] Live microphone capture mode
 - [ ] GPU multi-device sharding
+
+## 📚 Documentation
+
+- **`README.md`** - This file with overview and quick start
+- **`WINDOWS_SETUP_GUIDE.md`** - Detailed Windows setup and troubleshooting  
+- **`AGENTS.md`** - Development guidelines for contributors
+- **`setup_whisperx.ps1`** - Automated setup script for Windows
+- **`EXAMPLES.md`** - Usage examples and advanced scenarios
 
 ## 🤝 Contributing
 PRs welcome—keep commits focused; include before/after notes for performance-affecting changes.  
