@@ -22,7 +22,9 @@ class DiarizationPipeline:
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-3.1"
         logger.info(f"Loading diarization model: {model_config}")
-        self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
+        self.model = Pipeline.from_pretrained(
+            model_config, token=use_auth_token
+        ).to(device)
 
     def __call__(
         self,
@@ -51,35 +53,34 @@ class DiarizationPipeline:
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio_data = {
-            'waveform': torch.from_numpy(audio[None, :]),
-            'sample_rate': SAMPLE_RATE
+            "waveform": torch.from_numpy(audio[None, :]),
+            "sample_rate": SAMPLE_RATE,
         }
 
-        if return_embeddings:
-            diarization, embeddings = self.model(
-                audio_data,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-                return_embeddings=True,
-            )
-        else:
-            diarization = self.model(
-                audio_data,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-            )
-            embeddings = None
+        output = self.model(
+            audio_data,
+            num_speakers=num_speakers,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
 
-        diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
-        diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
-        diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
+        diarization = output.speaker_diarization
+        embeddings = output.speaker_embeddings
+
+        diarize_df = pd.DataFrame(
+            diarization.itertracks(yield_label=True),
+            columns=["segment", "label", "speaker"],
+        )
+        diarize_df["start"] = diarize_df["segment"].apply(lambda x: x.start)
+        diarize_df["end"] = diarize_df["segment"].apply(lambda x: x.end)
 
         if return_embeddings and embeddings is not None:
-            speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
+            speaker_embeddings = {
+                speaker: embeddings[s].tolist()
+                for s, speaker in enumerate(diarization.labels())
+            }
             return diarize_df, speaker_embeddings
-        
+
         # For backwards compatibility
         if return_embeddings:
             return diarize_df, None
@@ -108,32 +109,50 @@ def assign_word_speakers(
     transcript_segments = transcript_result["segments"]
     for seg in transcript_segments:
         # assign speaker to segment (if any)
-        diarize_df['intersection'] = np.minimum(diarize_df['end'], seg['end']) - np.maximum(diarize_df['start'], seg['start'])
-        diarize_df['union'] = np.maximum(diarize_df['end'], seg['end']) - np.minimum(diarize_df['start'], seg['start'])
+        diarize_df["intersection"] = np.minimum(
+            diarize_df["end"], seg["end"]
+        ) - np.maximum(diarize_df["start"], seg["start"])
+        diarize_df["union"] = np.maximum(diarize_df["end"], seg["end"]) - np.minimum(
+            diarize_df["start"], seg["start"]
+        )
         # remove no hit, otherwise we look for closest (even negative intersection...)
         if not fill_nearest:
-            dia_tmp = diarize_df[diarize_df['intersection'] > 0]
+            dia_tmp = diarize_df[diarize_df["intersection"] > 0]
         else:
             dia_tmp = diarize_df
         if len(dia_tmp) > 0:
             # sum over speakers
-            speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
+            speaker = (
+                dia_tmp.groupby("speaker")["intersection"]
+                .sum()
+                .sort_values(ascending=False)
+                .index[0]
+            )
             seg["speaker"] = speaker
-        
+
         # assign speaker to words
-        if 'words' in seg:
-            for word in seg['words']:
-                if 'start' in word:
-                    diarize_df['intersection'] = np.minimum(diarize_df['end'], word['end']) - np.maximum(diarize_df['start'], word['start'])
-                    diarize_df['union'] = np.maximum(diarize_df['end'], word['end']) - np.minimum(diarize_df['start'], word['start'])
+        if "words" in seg:
+            for word in seg["words"]:
+                if "start" in word:
+                    diarize_df["intersection"] = np.minimum(
+                        diarize_df["end"], word["end"]
+                    ) - np.maximum(diarize_df["start"], word["start"])
+                    diarize_df["union"] = np.maximum(
+                        diarize_df["end"], word["end"]
+                    ) - np.minimum(diarize_df["start"], word["start"])
                     # remove no hit
                     if not fill_nearest:
-                        dia_tmp = diarize_df[diarize_df['intersection'] > 0]
+                        dia_tmp = diarize_df[diarize_df["intersection"] > 0]
                     else:
                         dia_tmp = diarize_df
                     if len(dia_tmp) > 0:
                         # sum over speakers
-                        speaker = dia_tmp.groupby("speaker")["intersection"].sum().sort_values(ascending=False).index[0]
+                        speaker = (
+                            dia_tmp.groupby("speaker")["intersection"]
+                            .sum()
+                            .sort_values(ascending=False)
+                            .index[0]
+                        )
                         word["speaker"] = speaker
 
     # Add speaker embeddings to the result if provided
@@ -144,7 +163,7 @@ def assign_word_speakers(
 
 
 class Segment:
-    def __init__(self, start:int, end:int, speaker:Optional[str]=None):
+    def __init__(self, start: int, end: int, speaker: Optional[str] = None):
         self.start = start
         self.end = end
         self.speaker = speaker
