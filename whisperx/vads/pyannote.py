@@ -40,7 +40,7 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
 
     model_bytes = open(model_fp, "rb").read()
 
-    vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
+    vad_model = Model.from_pretrained(model_fp, token=use_auth_token)
     hyperparameters = {"onset": vad_onset,
                     "offset": vad_offset,
                     "min_duration_on": 0.1,
@@ -196,7 +196,7 @@ class VoiceActivitySegmentation(VoiceActivityDetection):
             **inference_kwargs,
     ):
 
-        super().__init__(segmentation=segmentation, fscore=fscore, use_auth_token=use_auth_token, **inference_kwargs)
+        super().__init__(segmentation=segmentation, fscore=fscore, token=use_auth_token, **inference_kwargs)
 
     def apply(self, file: AudioFile, hook: Optional[Callable] = None) -> Annotation:
         """Apply voice activity detection

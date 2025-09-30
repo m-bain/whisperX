@@ -13,13 +13,15 @@ dependencies = [
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
     "numpy>=2.1.0",
+    "omegaconf>=2.3.0",
+    "onnxruntime>=1.19,<1.24",
     "pandas>=2.2.3",
-    "pyannote-audio>=3.3.2,<4.0.0",
-    "huggingface-hub<1.0.0",
+    "av<16.0.0",
+    "pyannote-audio>=4.0.3",
     "torch~=2.8.0",
     "torchaudio~=2.8.0",
     "transformers>=4.48.0",
-    "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'" # only install triton on x86_64 Linux
+    "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'", # only install triton on x86_64 Linux
 ]
 
 
@@ -47,9 +49,7 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
   { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin'" },
 ]
-triton = [
-  { index = "pytorch", marker = "sys_platform == 'linux'" },
-]
+triton = [{ index = "pytorch", marker = "sys_platform == 'linux'" }]
 
 [[tool.uv.index]]
 name = "pytorch"
