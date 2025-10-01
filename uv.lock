@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -2788,7 +2788,7 @@ wheels = [
 
 [[package]]
 name = "whisperx"
-version = "3.4.2"
+version = "3.4.3"
 source = { editable = "." }
 dependencies = [
     { name = "ctranslate2" },
@@ -2812,7 +2812,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "onnxruntime", specifier = ">=1.19" },
     { name = "pandas", specifier = ">=2.2.3" },
-    { name = "pyannote-audio", specifier = ">=3.3.2" },
+    { name = "pyannote-audio", specifier = ">=3.3.2,<4.0.0" },
     { name = "torch", specifier = ">=2.5.1" },
     { name = "torchaudio", specifier = ">=2.5.1" },
     { name = "transformers", specifier = ">=4.48.0" },
