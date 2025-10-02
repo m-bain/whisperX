@@ -22,9 +22,8 @@ from whisperx.types import (
     SingleWordSegment,
     SegmentData,
 )
-from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
-
-PUNKT_ABBREVIATIONS = ['dr', 'vs', 'mr', 'mrs', 'prof', 'jr', 'sr', 'ph.d']
+import nltk
+from nltk.data import load as nltk_load
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -188,9 +187,11 @@ def align(
                 clean_wdx.append(wdx)
 
 
-        punkt_param = PunktParameters()
-        punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
-        sentence_splitter = PunktSentenceTokenizer(punkt_param)
+        try:
+            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
+        except LookupError:
+            nltk.download('punkt_tab', quiet=True)
+            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
         sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment_data[sdx] = {
