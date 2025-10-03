@@ -9,6 +9,9 @@ import torch.nn.functional as F
 
 from whisperx.utils import exact_div
 
+import gc;
+import tempfile;
+
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
 N_FFT = 400
@@ -22,7 +25,7 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
+def load_audio_ram(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -62,7 +65,107 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    # doing this is parts, instead of as a "one-liner" allows us to free the memory
+    # used by {out}, which can be quite a lot in case of very long audio files.
+    # This should help minimize crashes caused by running out of RAM. 
+    # Another alternative would be using temporary files and/or check if the audio
+    # file is already in the required format and load it directly with np.fromfile()
+    r = np.frombuffer(out, np.int16);
+    del out;
+    gc.collect();
+
+    r = r.flatten();
+    r = r.astype(np.float32) / 32768.0
+    
+    return r;
+
+def load_audio_tmpfile(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
+    """
+    Open an audio file and read as mono waveform, resampling as necessary
+
+    Parameters
+    ----------
+    file: str
+        The audio file to open
+
+    sr: int
+        The sample rate to resample the audio if necessary
+
+    Returns
+    -------
+    A NumPy array containing the audio waveform, in float32 dtype.
+    """
+    resampledAudioFilePath = '';
+    import tempfile;
+    with tempfile.TemporaryDirectory() as tmpdir:
+        resampledAudioFilePath = os.path.join(tmpdir, 'resampledAudio');
+        try:    
+                # Launches a subprocess to decode audio while down-mixing and resampling as necessary.
+                # Requires the ffmpeg CLI to be installed.
+                cmd = [
+                    "ffmpeg",
+                    "-nostdin",
+                    "-threads",
+                    "0",
+                    "-i",
+                    file,
+                    "-f",
+                    "s16le",
+                    "-ac",
+                    "1",
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ar",
+                    str(sr),
+                    resampledAudioFilePath,
+                ]
+                out = subprocess.run(cmd, capture_output=True, check=True).stdout
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+    
+        # doing this is parts, instead of as a "one-liner" allows us to free the memory
+        # used by {out}, which can be quite a lot in case of very long audio files.
+        # This should help minimize crashes caused by running out of RAM. 
+        # Another alternative would be using temporary files and/or check if the audio
+        # file is already in the required format and load it directly with np.fromfile()
+        r = np.fromfile(resampledAudioFilePath, np.int16);    
+
+    r = r.flatten();
+    r = r.astype(np.float32) / 32768.0
+    
+    return r;
+
+def load_audio(file: str, sr: int = SAMPLE_RATE, useTmpFile=False) -> np.ndarray:
+    """
+    Open an audio file and read as mono waveform, resampling as necessary
+
+    Parameters
+    ----------
+    file: str
+        The audio file to open
+
+    sr: int
+        The sample rate to resample the audio if necessary
+
+    useTmpFile: bool
+        If true, resample the audio using a temporary file. 
+        Might be the only way to load very long audio files
+        without running out of RAM
+
+    Returns
+    -------
+    A NumPy array containing the audio waveform, in float32 dtype.
+    """    
+    #try:
+    #    return load_audio_ram(file, sr);
+    #except:
+    #    print('call to load_audio_ram() failed. Trying again, this time using temporary files');
+    #    return load_audio_tmpfile(file, sr);
+    # unfortunately the above does not work, so we will rely on the user
+    if(useTmpFile):
+        return load_audio_tmpfile(file, sr);
+    else:
+        return load_audio_ram(file, sr);
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
