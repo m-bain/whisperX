@@ -56,6 +56,7 @@ class TranscriptionManager(QObject):
 
             # If models need loading, start with model loader
             if self._models_need_loading(config):
+                self._cleanup_models()
                 self._start_model_loading(config)
             else:
                 # Use existing models for transcription
@@ -77,9 +78,64 @@ class TranscriptionManager(QObject):
         if not self.loaded_models:
             return True
 
-        # Check if configuration requires different models
-        # This is simplified - in practice you'd compare model parameters
+        # Check if ASR model parameters changed
+        if 'asr' in self.loaded_models:
+            current_asr = self.loaded_models['asr']
+
+            # Check core model parameters
+            if (hasattr(current_asr, 'model') and
+                    hasattr(current_asr.model, 'model_path')):
+                # Extract current model name from path
+                current_model = current_asr.model.model_path.split('/')[-1]
+                if current_model != config.model_name:
+                    print(f"Model changed: {current_model} -> {config.model_name}")
+                    return True
+
+            # Check if language changed (most important for your issue)
+            if hasattr(current_asr, 'preset_language'):
+                if current_asr.preset_language != config.language:
+                    print(f"Language changed: {current_asr.preset_language} -> {config.language}")
+                    return True
+
+            # Check device changes
+            if hasattr(current_asr, 'device'):
+                current_device = str(current_asr.device)
+                config_device = config.device
+                if current_device != config_device:
+                    print(f"Device changed: {current_device} -> {config_device}")
+                    return True
+
+        # Check if alignment model language changed
+        if 'alignment' in self.loaded_models and config.enable_alignment:
+            current_align_lang = self.loaded_models['alignment']['metadata'].get('language', 'en')
+            target_lang = config.language or 'en'
+            if current_align_lang != target_lang:
+                print(f"Alignment language changed: {current_align_lang} -> {target_lang}")
+                return True
+
+        # If diarization setting changed
+        if config.enable_diarization and 'diarization' not in self.loaded_models:
+            return True
+        elif not config.enable_diarization and 'diarization' in self.loaded_models:
+            return True
+
         return False
+
+    def _store_model_config(self, config: TranscriptionConfig) -> None:
+        """Store the configuration used to load current models."""
+        self._current_model_config = {
+            'model_name': config.model_name,
+            'language': config.language,
+            'device': config.device,
+            'device_index': config.device_index,
+            'compute_type': config.compute_type,
+            'enable_alignment': config.enable_alignment,
+            'enable_diarization': config.enable_diarization
+        }
+
+    def _get_stored_model_config(self) -> dict:
+        """Get the stored model configuration."""
+        return getattr(self, '_current_model_config', {})
 
     def _start_model_loading(self, config: TranscriptionConfig) -> None:
         """Start model loading worker."""
@@ -146,9 +202,33 @@ class TranscriptionManager(QObject):
             self._is_running = False
             self.error_occurred.emit(str(e))
 
+    def _cleanup_models(self) -> None:
+        """Clean up loaded models to force reload."""
+        if self.loaded_models:
+            print("Cleaning up cached models...")
+            # Cleanup GPU memory if using CUDA
+            if 'asr' in self.loaded_models:
+                del self.loaded_models['asr']
+            if 'alignment' in self.loaded_models:
+                del self.loaded_models['alignment']
+            if 'diarization' in self.loaded_models:
+                del self.loaded_models['diarization']
+
+            self.loaded_models = None
+
+            # Force garbage collection
+            import gc
+            import torch
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
     def _on_models_loaded(self, models: Dict[str, Any]) -> None:
         """Handle successful model loading."""
         self.loaded_models = models
+        # Store the config used for these models
+        current_config = self.app_config.get_current_config()
+        self._store_model_config(current_config)
         self.models_loaded.emit()
 
     def _on_model_loading_finished(self, config: TranscriptionConfig) -> None:

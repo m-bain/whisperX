@@ -177,16 +177,36 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "No Data", "No transcription segments available.")
                 return
 
-            # Detect language from transcription result
-            language = self.transcriptionResult.get('transcription', {}).get('language', 'en')
-            if not language:
-                # Try other possible locations for language
-                language = (self.transcriptionResult.get('aligned_transcription', {}).get('language') or
-                            self.transcriptionResult.get('segments_with_speakers', {}).get('language') or 'en')
+            # Write SRT file directly
+            from whisperx.utils import format_timestamp
 
-            # Create SubtitlesProcessor and generate SRT
-            processor = SubtitlesProcessor(segments, language, is_vtt=False)
-            subtitle_count = processor.save(file_path, advanced_splitting=True)
+            subtitle_count = 0
+            with open(file_path, 'w', encoding='utf-8') as f:
+                for idx, segment in enumerate(segments, start=1):
+                    # Get segment data
+                    start_time = segment.get('start', 0)
+                    end_time = segment.get('end', 0)
+                    text = segment.get('text', '').strip()
+
+                    # Skip empty segments
+                    if not text:
+                        continue
+
+                    # Format timestamps in SRT format (HH:MM:SS,mmm)
+                    start_srt = format_timestamp(start_time, always_include_hours=True, decimal_marker=',')
+                    end_srt = format_timestamp(end_time, always_include_hours=True, decimal_marker=',')
+
+                    # Add speaker if available
+                    speaker = segment.get('speaker')
+                    if speaker:
+                        text = f"[{speaker}]: {text}"
+
+                    # Write SRT entry
+                    f.write(f"{subtitle_count + 1}\n")
+                    f.write(f"{start_srt} --> {end_srt}\n")
+                    f.write(f"{text}\n\n")
+
+                    subtitle_count += 1
 
             QMessageBox.information(
                 self,
@@ -196,6 +216,59 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save SRT file:\n{str(e)}")
+
+    # def downloadSRTFile(self):
+    #     """Generate and download an SRT file containing the final transcription."""
+    #     if not hasattr(self, 'transcriptionResult') or not self.transcriptionResult:
+    #         QMessageBox.warning(self, "No Transcription", "No transcription data available to download.")
+    #         return
+    #
+    #     try:
+    #         # Get save location from user
+    #         suggested_filename = "transcription.srt"
+    #         if hasattr(self, 'lastAudioFile') and self.lastAudioFile:
+    #             base_name = os.path.splitext(os.path.basename(self.lastAudioFile))[0]
+    #             suggested_filename = f"{base_name}_transcription.srt"
+    #
+    #         file_path, _ = QFileDialog.getSaveFileName(
+    #             self,
+    #             "Save SRT File",
+    #             suggested_filename,
+    #             "SRT Files (*.srt);;All Files (*)"
+    #         )
+    #
+    #         if not file_path:
+    #             return  # User cancelled
+    #
+    #         # Ensure .srt extension
+    #         if not file_path.lower().endswith('.srt'):
+    #             file_path += '.srt'
+    #
+    #         # Get the segments from transcription result
+    #         segments = self._getTranscriptionSegments()
+    #         if not segments:
+    #             QMessageBox.warning(self, "No Data", "No transcription segments available.")
+    #             return
+    #
+    #         # Detect language from transcription result
+    #         language = self.transcriptionResult.get('transcription', {}).get('language', 'en')
+    #         if not language:
+    #             # Try other possible locations for language
+    #             language = (self.transcriptionResult.get('aligned_transcription', {}).get('language') or
+    #                         self.transcriptionResult.get('segments_with_speakers', {}).get('language') or 'en')
+    #
+    #         # Create SubtitlesProcessor and generate SRT
+    #         processor = SubtitlesProcessor(segments, language, is_vtt=False)
+    #         subtitle_count = processor.save(file_path, advanced_splitting=False)
+    #
+    #         QMessageBox.information(
+    #             self,
+    #             "SRT Downloaded",
+    #             f"SRT file saved successfully!\nLocation: {file_path}\nSubtitles: {subtitle_count}"
+    #         )
+    #
+    #     except Exception as e:
+    #         QMessageBox.critical(self, "Error", f"Failed to save SRT file:\n{str(e)}")
 
     def _getTranscriptionSegments(self):
         """Extract segments from transcription result for SRT generation."""
