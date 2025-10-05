@@ -178,10 +178,6 @@ wheels = [
 name = "av"
 version = "15.1.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.10' and sys_platform == 'darwin'",
-    "python_full_version < '3.10' and sys_platform != 'darwin'",
-]
 sdist = { url = "https://files.pythonhosted.org/packages/e9/c3/83e6e73d1592bc54436eae0bc61704ae0cff0c3cfbde7b58af9ed67ebb49/av-15.1.0.tar.gz", hash = "sha256:39cda2dc810e11c1938f8cb5759c41d6b630550236b3365790e67a313660ec85", size = 3774192, upload-time = "2025-08-30T04:41:56.076Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/6a/91e3e68ae0d1b53b480ec69a96f2ae820fb007bc60e6b821741f31c7ba4e/av-15.1.0-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:cf067b66cee2248220b29df33b60eb4840d9e7b9b75545d6b922f9c41d88c4ee", size = 21781685, upload-time = "2025-08-30T04:39:13.118Z" },
@@ -212,24 +208,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/33/e0/0638db8e824297d1c6d3b3a1a3b28788d967eef9c357eee0f3f777894605/av-15.1.0-cp39-cp39-musllinux_1_2_aarch64.whl", hash = "sha256:9a0c1840959e1742dcd7fa4f7e9b80eea298049542f233e98d6d7a9441ed292c", size = 39622862, upload-time = "2025-08-30T04:41:46.722Z" },
     { url = "https://files.pythonhosted.org/packages/96/22/091a6076a80cf71c4c6f799c50ca10cbda1602b598f3f8c95f7be38aeb99/av-15.1.0-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:46875a57562a72d9b11b4b222628eaf7e5b1a723c4225c869c66d5704634c1d1", size = 40381672, upload-time = "2025-08-30T04:41:50.15Z" },
     { url = "https://files.pythonhosted.org/packages/f7/21/64bbe36d68f6908fc6cab1f4be85331bcedae6ff6eea2dc56663295efbad/av-15.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:5f895315ecfe5821a4a3a178cbbe7f62e6a73ae1f726138bef5bb153b2885ed8", size = 31353295, upload-time = "2025-08-30T04:41:53.246Z" },
-]
-
-[[package]]
-name = "av"
-version = "16.0.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.12' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.10.*' and sys_platform == 'darwin'",
-    "python_full_version >= '3.12' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
-    "python_full_version == '3.10.*' and sys_platform != 'darwin'",
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/f9/653efeec6d9430992469894c8ec60ce2bf0f1e6f9b8d748ca424bbefbe65/av-16.0.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:c69a228c95422391e527b0fe98d4ce632b4ac1045a1c16bf5a308ea23d9e5fe8", size = 27206451, upload-time = "2025-10-05T01:41:11.381Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/0a/e037de0b61a13a690ae2aea5ba21a15c7a29f41b4b04dc5bdb7748813891/av-16.0.0-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:26491d71419d967914855be05da78bf20dfb58e7f3157723056c692e33527e7d", size = 21774368, upload-time = "2025-10-05T01:41:14.171Z" },
-    { url = "https://files.pythonhosted.org/packages/34/05/9be3c2d92681b306cd13f1cea59ae6d85fcf5fe75c88d4b45cb8fcf9ec51/av-16.0.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:18c457355b8d116d613440380c38097923e1a53ce51e7d2c37a49e58a3fd7614", size = 38176247, upload-time = "2025-10-05T01:41:16.71Z" },
 ]
 
 [[package]]
@@ -640,8 +618,7 @@ name = "faster-whisper"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "av", version = "15.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "av", version = "16.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "av" },
     { name = "ctranslate2" },
     { name = "huggingface-hub" },
     { name = "onnxruntime" },
@@ -921,7 +898,7 @@ name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.11' and sys_platform != 'darwin'" },
+    { name = "zipp", marker = "python_full_version < '3.10' and sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
 wheels = [
@@ -3139,6 +3116,7 @@ name = "whisperx"
 version = "3.4.3"
 source = { editable = "." }
 dependencies = [
+    { name = "av" },
     { name = "ctranslate2" },
     { name = "faster-whisper" },
     { name = "nltk" },
@@ -3156,6 +3134,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "av", specifier = "<16.0.0" },
     { name = "ctranslate2", specifier = ">=4.5.0" },
     { name = "faster-whisper", specifier = ">=1.1.1" },
     { name = "nltk", specifier = ">=3.9.1" },
