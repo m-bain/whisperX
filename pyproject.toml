@@ -2,7 +2,7 @@
 urls = { repository = "https://github.com/m-bain/whisperx" }
 authors = [{ name = "Max Bain" }]
 name = "whisperx"
-version = "3.4.2"
+version = "3.4.3"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
@@ -16,7 +16,7 @@ dependencies = [
     "numpy>=2.0.2,<2.1.0",
     "onnxruntime>=1.19,<1.20.0",
     "pandas>=2.2.3,<2.3.0",
-    "pyannote-audio>=3.3.2",
+    "pyannote-audio>=3.3.2,<4.0.0",
     "torch>=2.7.1",
     "torchaudio",
     "transformers>=4.48.0",
