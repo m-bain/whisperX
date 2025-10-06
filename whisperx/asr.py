@@ -1,6 +1,6 @@
 import os
-from typing import List, Optional, Union
 from dataclasses import replace
+from typing import List, Optional, Union
 
 import ctranslate2
 import faster_whisper
@@ -13,7 +13,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 
 from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from whisperx.types import SingleSegment, TranscriptionResult
-from whisperx.vads import Vad, Silero, Pyannote
+from whisperx.vads import Pyannote, Silero, Vad
 
 
 def find_numeral_symbol_tokens(tokenizer):
@@ -313,6 +313,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    use_auth_token: Optional[Union[str, bool]] = None,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -326,6 +327,7 @@ def load_model(
         download_root - The root directory to download the model to.
         local_files_only - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
         threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
+        use_auth_token - HuggingFace authentication token or True to use the token stored by the HuggingFace config folder.
     Returns:
         A Whisper pipeline.
     """
@@ -339,7 +341,9 @@ def load_model(
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
-                         cpu_threads=threads)
+                         cpu_threads=threads,
+                         use_auth_token=use_auth_token
+                         )
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
