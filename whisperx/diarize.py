@@ -5,7 +5,7 @@ from typing import Optional, Union
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
-from whisperx.types import TranscriptionResult, AlignedTranscriptionResult
+from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult
 
 
 class DiarizationPipeline:
