@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union
+from typing import Optional, Union, overload, Literal
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
 from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult
 
 
-class DiarizationPipeline:
+class DiarizationPipeline:  # [too-few-public-methods]
+    """
+    Speaker diarization using pyannote.audio pretrained pipelines.
+    """
     def __init__(
         self,
         model_name=None,
@@ -19,6 +22,40 @@ class DiarizationPipeline:
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-3.1"
         self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
+
+    @overload
+    def __call__(
+        self,
+        audio: Union[str, np.ndarray],
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        *,
+        return_embeddings: Literal[True],
+    ) -> tuple[pd.DataFrame, Optional[dict[str, list[float]]]]:
+        ...
+
+    @overload
+    def __call__(
+        self,
+        audio: Union[str, np.ndarray],
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        *,
+        return_embeddings: Literal[False],
+    ) -> pd.DataFrame:
+        ...
+
+    @overload
+    def __call__(
+        self,
+        audio: Union[str, np.ndarray],
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+    ) -> pd.DataFrame:
+        ...
 
     def __call__(
         self,
