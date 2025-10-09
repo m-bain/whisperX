@@ -144,7 +144,7 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
 To run on CPU instead of GPU (and for running on Mac OS X):
 
-    whisperx path/to/audio.wav --compute_type int8
+    whisperx path/to/audio.wav --compute_type int8 --device cpu
 
 ### Other languages
 
