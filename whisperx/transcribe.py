@@ -57,6 +57,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     diarize: bool = args.pop("diarize")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
+    num_speakers: int = args.pop("num_speakers")
     diarize_model_name: str = args.pop("diarize_model")
     print_progress: bool = args.pop("print_progress")
     return_speaker_embeddings: bool = args.pop("speaker_embeddings")
@@ -216,6 +217,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                 input_audio_path, 
                 min_speakers=min_speakers, 
                 max_speakers=max_speakers, 
+                num_speakers=num_speakers, 
                 return_embeddings=return_speaker_embeddings
             )
 
