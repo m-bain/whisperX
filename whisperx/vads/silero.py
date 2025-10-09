@@ -8,6 +8,9 @@ import torch
 
 from whisperx.diarize import Segment as SegmentX
 from whisperx.vads.vad import Vad
+from whisperx.log_utils import get_logger
+
+logger = get_logger(__name__)
 
 AudioFile = Union[Text, Path, IOBase, Mapping]
 
@@ -15,7 +18,7 @@ AudioFile = Union[Text, Path, IOBase, Mapping]
 class Silero(Vad):
     # check again default values
     def __init__(self, **kwargs):
-        print(">>Performing voice activity detection using Silero...")
+        logger.info("Performing voice activity detection using Silero...")
         super().__init__(kwargs['vad_onset'])
 
         self.vad_onset = kwargs['vad_onset']
@@ -60,7 +63,7 @@ class Silero(Vad):
                      ):
         assert chunk_size > 0
         if len(segments_list) == 0:
-            print("No active speech found in audio")
+            logger.warning("No active speech found in audio")
             return []
         assert segments_list, "segments_list is empty."
         return Vad.merge_chunks(segments_list, chunk_size, onset, offset)

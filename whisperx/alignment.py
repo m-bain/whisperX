@@ -24,6 +24,9 @@ from whisperx.schema import (
 )
 import nltk
 from nltk.data import load as nltk_load
+from whisperx.log_utils import get_logger
+
+logger = get_logger(__name__)
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -81,8 +84,9 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         elif language_code in DEFAULT_ALIGN_MODELS_HF:
             model_name = DEFAULT_ALIGN_MODELS_HF[language_code]
         else:
-            print(f"There is no default alignment model set for this language ({language_code}).\
-                Please find a wav2vec2.0 model finetuned on this language in https://huggingface.co/models, then pass the model name in --align_model [MODEL_NAME]")
+            logger.error(f"No default alignment model for language: {language_code}. "
+                        f"Please find a wav2vec2.0 model finetuned on this language at https://huggingface.co/models, "
+                        f"then pass the model name via --align_model [MODEL_NAME]")
             raise ValueError(f"No default align-model for language: {language_code}")
 
     if model_name in torchaudio.pipelines.__all__:
@@ -223,12 +227,12 @@ def align(
 
         # check we can align
         if len(segment_data[sdx]["clean_char"]) == 0:
-            print(f'Failed to align segment ("{segment["text"]}"): no characters in this segment found in model dictionary, resorting to original...')
+            logger.warning(f'Failed to align segment ("{segment["text"]}"): no characters in this segment found in model dictionary, resorting to original')
             aligned_segments.append(aligned_seg)
             continue
 
         if t1 >= MAX_DURATION:
-            print(f'Failed to align segment ("{segment["text"]}"): original start time longer than audio duration, skipping...')
+            logger.warning(f'Failed to align segment ("{segment["text"]}"): original start time longer than audio duration, skipping')
             aligned_segments.append(aligned_seg)
             continue
 
@@ -270,7 +274,7 @@ def align(
         path = backtrack_beam(trellis, emission, tokens, blank_id, beam_width=2)
 
         if path is None:
-            print(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original...')
+            logger.warning(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original')
             aligned_segments.append(aligned_seg)
             continue
 
