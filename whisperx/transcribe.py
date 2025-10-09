@@ -119,7 +119,6 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     # Part 1: VAD & ASR Loop
     results = []
-    tmp_results = []
     # model = load_model(model_name, device=device, download_root=model_dir)
     model = load_model(
         model_name,
