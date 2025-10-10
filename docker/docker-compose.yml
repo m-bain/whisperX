@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # GPU-enabled WhisperX service
+  whisperx-gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: whisperx-gpu
+    volumes:
+      - ./input:/input:ro          # Mount input directory (read-only)
+      - ./output:/output:rw        # Mount output directory (read-write)
+      - ./models:/app/models:rw    # Cache models locally
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_TOKEN=${HF_TOKEN:-}     # Set via .env file for speaker diarization
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu
+    command: >
+      bash -c "
+      echo 'WhisperX GPU container ready. Use docker exec to run transcription commands.'
+      && echo 'Example: docker exec whisperx-gpu python -m whisperx /input/audio.wav --output_dir /output'
+      && tail -f /dev/null
+      "
+
+  # CPU-only WhisperX service
+  whisperx-cpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: whisperx-cpu
+    volumes:
+      - ./input:/input:ro          # Mount input directory (read-only)
+      - ./output:/output:rw        # Mount output directory (read-write)
+      - ./models:/app/models:rw    # Cache models locally
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}     # Set via .env file for speaker diarization
+    profiles:
+      - cpu
+    command: >
+      bash -c "
+      echo 'WhisperX CPU container ready. Use docker exec to run transcription commands.'
+      && echo 'Example: docker exec whisperx-cpu python -m whisperx /input/audio.wav --output_dir /output --device cpu --compute_type int8'
+      && tail -f /dev/null
+      "
+
+  # WhisperX Web API service (GPU)
+  whisperx-api-gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: whisperx-api-gpu
+    ports:
+      - "8005:8000"
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output:rw
+      - ./models:/app/models:rw
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_TOKEN=${HF_TOKEN:-}
+    privileged: true  # Required for CTranslate2 executable stack
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - api-gpu
+
+  # WhisperX Web API service (CPU)
+  whisperx-api-cpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: whisperx-api-cpu
+    ports:
+      - "8005:8000"
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output:rw
+      - ./models:/app/models:rw
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    privileged: true  # Required for CTranslate2 executable stack
+    profiles:
+      - api-cpu
+
+# Create networks
+networks:
+  default:
+    driver: bridge
+
+# Create volumes for persistent storage
+volumes:
+  models:
+    driver: local

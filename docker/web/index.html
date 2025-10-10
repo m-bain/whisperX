@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhisperX Web Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .status.processing {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .status.completed {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        .segment {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .speaker {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .timestamp {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .text {
+            line-height: 1.6;
+        }
+        .info-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .endpoint {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-active {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+        .status-inactive {
+            background-color: #dc3545;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .hf-token-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .hf-token-section h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .token-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .token-help {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .api-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .progress-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #28a745);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        .stage-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        .stage {
+            padding: 5px 10px;
+            background: #e9ecef;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+        .stage.active {
+            background: #007bff;
+            color: white;
+        }
+        .stage.completed {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 WhisperX Web Interface</h1>
+        
+        <!-- API Status Panel -->
+        <div class="info-panel">
+            <h3>🔌 API Status & Endpoints</h3>
+            <div class="api-status">
+                <div class="status-indicator" id="apiStatus"></div>
+                <span id="apiStatusText">Checking API status...</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>GET /health - Health check</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>POST /transcribe - Upload & transcribe audio</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>GET /transcribe/{task_id} - Check status</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>GET /transcribe/{task_id}/download - Download results</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>GET /models - List available models</span>
+            </div>
+            <div class="endpoint">
+                <div class="status-indicator status-active"></div>
+                <span>GET /languages - List supported languages</span>
+            </div>
+        </div>
+
+        <!-- Model Management Section -->
+        <div class="info-panel">
+            <h3>🤖 Model Management</h3>
+            <div id="modelStatus" class="api-status">
+                <div class="status-indicator status-inactive"></div>
+                <span>Loading model information...</span>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label for="modelSelect"><strong>Download Models:</strong></label>
+                <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                    <select id="modelSelect" style="flex: 1; min-width: 150px;">
+                        <option value="">Select a model to download</option>
+                        <option value="tiny">Tiny (~39MB) - Fastest</option>
+                        <option value="base">Base (~142MB) - Good balance</option>
+                        <option value="small">Small (~466MB) - Better accuracy</option>
+                        <option value="medium">Medium (~1.42GB) - High accuracy</option>
+                        <option value="large-v2">Large-v2 (~2.87GB) - Best accuracy</option>
+                        <option value="large-v3">Large-v3 (~2.87GB) - Latest</option>
+                    </select>
+                    <button type="button" id="downloadModelBtn" onclick="downloadModel()" style="width: auto; padding: 8px 15px;">
+                        📥 Download
+                    </button>
+                </div>
+                <div class="token-help" style="margin-top: 5px;">
+                    💡 Models are downloaded on first use, but you can pre-download them here for faster transcription
+                </div>
+            </div>
+
+            <!-- Model Download Progress -->
+            <div id="modelDownloadProgress" style="display: none; margin-top: 15px;">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <strong>📥 Downloading Model: </strong>
+                    <span id="downloadingModelName" style="margin-left: 10px; color: #007bff;"></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="modelProgressBar"></div>
+                </div>
+                <div class="progress-text" id="modelProgressText">Downloading...</div>
+            </div>
+
+            <!-- Available Models -->
+            <div id="availableModels" style="margin-top: 15px;">
+                <strong>📦 Available Models:</strong>
+                <div id="modelList" style="margin-top: 5px; font-family: monospace; font-size: 0.9em;">
+                    Loading...
+                </div>
+            </div>
+        </div>
+
+        <!-- Hugging Face Token Section -->
+        <div class="hf-token-section">
+            <h3>🤗 Hugging Face Token (Optional)</h3>
+            <p>Required for speaker diarization features. Get your token from <a href="https://huggingface.co/settings/tokens" target="_blank">Hugging Face Settings</a></p>
+            <input type="password" id="hfToken" class="token-input" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+            <div class="token-help">
+                • Token is stored locally for this session only<br>
+                • Required to accept agreements for: <a href="https://huggingface.co/pyannote/segmentation-3.0" target="_blank">Segmentation</a> and <a href="https://huggingface.co/pyannote/speaker-diarization-3.1" target="_blank">Speaker-Diarization-3.1</a><br>
+                • Leave empty if you don't need speaker diarization
+            </div>
+        </div>
+        
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="audioFile">Audio File:</label>
+                <input type="file" id="audioFile" name="audioFile" accept=".wav,.mp3,.m4a,.flac,.ogg" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="model">Model:</label>
+                <select id="model" name="model">
+                    <option value="large-v2">large-v2 (Recommended)</option>
+                    <option value="large-v3">large-v3</option>
+                    <option value="large">large</option>
+                    <option value="medium">medium</option>
+                    <option value="small">small</option>
+                    <option value="base">base</option>
+                    <option value="tiny">tiny</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="language">Language (auto-detect if empty):</label>
+                <select id="language" name="language">
+                    <option value="">Auto-detect</option>
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh">Chinese</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="diarize" name="diarize">
+                    <label for="diarize">Enable Speaker Diarization</label>
+                    <span style="color: #6c757d; font-size: 0.85em; margin-left: 10px;">(Requires HF Token above)</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="align" name="align" checked>
+                    <label for="align">Enable Word-level Alignment</label>
+                </div>
+            </div>
+            
+            <div id="speakerSettings" style="display: none;">
+                <div class="form-group">
+                    <label for="minSpeakers">Min Speakers:</label>
+                    <input type="number" id="minSpeakers" name="minSpeakers" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="maxSpeakers">Max Speakers:</label>
+                    <input type="number" id="maxSpeakers" name="maxSpeakers" min="1" max="10">
+                </div>
+            </div>
+            
+            <button type="submit" id="submitBtn">Start Transcription</button>
+        </form>
+        
+        <div id="status" style="display: none;"></div>
+        
+        <!-- Progress Container -->
+        <div id="progressContainer" class="progress-container" style="display: none;">
+            <h3>🔄 Transcription Progress</h3>
+            <div class="stage-indicator">
+                <span class="stage" id="stage-model">📥 Model</span>
+                <span class="stage" id="stage-audio">🎵 Audio</span>
+                <span class="stage" id="stage-transcribe">📝 Transcribe</span>
+                <span class="stage" id="stage-align">🎯 Align</span>
+                <span class="stage" id="stage-diarize">👥 Speakers</span>
+                <span class="stage" id="stage-complete">✅ Done</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+        
+        <div id="results" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentTaskId = null;
+        let pollInterval = null;
+
+        // Check API status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkApiStatus();
+            setInterval(checkApiStatus, 30000); // Check every 30 seconds
+        });
+
+        // Check API health
+        async function checkApiStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const result = await response.json();
+                
+                const statusIndicator = document.getElementById('apiStatus');
+                const statusText = document.getElementById('apiStatusText');
+                
+                if (response.ok) {
+                    statusIndicator.className = 'status-indicator status-active';
+                    statusText.textContent = `API Online - Device: ${result.device} - Models: ${result.models_loaded.length} loaded`;
+                    
+                    // Load available models
+                    await loadAvailableModels();
+                } else {
+                    statusIndicator.className = 'status-indicator status-inactive';
+                    statusText.textContent = 'API Error';
+                }
+            } catch (error) {
+                const statusIndicator = document.getElementById('apiStatus');
+                const statusText = document.getElementById('apiStatusText');
+                statusIndicator.className = 'status-indicator status-inactive';
+                statusText.textContent = 'API Offline';
+            }
+        }
+
+        // Load available models
+        async function loadAvailableModels() {
+            try {
+                const response = await fetch(`${API_BASE}/models/list`);
+                if (response.ok) {
+                    const models = await response.json();
+                    displayAvailableModels(models);
+                } else {
+                    console.error('Failed to load models');
+                }
+            } catch (error) {
+                console.error('Error loading models:', error);
+                document.getElementById('modelList').textContent = 'Error loading models';
+            }
+        }
+
+        // Display available models
+        function displayAvailableModels(models) {
+            const modelList = document.getElementById('modelList');
+            if (models.available_models && models.available_models.length > 0) {
+                modelList.innerHTML = models.available_models.map(model => 
+                    `<div style="padding: 2px 0; color: #28a745;">✅ ${model}</div>`
+                ).join('');
+            } else {
+                modelList.innerHTML = '<div style="color: #666;">No models downloaded yet</div>';
+            }
+
+            // Update model status
+            const modelStatus = document.getElementById('modelStatus');
+            const count = models.available_models ? models.available_models.length : 0;
+            modelStatus.innerHTML = `
+                <div class="status-indicator ${count > 0 ? 'status-active' : 'status-inactive'}"></div>
+                <span>${count} model(s) available</span>
+            `;
+        }
+
+        // Download a model
+        async function downloadModel() {
+            const modelSelect = document.getElementById('modelSelect');
+            const modelName = modelSelect.value;
+            
+            if (!modelName) {
+                alert('Please select a model to download');
+                return;
+            }
+
+            // Show progress
+            const progressDiv = document.getElementById('modelDownloadProgress');
+            const downloadingModelName = document.getElementById('downloadingModelName');
+            const progressBar = document.getElementById('modelProgressBar');
+            const progressText = document.getElementById('modelProgressText');
+            
+            progressDiv.style.display = 'block';
+            downloadingModelName.textContent = modelName;
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Starting download...';
+
+            // Disable download button
+            const downloadBtn = document.getElementById('downloadModelBtn');
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = '⏳ Downloading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/models/download`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const taskId = result.task_id;
+                    
+                    // Poll for progress
+                    await pollModelDownloadProgress(taskId);
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Download failed');
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                progressText.textContent = `Error: ${error.message}`;
+                progressBar.style.backgroundColor = '#dc3545';
+            } finally {
+                // Re-enable download button
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = '📥 Download';
+            }
+        }
+
+        // Poll for model download progress
+        async function pollModelDownloadProgress(taskId) {
+            const progressBar = document.getElementById('modelProgressBar');
+            const progressText = document.getElementById('modelProgressText');
+            
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/models/download/progress/${taskId}`);
+                    if (response.ok) {
+                        const progress = await response.json();
+                        
+                        if (progress.status === 'completed') {
+                            progressBar.style.width = '100%';
+                            progressBar.style.backgroundColor = '#28a745';
+                            progressText.textContent = 'Download completed!';
+                            clearInterval(pollInterval);
+                            
+                            // Hide progress after 3 seconds and refresh model list
+                            setTimeout(() => {
+                                document.getElementById('modelDownloadProgress').style.display = 'none';
+                                loadAvailableModels();
+                            }, 3000);
+                        } else if (progress.status === 'failed') {
+                            progressText.textContent = `Download failed: ${progress.error || 'Unknown error'}`;
+                            progressBar.style.backgroundColor = '#dc3545';
+                            clearInterval(pollInterval);
+                        } else {
+                            // Update progress
+                            const percent = progress.progress || 0;
+                            progressBar.style.width = `${percent}%`;
+                            progressText.textContent = progress.message || `Downloading... ${percent.toFixed(1)}%`;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Progress check failed:', error);
+                    progressText.textContent = 'Progress check failed';
+                    clearInterval(pollInterval);
+                }
+            }, 1000);
+        }
+
+        // Show/hide speaker settings
+        document.getElementById('diarize').addEventListener('change', function() {
+            const speakerSettings = document.getElementById('speakerSettings');
+            speakerSettings.style.display = this.checked ? 'block' : 'none';
+            
+            // Show warning if no HF token and diarization is enabled
+            if (this.checked && !document.getElementById('hfToken').value) {
+                const tokenSection = document.querySelector('.hf-token-section');
+                tokenSection.style.background = '#f8d7da';
+                tokenSection.style.borderColor = '#f5c6cb';
+                setTimeout(() => {
+                    tokenSection.style.background = '#fff3cd';
+                    tokenSection.style.borderColor = '#ffeaa7';
+                }, 2000);
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const audioFile = document.getElementById('audioFile').files[0];
+            
+            if (!audioFile) {
+                alert('Please select an audio file');
+                return;
+            }
+            
+            // Prepare form data
+            formData.append('audio_file', audioFile);
+            formData.append('model', document.getElementById('model').value);
+            formData.append('language', document.getElementById('language').value);
+            formData.append('diarize', document.getElementById('diarize').checked);
+            formData.append('align', document.getElementById('align').checked);
+            
+            // Add HF token if provided and diarization is enabled
+            const hfToken = document.getElementById('hfToken').value;
+            if (document.getElementById('diarize').checked && hfToken) {
+                formData.append('hf_token', hfToken);
+            }
+            
+            if (document.getElementById('diarize').checked) {
+                const minSpeakers = document.getElementById('minSpeakers').value;
+                const maxSpeakers = document.getElementById('maxSpeakers').value;
+                if (minSpeakers) formData.append('min_speakers', minSpeakers);
+                if (maxSpeakers) formData.append('max_speakers', maxSpeakers);
+            }
+            
+            try {
+                // Disable submit button
+                const submitBtn = document.getElementById('submitBtn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Uploading...';
+                
+                // Submit transcription request
+                const response = await fetch(`${API_BASE}/transcribe`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                currentTaskId = result.task_id;
+                
+                // Show status and start polling
+                showStatus('processing', 'Transcription queued...');
+                showProgress(true);
+                startPolling();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('error', `Error: ${error.message}`);
+                resetSubmitButton();
+            }
+        });
+
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+        }
+
+        function showProgress(show = true) {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = show ? 'block' : 'none';
+        }
+
+        function updateProgress(progress) {
+            if (!progress) return;
+            
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            // Update progress bar
+            progressBar.style.width = `${progress.percent || 0}%`;
+            
+            // Update stage indicators
+            const stages = {
+                'initializing': 'model',
+                'downloading_model': 'model', 
+                'model_loaded': 'model',
+                'loading_audio': 'audio',
+                'transcribing': 'transcribe',
+                'transcription_complete': 'transcribe',
+                'aligning': 'align',
+                'alignment_complete': 'align',
+                'diarizing': 'diarize',
+                'diarization_complete': 'diarize',
+                'finalizing': 'complete',
+                'complete': 'complete'
+            };
+            
+            const currentStage = stages[progress.stage] || 'model';
+            
+            // Reset all stages
+            document.querySelectorAll('.stage').forEach(stage => {
+                stage.classList.remove('active', 'completed');
+            });
+            
+            // Mark completed stages
+            const stageOrder = ['model', 'audio', 'transcribe', 'align', 'diarize', 'complete'];
+            const currentIndex = stageOrder.indexOf(currentStage);
+            
+            for (let i = 0; i < currentIndex; i++) {
+                const element = document.getElementById(`stage-${stageOrder[i]}`);
+                if (element) element.classList.add('completed');
+            }
+            
+            // Mark current stage as active
+            const currentElement = document.getElementById(`stage-${currentStage}`);
+            if (currentElement) currentElement.classList.add('active');
+            
+            // Update progress text
+            const stageMessages = {
+                'initializing': 'Initializing transcription...',
+                'downloading_model': 'Downloading AI model...',
+                'model_loaded': 'Model loaded successfully',
+                'loading_audio': 'Loading audio file...',
+                'transcribing': 'Transcribing speech to text...',
+                'transcription_complete': 'Transcription complete',
+                'aligning': 'Aligning words with timestamps...',
+                'alignment_complete': 'Word alignment complete',
+                'diarizing': 'Identifying speakers...',
+                'diarization_complete': 'Speaker identification complete',
+                'finalizing': 'Finalizing results...',
+                'complete': 'Transcription completed!',
+                'failed': 'Transcription failed'
+            };
+            
+            progressText.textContent = stageMessages[progress.stage] || `Processing... ${progress.percent}%`;
+        }
+
+        function resetSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Start Transcription';
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/transcribe/${currentTaskId}`);
+                    const result = await response.json();
+                    
+                    if (result.status === 'completed') {
+                        clearInterval(pollInterval);
+                        showStatus('completed', 'Transcription completed!');
+                        showProgress(false);
+                        displayResults(result);
+                        resetSubmitButton();
+                    } else if (result.status === 'failed') {
+                        clearInterval(pollInterval);
+                        showStatus('error', `Transcription failed: ${result.error}`);
+                        showProgress(false);
+                        resetSubmitButton();
+                    } else {
+                        // Update progress if available
+                        if (result.progress) {
+                            updateProgress(result.progress);
+                        }
+                        showStatus('processing', `Status: ${result.status}`);
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    clearInterval(pollInterval);
+                    showStatus('error', 'Error checking transcription status');
+                    resetSubmitButton();
+                }
+            }, 2000);
+        }
+
+        function displayResults(result) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h3>Transcription Results:</h3>';
+            
+            if (result.language) {
+                resultsDiv.innerHTML += `<p><strong>Detected Language:</strong> ${result.language}</p>`;
+            }
+            
+            // Add download button
+            resultsDiv.innerHTML += `
+                <button onclick="downloadResults()" style="margin-bottom: 20px;">
+                    Download JSON Results
+                </button>
+            `;
+            
+            // Display segments
+            if (result.segments && result.segments.length > 0) {
+                result.segments.forEach((segment, index) => {
+                    const segmentDiv = document.createElement('div');
+                    segmentDiv.className = 'segment';
+                    
+                    let html = '';
+                    
+                    // Add speaker info if available
+                    if (segment.speaker) {
+                        html += `<div class="speaker">Speaker: ${segment.speaker}</div>`;
+                    }
+                    
+                    // Add timestamp
+                    const start = formatTime(segment.start);
+                    const end = formatTime(segment.end);
+                    html += `<div class="timestamp">${start} - ${end}</div>`;
+                    
+                    // Add text
+                    html += `<div class="text">${segment.text}</div>`;
+                    
+                    segmentDiv.innerHTML = html;
+                    resultsDiv.appendChild(segmentDiv);
+                });
+            } else {
+                resultsDiv.innerHTML += '<p>No transcription segments found.</p>';
+            }
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(1);
+            return `${mins}:${secs.padStart(4, '0')}`;
+        }
+
+        async function downloadResults() {
+            if (!currentTaskId) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/transcribe/${currentTaskId}/download`);
+                if (!response.ok) throw new Error('Download failed');
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transcription_${currentTaskId}.json`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to download results');
+            }
+        }
+    </script>
+</body>
+</html>

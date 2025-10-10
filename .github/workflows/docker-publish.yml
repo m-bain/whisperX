@@ -1,0 +1,149 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+      - docker-image-web-interface
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: whisperx
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: cpu
+            dockerfile: Dockerfile.cpu
+            platforms: linux/amd64,linux/arm64
+            tags: |
+              ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:cpu
+              ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:cpu-latest
+          - name: gpu
+            dockerfile: Dockerfile
+            platforms: linux/amd64
+            tags: |
+              ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:gpu
+              ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:gpu-latest
+              ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            suffix=-${{ matrix.name }},onlatest=true
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ matrix.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
+
+  test-images:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        variant: [cpu, gpu]
+    
+    steps:
+      - name: Pull and test image
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:${{ matrix.variant }}-latest
+          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:${{ matrix.variant }}-latest python -c "import whisperx; print('WhisperX imported successfully')"
+          echo "✅ ${{ matrix.variant }} image tested successfully"
+
+  create-release:
+    needs: test-images
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: |
+            ## WhisperX Docker Images Released 🎉
+            
+            ### Available Images:
+            - **CPU**: `${{ secrets.DOCKERHUB_USERNAME }}/whisperx:cpu-latest` (~3.8GB)
+            - **GPU**: `${{ secrets.DOCKERHUB_USERNAME }}/whisperx:gpu-latest` (~14.7GB)
+            
+            ### Features:
+            - 🌐 Modern web interface with drag-and-drop upload
+            - 📥 On-demand model downloads with progress tracking
+            - 🎯 Speaker diarization support
+            - 📊 Real-time progress updates
+            - 🔐 Hugging Face token support
+            - 📦 Multiple output formats (JSON, SRT, VTT, TXT, TSV)
+            
+            ### Quick Start:
+            ```bash
+            # CPU version
+            docker run -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:cpu-latest
+            
+            # GPU version (requires NVIDIA Docker)
+            docker run --gpus all -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/whisperx:gpu-latest
+            ```
+            
+            Then open http://localhost:8000 in your browser.
+            
+            ### Changelog:
+            - On-demand model downloading via web interface
+            - Optimized image sizes (removed pre-installed models)
+            - Enhanced progress tracking and status indicators
+            - Improved web UI with model management
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
