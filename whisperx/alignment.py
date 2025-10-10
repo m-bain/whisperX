@@ -15,16 +15,15 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
 from whisperx.utils import interpolate_nans
-from whisperx.types import (
+from whisperx.schema import (
     AlignedTranscriptionResult,
     SingleSegment,
     SingleAlignedSegment,
     SingleWordSegment,
     SegmentData,
 )
-from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
-
-PUNKT_ABBREVIATIONS = ['dr', 'vs', 'mr', 'mrs', 'prof', 'jr', 'sr', 'ph.d']
+import nltk
+from nltk.data import load as nltk_load
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
@@ -53,7 +52,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "tr": "mpoyraz/wav2vec2-xls-r-300m-cv7-turkish",
     "da": "saattrupdan/wav2vec2-xls-r-300m-ftspeech",
     "he": "imvladikon/wav2vec2-xls-r-300m-hebrew",
-    "vi": 'nguyenvulebinh/wav2vec2-base-vi',
+    "vi": 'nguyenvulebinh/wav2vec2-base-vi-vlsp2020',
     "ko": "kresnik/wav2vec2-large-xlsr-korean",
     "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
     "te": "anuragshas/wav2vec2-large-xlsr-53-telugu",
@@ -188,9 +187,11 @@ def align(
                 clean_wdx.append(wdx)
 
 
-        punkt_param = PunktParameters()
-        punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
-        sentence_splitter = PunktSentenceTokenizer(punkt_param)
+        try:
+            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
+        except LookupError:
+            nltk.download('punkt_tab', quiet=True)
+            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
         sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment_data[sdx] = {

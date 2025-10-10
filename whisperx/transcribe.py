@@ -10,7 +10,7 @@ from whisperx.alignment import align, load_align_model
 from whisperx.asr import load_model
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
+from whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
 
 
@@ -119,7 +119,6 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     # Part 1: VAD & ASR Loop
     results = []
-    tmp_results = []
     # model = load_model(model_name, device=device, download_root=model_dir)
     model = load_model(
         model_name,
