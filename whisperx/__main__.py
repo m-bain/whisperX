@@ -90,7 +90,7 @@ def cli():
     elif verbose:
         setup_logging(level="info")
     else:
-        setup_logging(level="info")
+        setup_logging(level="warning")
 
     from whisperx.transcribe import transcribe_task
 

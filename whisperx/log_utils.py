@@ -36,10 +36,14 @@ def setup_logging(
     logger.addHandler(console_handler)
 
     if log_file:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        try:
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except (OSError) as e:
+            logger.warning(f"Failed to create log file '{log_file}': {e}")
+            logger.warning("Continuing with console logging only")
 
     # Don't propagate to root logger to avoid duplicate messages
     logger.propagate = False
