@@ -5,7 +5,7 @@ name = "whisperx"
 version = "3.6.0"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.9, <3.14"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
