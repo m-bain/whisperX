@@ -22,7 +22,7 @@ dependencies = [
     "torch>=2.7.1",
     "torchaudio",
     "transformers>=4.48.0",
-    "triton>=3.3.0; sys_platform == 'linux'" # only install triton on Linux
+    "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'" # only install triton on x86_64 Linux
 ]
 
 
