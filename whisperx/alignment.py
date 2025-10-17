@@ -5,7 +5,7 @@ C. Max Bain
 import math
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, List
+from typing import Optional, Union, List
 
 import numpy as np
 import pandas as pd
@@ -115,7 +115,7 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
 
 
 def align(
-    transcript: Iterable[SingleSegment],
+    transcript: List[SingleSegment],
     model: torch.nn.Module,
     align_model_metadata: dict,
     audio: Union[str, np.ndarray, torch.Tensor],
