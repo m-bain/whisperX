@@ -14,7 +14,7 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
-from whisperx.utils import interpolate_nans
+from whisperx.utils import interpolate_nans, PUNKT_LANGUAGES
 from whisperx.schema import (
     AlignedTranscriptionResult,
     SingleSegment,
@@ -192,11 +192,13 @@ def align(
                 clean_wdx.append(wdx)
 
 
+        # Use language-specific Punkt model if available otherwise we fallback to English.
+        punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
         try:
-            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
+            sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
         except LookupError:
             nltk.download('punkt_tab', quiet=True)
-            sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
+            sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
         sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment_data[sdx] = {

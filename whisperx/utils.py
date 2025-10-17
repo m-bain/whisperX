@@ -126,6 +126,27 @@ TO_LANGUAGE_CODE = {
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
+# Mapping of language codes to NLTK Punkt tokenizer model names
+PUNKT_LANGUAGES = {
+    'cs': 'czech',
+    'da': 'danish', 
+    'nl': 'dutch',
+    'en': 'english',
+    'et': 'estonian',
+    'fi': 'finnish',
+    'fr': 'french',
+    'de': 'german',
+    'el': 'greek',
+    'it': 'italian',
+    'no': 'norwegian',
+    'pl': 'polish',
+    'pt': 'portuguese',
+    'sl': 'slovene',
+    'es': 'spanish',
+    'sv': 'swedish',
+    'tr': 'turkish',
+}
+
 system_encoding = sys.getdefaultencoding()
 
 if system_encoding != "utf-8":
