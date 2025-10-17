@@ -163,6 +163,13 @@ def align(
         else:
             per_word = text
 
+        # make sure the leading and tailing word boundary exists.
+        if model_lang not in LANGUAGES_WITHOUT_SPACES:
+            if not text.startswith(" "):
+                text = " " + text
+            if not text.endswith(" "):
+                text = text + " "
+
         clean_char, clean_cdx = [], []
         for cdx, char in enumerate(text):
             char_ = char.lower()
@@ -178,8 +185,8 @@ def align(
             elif char_ in model_dictionary.keys():
                 clean_char.append(char_)
                 clean_cdx.append(cdx)
-            else:
-                # add placeholder
+            elif char_ not in '!"\',.:;<=>?[\\]^_`{|}':
+                # add placeholder for numbers or pronunciable punctuation, like &, $
                 clean_char.append('*')
                 clean_cdx.append(cdx)
 
