@@ -425,15 +425,16 @@ def get_writer(
     if output_format == "all":
         all_writers = [writer(output_dir) for writer in writers.values()]
 
-        def write_all(result: dict, file: str, options: dict):
+        def write_all(result: dict, audio_path: str, options: dict):
             for writer in all_writers:
-                writer(result, file, options)
+                writer(result, audio_path, options)
 
         return write_all
 
     if output_format in optional_writers:
         return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
+
 
 def interpolate_nans(x, method='nearest'):
     if x.notnull().sum() > 1:
