@@ -16,7 +16,7 @@ class DiarizationPipeline:
         self,
         model_name=None,
         use_auth_token=None,
-        device: Optional[Union[str, torch.device]] = "cpu",
+        device: Union[str, torch.device] = "cpu",
     ):
         if isinstance(device, str):
             device = torch.device(device)
