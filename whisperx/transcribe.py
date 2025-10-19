@@ -186,7 +186,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                         result["language"], device
                     )
                 logger.info("Performing alignment...")
-                result: AlignedTranscriptionResult = align(
+                aligned_result: AlignedTranscriptionResult = align(
                     result["segments"],
                     align_model,
                     align_metadata,
@@ -196,6 +196,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
                 )
+                result = aligned_result
 
             results.append((result, audio_path))
 
@@ -229,8 +230,8 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                 diarize_segments = diarize_result
                 speaker_embeddings = None
 
-            result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
-            results.append((result, input_audio_path))
+            diarized_result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
+            results.append((diarized_result, input_audio_path))
     # >> Write
     for result, audio_path in results:
         result["language"] = align_language
