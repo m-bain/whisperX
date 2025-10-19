@@ -117,8 +117,11 @@ class WhisperModel(faster_whisper.WhisperModel):
         all_tokens = []
         prompt_reset_since = 0
         if options.initial_prompt is not None:
-            initial_prompt = " " + options.initial_prompt.strip()
-            initial_prompt_tokens = tokenizer.encode(initial_prompt)
+            if isinstance(options.initial_prompt, str):
+                initial_prompt = " " + options.initial_prompt.strip()
+                initial_prompt_tokens = tokenizer.encode(initial_prompt)
+            else:
+                initial_prompt_tokens = list(options.initial_prompt)
             all_tokens.extend(initial_prompt_tokens)
         previous_tokens = all_tokens[prompt_reset_since:]
         prompt = self.get_prompt(
