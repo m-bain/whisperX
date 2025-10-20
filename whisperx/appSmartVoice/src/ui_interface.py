@@ -487,7 +487,7 @@ class Ui_MainWindow(object):
 
         self.rightMenu = QCustomSlideMenu(self.mainContent)
         self.rightMenu.setObjectName(u"rightMenu")
-        self.rightMenu.setMinimumSize(QSize(300, 0))
+        self.rightMenu.setMinimumSize(QSize(450, 0))
         self.verticalLayout_7 = QVBoxLayout(self.rightMenu)
         self.verticalLayout_7.setSpacing(5)
         self.verticalLayout_7.setObjectName(u"verticalLayout_7")
@@ -528,6 +528,17 @@ class Ui_MainWindow(object):
 
         self.transcrHistoryList = QListWidget(self.historyPage)
         self.transcrHistoryList.setObjectName(u"transcrHistoryList")
+        self.transcrHistoryList.setStyleSheet(u"#historyItemBox {\n"
+"                    background-color:red !important;\n"
+"                }\n"
+"HistoryItemWidget {\n"
+"                    background-color: red !important;\n"
+"                    border: 1px solid #3e3e42;\n"
+"                    border-left: 4px solid #007acc;\n"
+"                    border-radius: 8px;\n"
+"                    padding: 12px;\n"
+"                    margin: 2px;\n"
+" }")
 
         self.verticalLayout_8.addWidget(self.transcrHistoryList)
 

@@ -887,7 +887,7 @@
            <widget class="QCustomSlideMenu" name="rightMenu" native="true">
             <property name="minimumSize">
              <size>
-              <width>300</width>
+              <width>450</width>
               <height>0</height>
              </size>
             </property>
@@ -967,7 +967,21 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="transcrHistoryList"/>
+                  <widget class="QListWidget" name="transcrHistoryList">
+                   <property name="styleSheet">
+                    <string notr="true">#historyItemBox {
+                    background-color:red !important;
+                }
+HistoryItemWidget {
+                    background-color: red !important;
+                    border: 1px solid #3e3e42;
+                    border-left: 4px solid #007acc;
+                    border-radius: 8px;
+                    padding: 12px;
+                    margin: 2px;
+ }</string>
+                   </property>
+                  </widget>
                  </item>
                 </layout>
                </widget>

@@ -52,7 +52,12 @@ class GUIFunctions():
         self.ui.transcriptionTextArea.setPlainText("")
 
         # Switch to results page
-        self.ui.stackedMainPages.setCurrentIndex(1)
+        # self.ui.stackedMainPages.setCurrentIndex(1)
+        for i in range(self.ui.stackedMainPages.count()):
+            widget = self.ui.stackedMainPages.widget(i)
+            if widget.objectName() == "resultsPage":
+                self.ui.stackedMainPages.setCurrentIndex(i)
+                break
 
         # Start transcription
         self.main.transcriptionManager.start_transcription(audio_file, ui_config)

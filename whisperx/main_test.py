@@ -5,7 +5,7 @@ import time
 device = "cuda"
 audio_file = "../../../../49966)_Das_erstaunliche_Leben_des_Walter_Mitty.mp4"
 batch_size = 8  # 16 reduce if low on GPU mem
-compute_type = "float16"  # change to "int8" if low on GPU mem (may reduce accuracy)
+compute_type = "int8"  # change to "int8" if low on GPU mem (may reduce accuracy)
 
 # 1. Load model
 start = time.time()

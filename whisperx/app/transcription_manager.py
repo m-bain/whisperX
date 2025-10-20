@@ -3,7 +3,7 @@ Orchestrates the WhisperX transcription process for the Qt application.
 Manages model lifecycle, worker coordination, and state management.
 """
 import time
-
+import os
 from PySide6.QtCore import QObject, Signal, QThreadPool
 from typing import Dict, Any, Optional
 
@@ -30,6 +30,10 @@ class TranscriptionManager(QObject):
         self.current_worker: Optional[Any] = None
         self._is_running = False
 
+        self._transcription_start_time: Optional[float] = None
+        self._current_filepath: Optional[str] = None
+        self._current_file_size: Optional[int] = None
+
     def is_running(self) -> bool:
         """Check if transcription is currently running."""
         return self._is_running
@@ -51,6 +55,13 @@ class TranscriptionManager(QObject):
 
             config = self.app_config.get_current_config()
             print("AFTER ONLY CONGIF: ", str(config))
+
+            self._transcription_start_time = time.time()
+            self._current_filepath = audio_file
+            if os.path.exists(audio_file):
+                self._current_file_size = os.path.getsize(audio_file)
+            else:
+                self._current_file_size = 0
 
             self._is_running = True
 
@@ -238,6 +249,22 @@ class TranscriptionManager(QObject):
 
     def _on_transcription_completed(self, result: Dict[str, Any]) -> None:
         """Handle successful transcription completion."""
+        if self._transcription_start_time:
+            elapsed_time = time.time() - self._transcription_start_time
+            result['elapsed_time'] = elapsed_time
+
+        result['filepath'] = self._current_filepath
+        result['file_size'] = self._current_file_size
+
+        # Get current config as dict
+        from dataclasses import asdict
+        result['config'] = asdict(self.app_config.get_current_config())
+
+        # Reset tracking variables
+        self._transcription_start_time = None
+        self._current_filepath = None
+        self._current_file_size = None
+
         self.transcription_completed.emit(result)
 
     def _on_transcription_finished(self) -> None:
@@ -247,6 +274,36 @@ class TranscriptionManager(QObject):
 
     def _on_worker_error(self, error_message: str) -> None:
         """Handle worker errors."""
+        if self._transcription_start_time:
+            elapsed_time = time.time() - self._transcription_start_time
+
+            # Create error result for history tracking
+            error_result = {
+                'elapsed_time': elapsed_time,
+                'filepath': self._current_filepath,
+                'file_size': self._current_file_size,
+                'error_message': error_message,
+                'status': 'error',
+                'formatted': {
+                    'raw': '',
+                    'timestamped': '',
+                    'speakers': '',
+                    'full': f'Error: {error_message}'
+                }
+            }
+
+            # Get current config
+            from dataclasses import asdict
+            error_result['config'] = asdict(self.app_config.get_current_config())
+
+            # Could emit a separate error completion signal if needed
+            # For now, just emit error
+
+            # Reset tracking variables
+        self._transcription_start_time = None
+        self._current_filepath = None
+        self._current_file_size = None
+
         self._is_running = False
         self.current_worker = None
         self.error_occurred.emit(error_message)
