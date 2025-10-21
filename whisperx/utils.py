@@ -145,7 +145,7 @@ PUNKT_LANGUAGES = {
     'sl': 'slovene',
     'sv': 'swedish',
     'tr': 'turkish',
-    "ml": "malayalam"
+    "ml": "malayalam",
     "ru": "russian",
 }
 
