@@ -130,21 +130,23 @@ LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 PUNKT_LANGUAGES = {
     'cs': 'czech',
     'da': 'danish', 
-    'nl': 'dutch',
+    'de': 'german',
+    'el': 'greek',
     'en': 'english',
+    'es': 'spanish',
     'et': 'estonian',
     'fi': 'finnish',
     'fr': 'french',
-    'de': 'german',
-    'el': 'greek',
     'it': 'italian',
+    'nl': 'dutch',
     'no': 'norwegian',
     'pl': 'polish',
     'pt': 'portuguese',
     'sl': 'slovene',
-    'es': 'spanish',
     'sv': 'swedish',
     'tr': 'turkish',
+    "ml": "malayalam"
+    "ru": "russian",
 }
 
 system_encoding = sys.getdefaultencoding()
