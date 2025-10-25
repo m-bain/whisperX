@@ -193,7 +193,7 @@ class VoiceActivitySegmentation(VoiceActivityDetection):
             **inference_kwargs,
     ):
 
-        super().__init__(segmentation=segmentation, fscore=fscore, use_auth_token=use_auth_token, **inference_kwargs)
+        super().__init__(segmentation=segmentation, fscore=fscore, token=use_auth_token, **inference_kwargs)
 
     def apply(self, file: AudioFile, hook: Optional[Callable] = None) -> Annotation:
         """Apply voice activity detection
