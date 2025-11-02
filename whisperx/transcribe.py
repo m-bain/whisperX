@@ -166,7 +166,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         tmp_results = results
         results = []
         align_model, align_metadata = load_align_model(
-            align_language, device, model_name=align_model
+            align_language, device, model_name=align_model, model_dir=model_dir, model_cache_only=model_cache_only
         )
         for result, audio_path in tmp_results:
             # >> Align
