@@ -25,7 +25,7 @@ dependencies = [
     # contains a table showing which versions are compatible with each other.
     "torch~=2.8.0",
     "torchaudio~=2.8.0",
-    "torchcodec~=0.7",
+    "torchcodec~=0.7.0",
     # apparently they changed some default arguments values after transformers v4.51.0
     # I believe num_beams is the culprit. It used to be 1, now it is set to 5. See
     # https://github.com/huggingface/transformers/issues/40682
