@@ -16,8 +16,16 @@ dependencies = [
     "onnxruntime>=1.19",
     "pandas>=2.2.3",
     "pyannote-audio>=4.0.0",
-    "torch>=2.5.1",
-    "torchaudio>=2.5.1",
+    # NOTE: some torchcodec versions are incompatible with some torch versions
+    # and if you happen to use an incompatible version, you will currently see
+    # a very obscure bad_alloc exception when those libs are loaded, which tells
+    # you nothing at all and makes you waste hours and hours hunting down the
+    # culprit.
+    # https://github.com/meta-pytorch/torchcodec?tab=readme-ov-file#installing-torchcodec
+    # contains a table showing which versions are compatible with each other.
+    "torch~=2.8.0",
+    "torchaudio~=2.8.0",
+    "torchcodec~=0.7",
     # apparently they changed some default arguments values after transformers v4.51.0
     # I believe num_beams is the culprit. It used to be 1, now it is set to 5. See
     # https://github.com/huggingface/transformers/issues/40682
