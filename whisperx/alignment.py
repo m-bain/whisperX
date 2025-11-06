@@ -3,9 +3,13 @@ Forced Alignment with Whisper
 C. Max Bain
 """
 import math
-
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, List
+from difflib import SequenceMatcher
+from itertools import accumulate
+from pathlib import Path as PlPath
+from string import ascii_lowercase
+from typing import Iterable, List, Optional, Union
+from unicodedata import normalize
 
 import numpy as np
 import pandas as pd
@@ -635,3 +639,212 @@ def merge_words(segments, separator="|"):
         else:
             i2 += 1
     return words
+
+
+def tokenize(text: str) -> str:
+    normalized = normalize("NFKD", text).encode("ascii", "ignore").decode("utf8").lower()
+    return "".join(filter(lambda s: s in ascii_lowercase, normalized))
+
+
+def transcribe_text(text_path: PlPath) -> AlignedTranscriptionResult:
+    segments: list[SingleAlignedSegment] = []
+    word_segments: list[SingleWordSegment] = []
+
+    with text_path.open() as text_file:
+        lines = text_file.readlines()
+
+    for line in [line.strip() for line in lines if line.strip()]:
+        words: list[SingleWordSegment] = [
+            {"word": word, "start": 0, "end": 0, "score": 0} for word in line.split()
+        ]
+        word_segments += words
+        segments.append(
+            {
+                "start": 0,
+                "end": 0,
+                "text": line,
+                "words": words,
+            },
+        )
+
+    return {
+        "segments": segments,
+        "word_segments": word_segments,
+    }
+
+
+def log_diff(
+    sync_chunk: list[SingleWordSegment],
+    text_chunk: list[SingleWordSegment],
+    tag: str,
+    width: int,
+) -> None:
+    tag_colors = {
+        "delete": "\x1b[1;31m",
+        "insert": "\x1b[1;32m",
+        "replace": "\x1b[1;33m",
+        "equal": "\x1b[1;34m",
+    }
+    grey = "\x1b[1;30m"
+    for i in range(max(len(text_chunk), len(sync_chunk))):
+        sync_word = sync_chunk[i] if len(sync_chunk) > i else None
+        text_word = text_chunk[i] if len(text_chunk) > i else None
+        sync_str = (
+            (
+                f"{tag_colors[tag]}{sync_word['word'].rjust(width)}{grey}"
+                f" [{sync_word['start']:7.03f};{sync_word['end']:7.03f}]"
+            )
+            if sync_word
+            else f"{grey}".rjust(width + 25)
+        )
+        text_str = (
+            (
+                f"{tag_colors[tag]}{text_word['word'].ljust(width)}{grey}"
+                f" [{text_word['start']:7.03f};{text_word['end']:7.03f}]"
+            )
+            if text_word
+            else ""
+        )
+        logger.debug(f"{sync_str} | {text_str}\x1b[0m")
+
+
+def merge_word(sync_word: SingleWordSegment, text_word: SingleWordSegment) -> SingleWordSegment:
+    return {
+        "word": text_word["word"],
+        "start": sync_word["start"],
+        "end": sync_word["end"],
+        "score": sync_word["score"],
+    }
+
+
+def compute_times(start: float, end: float, words_length: list[int]) -> list[tuple[float, float]]:
+    if len(words_length) == 1:
+        return [(start, end)]
+
+    total_duration = end - start
+    total_length = sum(words_length) + (len(words_length) - 1) * 2
+    char_duration = total_duration / total_length
+
+    return [
+        (
+            round(start + (cum_sum - words_length[idx] + idx * 2) * char_duration, 3),
+            round(start + (cum_sum + idx * 2) * char_duration, 3),
+        )
+        for idx, cum_sum in enumerate(accumulate(words_length))
+    ]
+
+
+def handle_equal(
+    sync_chunk: list[SingleWordSegment],
+    text_chunk: list[SingleWordSegment],
+) -> list[SingleWordSegment]:
+    return [merge_word(sync_word, text_chunk[idx]) for idx, sync_word in enumerate(sync_chunk)]
+
+
+def handle_replace(
+    sync_chunk: list[SingleWordSegment],
+    text_chunk: list[SingleWordSegment],
+) -> list[SingleWordSegment]:
+    times = compute_times(
+        start=sync_chunk[0]["start"],
+        end=sync_chunk[-1]["end"],
+        words_length=[len(word["word"]) for word in text_chunk],
+    )
+    avg_score = round(sum([word["score"] for word in sync_chunk]) / len(sync_chunk), 3)
+    return [
+        {
+            "word": text_word["word"],
+            "start": times[idx][0],
+            "end": times[idx][1],
+            "score": avg_score,
+        }
+        for idx, text_word in enumerate(text_chunk)
+    ]
+
+
+def handle_insert(
+    text_chunk: list[SingleWordSegment],
+    last_end: float,
+    next_start: float,
+) -> list[SingleWordSegment]:
+    avg_letter_durat = (next_start - last_end) / sum(
+        [len(word["word"]) for word in text_chunk],
+    )
+    words_length = [len(word["word"]) for word in text_chunk]
+    times = compute_times(
+        last_end + avg_letter_durat,
+        next_start - avg_letter_durat,
+        words_length,
+    )
+
+    return [
+        {
+            "word": text_word["word"],
+            "start": times[idx][0],
+            "end": times[idx][1],
+            "score": 0,
+        }
+        for idx, text_word in enumerate(text_chunk)
+    ]
+
+
+def align_text(
+    transcription: AlignedTranscriptionResult,
+    text_path: PlPath,
+) -> AlignedTranscriptionResult:
+    logger.debug("Aligning text file on transcription...")
+    text_transcription = transcribe_text(text_path)
+
+    sync_words = transcription["word_segments"]
+    text_words = text_transcription["word_segments"]
+
+    sync_tokens = [tokenize(word["word"]) for word in sync_words]
+    text_tokens = [tokenize(word["word"]) for word in text_words]
+    sm = SequenceMatcher(None, sync_tokens, text_tokens)
+
+    merged_segments: list[SingleWordSegment] = []
+    last_end = 0
+    offset = 0
+
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        sync_chunk = sync_words[i1:i2]
+        text_chunk = text_words[j1:j2]
+        max_sync_word_length = max([len(word["word"]) for word in sync_words]) if sync_words else 0
+        len_diff = len(sync_chunk) - len(text_chunk)
+        offset += len_diff
+        j1 += offset
+        j2 += offset
+
+        merged_chunk: list[SingleWordSegment] = (
+            handle_equal(sync_chunk, text_chunk)
+            if tag == "equal" or (tag == "replace" and len_diff == 0)
+            else handle_replace(sync_chunk, text_chunk)
+            if tag == "replace"
+            else handle_insert(text_chunk, last_end, sync_words[i1]["start"])
+            if tag == "insert"
+            else []  # delete
+        )
+
+        last_end = merged_chunk[-1]["end"] if merged_chunk else 0
+        merged_segments += merged_chunk
+        log_diff(sync_chunk, merged_chunk, tag, max_sync_word_length)
+
+    segments_indexes = [len(segment["words"]) for segment in text_transcription["segments"]]
+    end_indexes = list(accumulate(segments_indexes))
+    start_indexes = [0, *end_indexes[:-1]]
+    raw_segments: list[list[SingleWordSegment]] = [
+        merged_segments[s:e] for s, e in zip(start_indexes, end_indexes)
+    ]
+
+    segments: list[SingleAlignedSegment] = [
+        {
+            "start": words[0]["start"],
+            "end": words[-1]["end"],
+            "text": " ".join([word["word"] for word in words]),
+            "words": words,
+        }
+        for words in raw_segments
+        if words
+    ]
+
+    return {"segments": segments, "word_segments": merged_segments}

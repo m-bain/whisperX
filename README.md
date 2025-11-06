@@ -24,7 +24,7 @@ If you’re looking for a transcription API for meetings, consider checking out 
   </a>
   <a href="https://twitter.com/intent/tweet?text=&url=https%3A%2F%2Fgithub.com%2Fm-bain%2FwhisperX">
   <img src="https://img.shields.io/twitter/url/https/github.com/m-bain/whisperX.svg?style=social" alt="Twitter">
-  </a>      
+  </a>
 </p>
 
 <img width="1216" align="center" alt="whisperx-arch" src="https://raw.githubusercontent.com/m-bain/whisperX/refs/heads/main/figures/pipeline.png">
@@ -145,6 +145,10 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
+
+To synchronize a plain-text transcription file on the computed transcription (add `--log-level=debug` to get details on how the transcription was translated):
+
+    whisperx path/to/audio.wav --text_file lyrics.txt
 
 ### Other languages
 
