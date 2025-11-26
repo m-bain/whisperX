@@ -16,6 +16,7 @@ dependencies = [
     "onnxruntime>=1.19",
     "pandas>=2.2.3",
     "pyannote-audio>=4.0.0",
+    "omegaconf>=2.3.0",
     # NOTE: some torchcodec versions are incompatible with some torch versions
     # and if you happen to use an incompatible version, you will currently see
     # a very obscure bad_alloc exception when those libs are loaded, which tells
