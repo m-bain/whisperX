@@ -243,11 +243,29 @@ def transcribe_with_callbacks(
         enable_diarization: bool = False,
         progress_callback: Optional[Callable[[int], None]] = None,
         status_callback: Optional[Callable[[str], None]] = None,
+        cached_models: Optional[dict] = None,
+        return_models: bool = False,
         **kwargs
 ) -> dict:
     """
     Transcribe audio with progress callbacks for GUI integration.
     Uses actual progress values from WhisperX instead of hardcoded values.
+
+    Args:
+        audio_file: Path to audio file
+        model_name: Name of Whisper model to use
+        device: Device to use (cuda, cpu, auto)
+        language: Language code (None for auto-detection)
+        enable_alignment: Enable word-level alignment
+        enable_diarization: Enable speaker diarization
+        progress_callback: Callback for progress updates (0-100)
+        status_callback: Callback for status messages
+        cached_models: Optional dict of pre-loaded models {'asr': model, 'alignment': {...}, 'diarization': pipeline}
+        return_models: If True, return loaded models in result for caching
+        **kwargs: Additional parameters (device_index, compute_type, batch_size, hf_token)
+
+    Returns:
+        Dictionary containing transcription results and optionally loaded models
     """
 
     # Progress phase allocation
@@ -259,6 +277,7 @@ def transcribe_with_callbacks(
     }
 
     current_phase_start = 0
+    loaded_models = {}
 
     def phase_progress_callback(phase: str, progress: int):
         """Convert phase-specific progress to overall progress."""
@@ -276,15 +295,21 @@ def transcribe_with_callbacks(
         audio = load_audio(audio_file)
         phase_progress_callback('loading', 50)
 
-        if status_callback:
-            status_callback("Loading ASR model...")
-
-        model = load_model(
-            whisper_arch=model_name,
-            device=device,
-            language=language,
-            **{k: v for k, v in kwargs.items() if k in ['device_index', 'compute_type', 'batch_size']}
-        )
+        # Use cached ASR model or load new one
+        if cached_models and 'asr' in cached_models:
+            if status_callback:
+                status_callback("Using cached ASR model...")
+            model = cached_models['asr']
+        else:
+            if status_callback:
+                status_callback("Loading ASR model...")
+            model = load_model(
+                whisper_arch=model_name,
+                device=device,
+                language=language,
+                **{k: v for k, v in kwargs.items() if k in ['device_index', 'compute_type', 'batch_size']}
+            )
+            loaded_models['asr'] = model
 
         phase_progress_callback('loading', 100)
         current_phase_start += phase_weights['loading']
@@ -311,10 +336,29 @@ def transcribe_with_callbacks(
             if status_callback:
                 status_callback("Aligning timestamps...")
 
-            model_a, metadata = load_align_model(
-                language_code=language or "en",
-                device=device
-            )
+            # Use cached alignment model or load new one
+            align_language = language or "en"
+            if cached_models and 'alignment' in cached_models:
+                cached_align_lang = cached_models['alignment'].get('metadata', {}).get('language', 'en')
+                if cached_align_lang == align_language:
+                    if status_callback:
+                        status_callback("Using cached alignment model...")
+                    model_a = cached_models['alignment']['model']
+                    metadata = cached_models['alignment']['metadata']
+                else:
+                    if status_callback:
+                        status_callback("Loading alignment model for new language...")
+                    model_a, metadata = load_align_model(
+                        language_code=align_language,
+                        device=device
+                    )
+                    loaded_models['alignment'] = {'model': model_a, 'metadata': metadata}
+            else:
+                model_a, metadata = load_align_model(
+                    language_code=align_language,
+                    device=device
+                )
+                loaded_models['alignment'] = {'model': model_a, 'metadata': metadata}
 
             result_aligned = align(
                 result["segments"],
@@ -340,10 +384,17 @@ def transcribe_with_callbacks(
 
             phase_progress_callback('diarization', 10)
 
-            diarize_model = DiarizationPipeline(
-                use_auth_token=kwargs.get('hf_token'),
-                device=torch.device(device)
-            )
+            # Use cached diarization model or load new one
+            if cached_models and 'diarization' in cached_models:
+                if status_callback:
+                    status_callback("Using cached diarization model...")
+                diarize_model = cached_models['diarization']
+            else:
+                diarize_model = DiarizationPipeline(
+                    use_auth_token=kwargs.get('hf_token'),
+                    device=torch.device(device)
+                )
+                loaded_models['diarization'] = diarize_model
 
             phase_progress_callback('diarization', 40)
 
@@ -364,6 +415,10 @@ def transcribe_with_callbacks(
             status_callback("Transcription completed successfully")
         if progress_callback:
             progress_callback(100)
+
+        # Return loaded models if requested (for caching)
+        if return_models:
+            final_result['_loaded_models'] = loaded_models
 
         return final_result
 

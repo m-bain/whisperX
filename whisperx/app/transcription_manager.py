@@ -4,16 +4,19 @@ Manages model lifecycle, worker coordination, and state management.
 """
 import time
 import os
+import gc
 from PySide6.QtCore import QObject, Signal, QThreadPool
 from typing import Dict, Any, Optional
 
 from whisperx.app.app_config import AppConfig, TranscriptionConfig
-from whisperx.app.transcription_workers import ModelLoaderWorker, TranscriptionWorker
-from whisperx.app.whisperx_bridge import WhisperXBridge
+from whisperx.app.transcription_workers import TranscriptionWorker
 
 
 class TranscriptionManager(QObject):
-    """Manages the complete transcription workflow."""
+    """
+    Manages the complete transcription workflow.
+    Simplified to delegate orchestration to WhisperX's built-in transcribe_with_callbacks().
+    """
 
     # Signals
     progress_updated = Signal(int)
@@ -26,13 +29,15 @@ class TranscriptionManager(QObject):
         super().__init__()
         self.thread_pool = thread_pool
         self.app_config = AppConfig()
-        self.loaded_models: Optional[Dict[str, Any]] = None
+        self.cached_models: Optional[Dict[str, Any]] = None
         self.current_worker: Optional[Any] = None
         self._is_running = False
 
+        # Tracking variables for metadata
         self._transcription_start_time: Optional[float] = None
         self._current_filepath: Optional[str] = None
         self._current_file_size: Optional[int] = None
+        self._last_config: Optional[Dict[str, Any]] = None
 
     def is_running(self) -> bool:
         """Check if transcription is currently running."""
@@ -46,15 +51,12 @@ class TranscriptionManager(QObject):
 
         try:
             # Update configuration from UI
-            print("BEFORE: ", str(self.app_config))
             self.app_config.update_config(
                 audio_file=audio_file,
                 **ui_config
             )
-            print("AFTER: ", str(self.app_config))
 
             config = self.app_config.get_current_config()
-            print("AFTER ONLY CONGIF: ", str(config))
 
             self._transcription_start_time = time.time()
             self._current_filepath = audio_file
@@ -65,13 +67,12 @@ class TranscriptionManager(QObject):
 
             self._is_running = True
 
-            # If models need loading, start with model loader
-            if self._models_need_loading(config):
+            # Check if models need to be cleared
+            if self._should_clear_models(config):
                 self._cleanup_models()
-                self._start_model_loading(config)
-            else:
-                # Use existing models for transcription
-                self._start_transcription_worker(config)
+
+            # Start transcription worker
+            self._start_transcription_worker(config)
 
         except Exception as e:
             self._is_running = False
@@ -84,89 +85,46 @@ class TranscriptionManager(QObject):
         self._is_running = False
         self.status_updated.emit("Stopping transcription...")
 
-    def _models_need_loading(self, config: TranscriptionConfig) -> bool:
-        """Determine if models need to be loaded/reloaded."""
-        if not self.loaded_models:
-            return True
+    def _should_clear_models(self, config: TranscriptionConfig) -> bool:
+        """
+        Determine if cached models should be cleared.
+        Clear models only when critical parameters change.
+        """
+        if not self.cached_models:
+            return False
 
-        # Check if ASR model parameters changed
-        if 'asr' in self.loaded_models:
-            current_asr = self.loaded_models['asr']
+        if not self._last_config:
+            return False
 
-            # Check core model parameters
-            if (hasattr(current_asr, 'model') and
-                    hasattr(current_asr.model, 'model_path')):
-                # Extract current model name from path
-                current_model = current_asr.model.model_path.split('/')[-1]
-                if current_model != config.model_name:
-                    print(f"Model changed: {current_model} -> {config.model_name}")
-                    return True
-
-            # Check if language changed (most important for your issue)
-            if hasattr(current_asr, 'preset_language'):
-                if current_asr.preset_language != config.language:
-                    print(f"Language changed: {current_asr.preset_language} -> {config.language}")
-                    return True
-
-            # Check device changes
-            if hasattr(current_asr, 'device'):
-                current_device = str(current_asr.device)
-                config_device = config.device
-                if current_device != config_device:
-                    print(f"Device changed: {current_device} -> {config_device}")
-                    return True
-
-        # Check if alignment model language changed
-        if 'alignment' in self.loaded_models and config.enable_alignment:
-            current_align_lang = self.loaded_models['alignment']['metadata'].get('language', 'en')
-            target_lang = config.language or 'en'
-            if current_align_lang != target_lang:
-                print(f"Alignment language changed: {current_align_lang} -> {target_lang}")
+        # Check if core parameters changed
+        critical_params = ['model_name', 'device', 'device_index', 'compute_type']
+        for param in critical_params:
+            if getattr(config, param) != self._last_config.get(param):
+                print(f"Model cache cleared: {param} changed from {self._last_config.get(param)} to {getattr(config, param)}")
                 return True
 
-        # If diarization setting changed
-        if config.enable_diarization and 'diarization' not in self.loaded_models:
-            return True
-        elif not config.enable_diarization and 'diarization' in self.loaded_models:
-            return True
+        # Note: Language and alignment changes are handled by transcribe_with_callbacks()
+        # It will reload only the necessary models automatically
 
         return False
 
-    def _store_model_config(self, config: TranscriptionConfig) -> None:
-        """Store the configuration used to load current models."""
-        self._current_model_config = {
+    def _start_transcription_worker(self, config: TranscriptionConfig) -> None:
+        """Start transcription worker."""
+        # Store current config for future comparison
+        self._last_config = {
             'model_name': config.model_name,
-            'language': config.language,
             'device': config.device,
             'device_index': config.device_index,
             'compute_type': config.compute_type,
+            'language': config.language,
             'enable_alignment': config.enable_alignment,
             'enable_diarization': config.enable_diarization
         }
 
-    def _get_stored_model_config(self) -> dict:
-        """Get the stored model configuration."""
-        return getattr(self, '_current_model_config', {})
-
-    def _start_model_loading(self, config: TranscriptionConfig) -> None:
-        """Start model loading worker."""
-        self.status_updated.emit("Preparing models...")
-
-        worker = ModelLoaderWorker(config)
+        worker = TranscriptionWorker(config, self.cached_models)
         worker.signals.progress_updated.connect(self.progress_updated)
         worker.signals.status_updated.connect(self.status_updated)
         worker.signals.models_loaded.connect(self._on_models_loaded)
-        worker.signals.error.connect(self._on_worker_error)
-        worker.signals.finished.connect(lambda: self._on_model_loading_finished(config))
-
-        self.current_worker = worker
-        self.thread_pool.start(worker)
-
-    def _start_transcription_worker(self, config: TranscriptionConfig) -> None:
-        """Start transcription worker."""
-        worker = TranscriptionWorker(config, self.loaded_models)
-        worker.signals.progress_updated.connect(self.progress_updated)
-        worker.signals.status_updated.connect(self.status_updated)
         worker.signals.transcription_completed.connect(self._on_transcription_completed)
         worker.signals.error.connect(self._on_worker_error)
         worker.signals.finished.connect(self._on_transcription_finished)
@@ -174,78 +132,30 @@ class TranscriptionManager(QObject):
         self.current_worker = worker
         self.thread_pool.start(worker)
 
-    def start_transcription_direct(self, audio_file: str, ui_config: Dict[str, Any]) -> None:
-        """Test: Run transcription directly on main thread."""
-        if self._is_running:
-            self.error_occurred.emit("Transcription already in progress")
-            return
-
-        try:
-            # Update configuration
-            self.app_config.update_config(audio_file=audio_file, **ui_config)
-            config = self.app_config.get_current_config()
-            self._is_running = True
-
-            # Load models if needed (on main thread)
-            if self._models_need_loading(config):
-                bridge = WhisperXBridge()
-                models = bridge.load_models(config, None, None)  # No callbacks
-                self.loaded_models = models
-
-            # Run transcription DIRECTLY on main thread (no worker thread)
-            bridge = WhisperXBridge()
-            start_time = time.time()
-            result = bridge.transcribe_audio(
-                config=config,
-                models=self.loaded_models,
-                progress_callback=None,  # No callbacks
-                status_callback=None
-            )
-            end_time = time.time()
-
-            print(f"Direct main thread transcription took: {end_time - start_time:.2f} seconds")
-
-            # Emit results
-            self.transcription_completed.emit(result)
-            self._is_running = False
-
-        except Exception as e:
-            self._is_running = False
-            self.error_occurred.emit(str(e))
-
     def _cleanup_models(self) -> None:
-        """Clean up loaded models to force reload."""
-        if self.loaded_models:
+        """Clean up cached models to free memory."""
+        if self.cached_models:
             print("Cleaning up cached models...")
-            # Cleanup GPU memory if using CUDA
-            if 'asr' in self.loaded_models:
-                del self.loaded_models['asr']
-            if 'alignment' in self.loaded_models:
-                del self.loaded_models['alignment']
-            if 'diarization' in self.loaded_models:
-                del self.loaded_models['diarization']
-
-            self.loaded_models = None
+            self.cached_models = None
 
             # Force garbage collection
-            import gc
             import torch
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
     def _on_models_loaded(self, models: Dict[str, Any]) -> None:
-        """Handle successful model loading."""
-        self.loaded_models = models
-        # Store the config used for these models
-        current_config = self.app_config.get_current_config()
-        self._store_model_config(current_config)
-        self.models_loaded.emit()
+        """
+        Handle models loaded/updated by worker.
+        Merge new models with existing cache.
+        """
+        if self.cached_models is None:
+            self.cached_models = models
+        else:
+            # Merge new models with existing cache
+            self.cached_models.update(models)
 
-    def _on_model_loading_finished(self, config: TranscriptionConfig) -> None:
-        """Handle model loading completion and start transcription."""
-        if self._is_running:
-            self._start_transcription_worker(config)
+        self.models_loaded.emit()
 
     def _on_transcription_completed(self, result: Dict[str, Any]) -> None:
         """Handle successful transcription completion."""
@@ -296,10 +206,7 @@ class TranscriptionManager(QObject):
             from dataclasses import asdict
             error_result['config'] = asdict(self.app_config.get_current_config())
 
-            # Could emit a separate error completion signal if needed
-            # For now, just emit error
-
-            # Reset tracking variables
+        # Reset tracking variables
         self._transcription_start_time = None
         self._current_filepath = None
         self._current_file_size = None
