@@ -84,7 +84,7 @@ class TranscriptionWorker(QRunnable):
                 language=self.config.language,
                 enable_alignment=self.config.enable_alignment,
                 enable_diarization=self.config.enable_diarization,
-                batch_size=self.config.batch_size,
+                # batch_size=self.config.batch_size,
                 cached_models=self.cached_models,
                 return_models=True,  # Request models for caching
                 progress_callback=self._on_progress_update,

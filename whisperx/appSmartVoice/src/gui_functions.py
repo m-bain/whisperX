@@ -3,9 +3,9 @@ from Custom_Widgets.QAppSettings import QAppSettings
 from Custom_Widgets.QCustomTipOverlay import QCustomTipOverlay
 from Custom_Widgets.QCustomLoadingIndicators import QCustom3CirclesLoader
 
-from PySide6.QtCore import QSettings, QTimer
+from PySide6.QtCore import QSettings, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QColor, QFont, QFontDatabase
-from PySide6.QtWidgets import QGraphicsDropShadowEffect, QMenu, QFileDialog
+from PySide6.QtWidgets import QGraphicsDropShadowEffect, QMenu, QFileDialog, QGraphicsOpacityEffect
 
 
 class GUIFunctions():
@@ -14,7 +14,7 @@ class GUIFunctions():
         self.ui = MainWindow.ui
 
         self.transcriptionActive = False
-
+        self.blinkingStatusLabel = self.ui.statusLabel
 
 
         # INIT
@@ -58,6 +58,7 @@ class GUIFunctions():
             if widget.objectName() == "resultsPage":
                 self.ui.stackedMainPages.setCurrentIndex(i)
                 break
+        self.labelStartBlinking()
 
         # Start transcription
         self.main.transcriptionManager.start_transcription(audio_file, ui_config)
@@ -95,7 +96,7 @@ class GUIFunctions():
         self.ui.languageMenu.setStyleSheet("QMenu { menu-scrollable: 1; }")
 
         self.languageMapping = {
-            "": "",  # Empty option for unselected
+            "": None,  # Empty option for unselected
             "Afrikaans": "af",
             "Albanian": "sq",
             "Amharic": "am",
@@ -211,11 +212,11 @@ class GUIFunctions():
                 # separator and "None" - empty selection
                 self.ui.languageMenu.addSeparator()
                 clear_action = self.ui.languageMenu.addAction("Clear selection")
-                clear_action.triggered.connect(lambda: self.selectLanguage(" Select language", ""))
+                clear_action.triggered.connect(lambda: self.selectLanguage(" Select language", None))
 
         self.ui.languageDropdownBtn.clicked.connect(self.showLanguageMenu)
 
-        self.selectLanguageCode = ""
+        self.selectLanguageCode = None
         self.selectLanguageDisplay = ""
 
     def showLanguageMenu(self):
@@ -278,3 +279,33 @@ class GUIFunctions():
             self.searchTooltip.show()
 
         self.searchTooltip.setDescription(f"Search results for \"{searchPhrase}\"")
+
+
+    def labelStartBlinking(self, duration_ms=4500):
+        label = self.ui.statusLabel
+        # Create opacity effect if it doesn't exist
+        if not label.graphicsEffect():
+            opacity_effect = QGraphicsOpacityEffect(label)
+            label.setGraphicsEffect(opacity_effect)
+
+        opacity_effect = label.graphicsEffect()
+
+        # Create animation
+        animation = QPropertyAnimation(opacity_effect, b"opacity")
+        animation.setDuration(duration_ms)
+        animation.setStartValue(1.0)
+        animation.setKeyValueAt(0.5, 0.0)  # Fade to 0 at midpoint
+        animation.setEndValue(1.0)  # Fade back to 1
+        animation.setEasingCurve(QEasingCurve.InOutQuad)  # Smooth easing
+        animation.setLoopCount(-1)  # Loop indefinitely
+
+        # Store animation reference on the label to prevent garbage collection
+        label.blink_animation = animation
+        animation.start()
+
+    def labelStopBlinking(self):
+        label = self.ui.statusLabel
+        if hasattr(label, 'blink_animation'):
+            label.blink_animation.stop()
+            if label.graphicsEffect():
+                label.graphicsEffect().setOpacity(1.0)

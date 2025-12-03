@@ -112,6 +112,7 @@ class MainWindow(QMainWindow):
         if self.historyManager:
             self._refreshHistoryList()
 
+        #TODO: why not customizing it?
         # self.ui.transcrHistoryList.setStyleSheet("""
         #             QListWidget {
         #                 background-color: #1e1e1e;
@@ -167,6 +168,7 @@ class MainWindow(QMainWindow):
         # Update display
         self.updateTranscriptionDisplay()
         self.ui.statusLabel.setText("Transcription completed successfully")
+        self.app_functions.labelStopBlinking()
 
         self._saveTranscriptionToHistory(result)
 
@@ -178,6 +180,7 @@ class MainWindow(QMainWindow):
 
         # Show error in transcription area
         self.ui.transcriptionTextArea.setPlainText(f"Transcription failed: {error_message}")
+        self.app_functions.labelStopBlinking()
 
     def onModelsLoaded(self):
         """Handle model loading completion."""
