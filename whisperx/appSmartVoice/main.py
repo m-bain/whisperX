@@ -341,17 +341,10 @@ class MainWindow(QMainWindow):
             status_text += f"Time: {record.transcription_time:.1f}s"
             self.ui.statusLabel.setText(status_text)
 
-            # Switch to results page
-            # self.ui.stackedMainPages.setCurrentIndex(1)
-            # Switch to results page - find it by object name
-            for i in range(self.ui.stackedMainPages.count()):
-                widget = self.ui.stackedMainPages.widget(i)
-                if widget.objectName() == "resultsPage":
-                    self.ui.stackedMainPages.setCurrentIndex(i)
-                    break
-
-            # Enable results button
+            # Enable results button and switch to results page
+            # Clicking the button ensures the QPushButtonGroup updates correctly
             self.ui.resultsBtn.setEnabled(True)
+            self.ui.resultsBtn.click()
 
         except Exception as e:
             print(f"Error loading history item: {e}")

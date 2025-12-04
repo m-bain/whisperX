@@ -51,13 +51,9 @@ class GUIFunctions():
         self.ui.statusLabel.setText("Starting transcription...")
         self.ui.transcriptionTextArea.setPlainText("")
 
-        # Switch to results page
-        # self.ui.stackedMainPages.setCurrentIndex(1)
-        for i in range(self.ui.stackedMainPages.count()):
-            widget = self.ui.stackedMainPages.widget(i)
-            if widget.objectName() == "resultsPage":
-                self.ui.stackedMainPages.setCurrentIndex(i)
-                break
+        # Switch to results page by clicking the button
+        # This ensures the QPushButtonGroup updates correctly
+        self.ui.resultsBtn.click()
         self.labelStartBlinking()
 
         # Start transcription
