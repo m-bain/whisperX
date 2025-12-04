@@ -25,11 +25,23 @@ dependencies = [
 
 [project.optional-dependencies]
 installer = [
-    "requests>=2.28.0",  # For downloading dependencies
+    "requests>=2.28.0",
+    "packaging>=21.0",
+]
+
+gui = [
+    "PySide6>=6.5.0",
+    "QT-PyQt-PySide-Custom-Widgets>=0.8.0",
+]
+
+dev = [
+    "pyinstaller>=5.0",
+    "pytest>=7.0",
 ]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"
+whisperx-launcher = "whisperx.launcher.launcher_main:main"
 
 [build-system]
 requires = ["setuptools"]
