@@ -17,11 +17,12 @@ block_cipher = None
 # Analysis: Collect all launcher files and dependencies
 a = Analysis(
     ['whisperx/launcher/launcher_main.py'],
-    pathex=[],
+    pathex=[os.path.abspath('.')],
     binaries=[],
     datas=[
         # Include launcher core modules
         ('whisperx/launcher/core', 'whisperx/launcher/core'),
+        ('whisperx/launcher/__init__.py', 'whisperx/launcher'),
         # Include version file
         ('whisperx/__version__.py', 'whisperx'),
         # Include icon if present
@@ -40,6 +41,9 @@ a = Analysis(
         'packaging.version',
         'packaging.specifiers',
         'packaging.requirements',
+        'subprocess',
+        'json',
+        'pathlib',
     ],
     hookspath=[],
     hooksconfig={},
@@ -55,6 +59,9 @@ a = Analysis(
         'faster_whisper',
         'transformers',
         'pyannote',
+        'matplotlib',
+        'scipy',
+        'sklearn',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
