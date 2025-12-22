@@ -19,8 +19,8 @@ dependencies = [
     "av<16.0.0",
     "numpy>=2.1.0,<2.3.0; python_version >='3.13'",
     "pyannote-audio>=3.3.2,<4.0.0",
-    "torch~=2.8.0",
-    "torchaudio~=2.8.0",
+    "torch~=2.9.0",
+    "torchaudio~=2.9.0",
     "transformers>=4.48.0",
     "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'" # only install triton on x86_64 Linux
 ]
