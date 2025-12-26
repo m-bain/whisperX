@@ -5,11 +5,19 @@ from typing import Optional
 import numpy as np
 import torch
 from pyannote.audio import Model
+from pyannote.audio.core.model import Introspection
+from pyannote.audio.core.task import Problem, Resolution, Specifications
 from pyannote.audio.core.io import AudioFile
 from pyannote.audio.pipelines import VoiceActivityDetection
 from pyannote.audio.pipelines.utils import PipelineModel
 from pyannote.core import Annotation, SlidingWindowFeature
 from pyannote.core import Segment
+from omegaconf import DictConfig, ListConfig
+from omegaconf.base import ContainerMetadata, Metadata
+from omegaconf.nodes import AnyNode, BooleanNode, FloatNode, IntegerNode, StringNode
+import typing
+from collections import OrderedDict, defaultdict
+from torch.torch_version import TorchVersion
 
 from whisperx.diarize import Segment as SegmentX
 from whisperx.vads.vad import Vad
@@ -38,7 +46,38 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
     if os.path.exists(model_fp) and not os.path.isfile(model_fp):
         raise RuntimeError(f"{model_fp} exists and is not a regular file")
 
-    model_bytes = open(model_fp, "rb").read()
+    # Allowlist OmegaConf types required by Pyannote checkpoints in torch>=2.6.
+    torch.serialization.add_safe_globals(
+        [
+            DictConfig,
+            ListConfig,
+            ContainerMetadata,
+            Metadata,
+            AnyNode,
+            BooleanNode,
+            FloatNode,
+            IntegerNode,
+            StringNode,
+            typing.Any,
+            list,
+            dict,
+            tuple,
+            set,
+            frozenset,
+            int,
+            float,
+            bool,
+            str,
+            bytes,
+            OrderedDict,
+            defaultdict,
+            TorchVersion,
+            Introspection,
+            Specifications,
+            Problem,
+            Resolution,
+        ]
+    )
 
     vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
     hyperparameters = {"onset": vad_onset,
