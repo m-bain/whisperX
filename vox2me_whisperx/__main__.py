@@ -6,6 +6,7 @@ import torch
 
 from vox2me_whisperx.utils import (LANGUAGES, TO_LANGUAGE_CODE, optional_float,
                             optional_int, str2bool)
+from vox2me_whisperx.log_utils import setup_logging
 
 
 def cli():
@@ -23,6 +24,7 @@ def cli():
     parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
     parser.add_argument("--output_format", "-f", type=str, default="all", choices=["all", "srt", "vtt", "txt", "tsv", "json", "aud"], help="format of the output file; if not specified, all available formats will be produced")
     parser.add_argument("--verbose", type=str2bool, default=True, help="whether to print out the progress and debug messages")
+    parser.add_argument("--log-level", type=str, default=None, choices=["debug", "info", "warning", "error", "critical"], help="logging level (overrides --verbose if set)")
 
     parser.add_argument("--task", type=str, default="transcribe", choices=["transcribe", "translate"], help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')")
     parser.add_argument("--language", type=str, default=None, choices=sorted(LANGUAGES.keys()) + sorted([k.title() for k in TO_LANGUAGE_CODE.keys()]), help="language spoken in the audio, specify None to perform language detection")
@@ -79,6 +81,16 @@ def cli():
     # fmt: on
 
     args = parser.parse_args().__dict__
+
+    log_level = args.get("log_level")
+    verbose = args.get("verbose")
+
+    if log_level is not None:
+        setup_logging(level=log_level)
+    elif verbose:
+        setup_logging(level="info")
+    else:
+        setup_logging(level="warning")
 
     from vox2me_whisperx.transcribe import transcribe_task
 

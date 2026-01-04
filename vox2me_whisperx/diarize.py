@@ -5,7 +5,10 @@ from typing import Optional, Union, Callable
 import torch
 
 from .audio import load_audio, SAMPLE_RATE
-from .types import TranscriptionResult, AlignedTranscriptionResult
+from .schema import TranscriptionResult, AlignedTranscriptionResult
+from .log_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class DiarizationPipeline:
@@ -18,6 +21,7 @@ class DiarizationPipeline:
         if isinstance(device, str):
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-3.1"
+        logger.info(f"Loading diarization model: {model_config}")
         self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
 
     def __call__(

@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union, Callable
+from typing import List, Optional, Union
 from dataclasses import replace
 
 import ctranslate2
@@ -12,8 +12,11 @@ from transformers import Pipeline
 from transformers.pipelines.pt_utils import PipelineIterator
 
 from vox2me_whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
-from vox2me_whisperx.types import SingleSegment, TranscriptionResult
+from vox2me_whisperx.schema import SingleSegment, TranscriptionResult
 from vox2me_whisperx.vads import Vad, Silero, Pyannote
+from vox2me_whisperx.log_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def find_numeral_symbol_tokens(tokenizer):
@@ -248,7 +251,7 @@ class FasterWhisperPipeline(Pipeline):
         if self.suppress_numerals:
             previous_suppress_tokens = self.options.suppress_tokens
             numeral_symbol_tokens = find_numeral_symbol_tokens(self.tokenizer)
-            print(f"Suppressing numeral and symbol tokens")
+            logger.info("Suppressing numeral and symbol tokens")
             new_suppressed_tokens = numeral_symbol_tokens + self.options.suppress_tokens
             new_suppressed_tokens = list(set(new_suppressed_tokens))
             self.options = replace(self.options, suppress_tokens=new_suppressed_tokens)
@@ -288,7 +291,7 @@ class FasterWhisperPipeline(Pipeline):
 
     def detect_language(self, audio: np.ndarray) -> str:
         if audio.shape[0] < N_SAMPLES:
-            print("Warning: audio is shorter than 30s, language detection may be inaccurate.")
+            logger.warning("Audio is shorter than 30s, language detection may be inaccurate")
         model_n_mels = self.model.feat_kwargs.get("feature_size")
         segment = log_mel_spectrogram(audio[: N_SAMPLES],
                                       n_mels=model_n_mels if model_n_mels is not None else 80,
@@ -297,7 +300,7 @@ class FasterWhisperPipeline(Pipeline):
         results = self.model.model.detect_language(encoder_output)
         language_token, language_probability = results[0][0]
         language = language_token[2:-2]
-        print(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio...")
+        logger.info(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio")
         return language
 
 
@@ -322,7 +325,8 @@ def load_model(
         whisper_arch - The name of the Whisper model to load.
         device - The device to load the model on.
         compute_type - The compute type to use for the model.
-        vad_method - The vad method to use. vad_model has higher priority if is not None.
+        vad_model - The vad model to manually assign.
+        vad_method - The vad method to use. vad_model has a higher priority if it is not None.
         options - A dictionary of options to use for the model.
         language - The language of the model. (use English for now)
         model - The WhisperModel instance to use.
@@ -346,7 +350,7 @@ def load_model(
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
-        print("No language specified, language will be first be detected for each audio file (increases inference time).")
+        logger.info("No language specified, language will be detected for each audio file (increases inference time)")
         tokenizer = None
 
     default_asr_options =  {

@@ -10,8 +10,11 @@ from vox2me_whisperx.alignment import align, load_align_model
 from vox2me_whisperx.asr import load_model
 from vox2me_whisperx.audio import load_audio
 from vox2me_whisperx.diarize import DiarizationPipeline, assign_word_speakers
-from vox2me_whisperx.types import AlignedTranscriptionResult, TranscriptionResult
+from vox2me_whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
 from vox2me_whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
+from vox2me_whisperx.log_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def transcribe_task(args: dict, parser: argparse.ArgumentParser):
@@ -103,6 +106,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         "no_speech_threshold": args.pop("no_speech_threshold"),
         "condition_on_previous_text": False,
         "initial_prompt": args.pop("initial_prompt"),
+        "hotwords": args.pop("hotwords"),
         "suppress_tokens": [int(x) for x in args.pop("suppress_tokens").split(",")],
         "suppress_numerals": args.pop("suppress_numerals"),
     }
@@ -119,7 +123,6 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     # Part 1: VAD & ASR Loop
     results = []
-    tmp_results = []
     # model = load_model(model_name, device=device, download_root=model_dir)
     model = load_model(
         model_name,
@@ -143,7 +146,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
         # >> VAD & ASR
-        print(">>Performing transcription...")
+        logger.info("Performing transcription...")
         result: TranscriptionResult = model.transcribe(
             audio,
             batch_size=batch_size,
@@ -176,13 +179,13 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             if align_model is not None and len(result["segments"]) > 0:
                 if result.get("language", "en") != align_metadata["language"]:
                     # load new language
-                    print(
+                    logger.info(
                         f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
                     )
                     align_model, align_metadata = load_align_model(
                         result["language"], device
                     )
-                print(">>Performing alignment...")
+                logger.info("Performing alignment...")
                 result: AlignedTranscriptionResult = align(
                     result["segments"],
                     align_model,
@@ -204,12 +207,12 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # >> Diarize
     if diarize:
         if hf_token is None:
-            print(
-                "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error loading diarization model..."
+            logger.warning(
+                "No --hf_token provided, needs to be saved in environment variable, otherwise will throw error loading diarization model"
             )
         tmp_results = results
-        print(">>Performing diarization...")
-        print(">>Using model:", diarize_model_name)
+        logger.info("Performing diarization...")
+        logger.info(f"Using model: {diarize_model_name}")
         results = []
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
