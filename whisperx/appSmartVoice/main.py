@@ -32,6 +32,18 @@ from whisperx.SubtitlesProcessor import SubtitlesProcessor
 from whisperx.app.history_manager import HistoryManager, TranscriptionRecord
 from whisperx.appSmartVoice.src.history_item_widget import HistoryItemWidget
 
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        if hasattr(sys, '_MEIPASS'):
+            return sys._MEIPASS
+        else:
+            return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+os.chdir(BASE_PATH)
+
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self)
@@ -79,10 +91,12 @@ class MainWindow(QMainWindow):
         # loadJsonStyle(self, self.ui) 
 
         # Use this to specify your json file(s) path/name
-        loadJsonStyle(self, self.ui, jsonFiles = {
-            "json-styles/style.json"
-            }) 
-
+        # loadJsonStyle(self, self.ui, jsonFiles = {
+        #     "json-styles/style.json"
+        #     })
+        json_style_path = os.path.join(BASE_PATH, "whisperx", "appSmartVoice", "json-styles", "style.json")
+        loadJsonStyle(self, self.ui, jsonFiles={json_style_path})
+        print("SELF IS: ", self)
         ########################################################################
 
         #######################################################################

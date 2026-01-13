@@ -2,7 +2,7 @@
 Dependency management for WhisperX Launcher.
 Handles installation, updates, and switching between CPU and GPU versions.
 """
-
+import os
 import subprocess
 import sys
 import logging
@@ -24,17 +24,36 @@ class InstallType(Enum):
     CUDA_12_1 = "cuda12.1"
     ROCM_5_7 = "rocm5.7"
 
+# Before running any pip command, create environment
+env = os.environ.copy()
+env['PYTHONNOUSERSITE'] = '1'  # Disable user site-packages
+
+
 
 class DependencyManager:
     """Manages WhisperX dependencies and PyTorch installations."""
 
+    # def __init__(self, install_dir: Path):
+    #     """
+    #     Initialize DependencyManager.
+    #
+    #     Args:
+    #         install_dir: Root installation directory
+    #     """
+    #     self.install_dir = Path(install_dir)
+    #     self.config_dir = Path.home() / '.whisperx_app'
+    #     self.config_dir.mkdir(exist_ok=True)
+    #
+    #     self.config_file = self.config_dir / 'dependency_config.json'
+    #     self.installed_lock = self.config_dir / 'installed.lock'
+    #
+    #     # Python executable (bundled with app)
+    #     self.python_exe = self._find_python_executable()
+    #
+    #     # Load configuration
+    #     self.config = self._load_config()
     def __init__(self, install_dir: Path):
-        """
-        Initialize DependencyManager.
-
-        Args:
-            install_dir: Root installation directory
-        """
+        """Initialize DependencyManager."""
         self.install_dir = Path(install_dir)
         self.config_dir = Path.home() / '.whisperx_app'
         self.config_dir.mkdir(exist_ok=True)
@@ -48,6 +67,33 @@ class DependencyManager:
         # Load configuration
         self.config = self._load_config()
 
+        # NEW: Ensure pip is installed when using bundled Python
+        # if getattr(sys, 'frozen', False):
+        logger.info("Ensuring pip is installed in bundled Python...")
+        if not self._ensure_pip_installed():
+            logger.warning("Failed to ensure pip installation")
+            # We don't raise here, will fail later during actual installation
+
+    # def _find_python_executable(self) -> Path:
+    #     """
+    #     Find the bundled Python executable.
+    #
+    #     Returns:
+    #         Path to Python executable
+    #     """
+    #     # When bundled with PyInstaller, Python is included
+    #     if getattr(sys, 'frozen', False):
+    #         # Running as bundled executable
+    #         if sys.platform == 'win32':
+    #             python_exe = self.install_dir / 'python' / 'python.exe'
+    #         else:
+    #             python_exe = self.install_dir / 'python' / 'bin' / 'python3'
+    #     else:
+    #         # Running from source (development)
+    #         python_exe = Path(sys.executable)
+    #
+    #     return python_exe
+
     def _find_python_executable(self) -> Path:
         """
         Find the bundled Python executable.
@@ -58,15 +104,103 @@ class DependencyManager:
         # When bundled with PyInstaller, Python is included
         if getattr(sys, 'frozen', False):
             # Running as bundled executable
+            logger.info("Running as frozen executable, looking for bundled Python...")
+
+            # The install_dir should be: C:\Program Files\WhisperX\SmartVoice\
+            # Python should be at: C:\Program Files\WhisperX\SmartVoice\python\python.exe
             if sys.platform == 'win32':
-                python_exe = self.install_dir / 'python' / 'python.exe'
+                bundled_python = self.install_dir / 'python' / 'python.exe'
             else:
-                python_exe = self.install_dir / 'python' / 'bin' / 'python3'
+                bundled_python = self.install_dir / 'python' / 'bin' / 'python3'
+
+            logger.info(f"Looking for bundled Python at: {bundled_python}")
+
+            if bundled_python.exists():
+                logger.info(f"Found bundled Python: {bundled_python}")
+                return bundled_python
+            else:
+                # This is an error - bundled Python should exist
+                error_msg = (
+                    f"Bundled Python not found at: {bundled_python}\n"
+                    f"Please reinstall the application."
+                )
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
         else:
             # Running from source (development)
+            logger.info("Running from source, using virtual environment Python")
             python_exe = Path(sys.executable)
+            logger.info(f"Using Python: {python_exe}")
+            return python_exe
 
-        return python_exe
+    def _ensure_pip_installed(self) -> bool:
+        """
+        Ensure pip is installed in bundled Python.
+
+        Returns:
+            True if pip is available, False otherwise
+        """
+        try:
+            # Check if pip is already available
+            logger.info(">>>>>>>>> Checking if pip is installed...")
+            result = subprocess.run(
+                [str(self.python_exe), '-m', 'pip', '--version'],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=env
+            )
+
+            if result.returncode == 0:
+                logger.info(f"pip is installed: {result.stdout.strip()}")
+                # return True
+            else:
+                # pip not installed, try to install it
+                logger.info("pip not found, installing...")
+
+                # Look for get-pip.py
+                get_pip = self.python_exe.parent / 'get-pip.py'
+
+                if not get_pip.exists():
+                    logger.error(f"get-pip.py not found at: {get_pip}")
+                    return False
+
+                # Install pip
+                logger.info(f"Running: {self.python_exe} {get_pip}")
+                result = subprocess.run(
+                    [str(self.python_exe), str(get_pip)],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env=env
+                )
+
+            if result.returncode == 0:
+                logger.info("pip is ready!")
+
+                # NEW: Install build dependencies
+                logger.info("Installing build dependencies (setuptools, wheel)...")
+                result = subprocess.run(
+                    [str(self.python_exe), '-m', 'pip', 'install',
+                     '--no-user',  # Don't install to user directory
+                     'setuptools', 'wheel'],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=env
+                )
+
+                if result.returncode == 0:
+                    logger.info("Build dependencies installed successfully!")
+                else:
+                    logger.warning(f"Failed to install build dependencies: {result.stderr}")
+                    # Don't fail - will try anyway
+
+                return True
+
+        except Exception as e:
+            logger.error(f"Error ensuring pip: {e}")
+            return False
 
     def is_installed(self) -> bool:
         """
@@ -220,20 +354,23 @@ class DependencyManager:
 
         # Split command into args
         cmd_parts = install_cmd.split()
-        cmd_parts[0] = str(self.python_exe)  # Use bundled Python
-        cmd_parts[1] = '-m'  # python -m pip install ...
+        # cmd_parts[0] = str(self.python_exe)  # Use bundled Python
+        # cmd_parts[1] = '-m'  # python -m pip install ...
+        packages_and_args = cmd_parts[2:]  # Everything after 'pip install'
+        cmd = [str(self.python_exe), '-m', 'pip', 'install'] + packages_and_args
 
-        logger.info(f"Running: {' '.join(cmd_parts)}")
+        logger.info(f"Running: {' '.join(cmd)}")
 
         try:
             # Run pip install with progress monitoring
             process = subprocess.Popen(
-                cmd_parts,
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                env=env
             )
 
             # Monitor output
@@ -280,7 +417,8 @@ class DependencyManager:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout
+                timeout=600,  # 10 minute timeout,
+                env = env
             )
 
             if result.returncode != 0:
@@ -304,7 +442,8 @@ class DependencyManager:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300
+                timeout=300,
+                env=env
             )
 
             if result.returncode != 0:
@@ -334,7 +473,8 @@ class DependencyManager:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
+                env=env
             )
 
             # Don't fail if packages weren't installed

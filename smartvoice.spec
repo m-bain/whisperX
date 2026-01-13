@@ -15,7 +15,7 @@ from pathlib import Path
 
 block_cipher = None
 
-# Helper function to collect Custom_Widgets
+## Helper function to collect Custom_Widgets
 def collect_custom_widgets():
     """Collect all Custom_Widgets package files."""
     try:
@@ -27,6 +27,26 @@ def collect_custom_widgets():
     except ImportError:
         print("WARNING: Custom_Widgets not found in environment!")
         return []
+
+#def collect_custom_widgets():
+#    """Collect all Custom_Widgets package files without importing it."""
+#    try:
+#        import importlib.util
+#
+#        # Find Custom_Widgets location WITHOUT importing it
+#        spec = importlib.util.find_spec('Custom_Widgets')
+#        if spec is None:
+#            print("WARNING: Custom_Widgets not found in environment!")
+#            return []
+#
+#        pkg_path = Path(spec.origin).parent
+#        print(f"Found Custom_Widgets at: {pkg_path}")
+#
+#        # Collect the entire Custom_Widgets package
+#        return [(str(pkg_path), 'Custom_Widgets')]
+#    except Exception as e:
+#        print(f"WARNING: Could not collect Custom_Widgets: {e}")
+#        return []
 
 # Helper to check if module exists before adding to hiddenimports
 def get_safe_hiddenimports():
@@ -120,9 +140,10 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # Exclude heavy ML dependencies - they'll be loaded from installed environment
-        'matplotlib',
-        'scipy',
-        'sklearn',
+        #'matplotlib',
+        #'scipy',
+        #'sklearn',
+        'PyQt5'
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

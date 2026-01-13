@@ -40,6 +40,40 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def get_install_directory() -> Path:
+    """
+    Get the correct installation directory based on execution context.
+
+    Returns:
+        Path to installation root directory
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as bundled executable
+        # sys.executable is the path to SmartVoiceLauncher.exe
+        # Current: C:\Program Files\WhisperX\SmartVoice\Launcher\SmartVoiceLauncher.exe
+        # Want:    C:\Program Files\WhisperX\SmartVoice\
+
+        launcher_exe = Path(sys.executable)  # SmartVoiceLauncher.exe
+        launcher_dir = launcher_exe.parent  # Launcher\
+        install_root = launcher_dir.parent  # SmartVoice\
+
+        logger.info(f"Running as frozen executable")
+        logger.info(f"Install root: {install_root}")
+
+        return install_root
+    else:
+        # Running from source (development)
+        # If running: C:\...\whisperX\whisperx\launcher\launcher_main.py
+        # Want:       C:\...\whisperX\
+
+        script_path = Path(__file__).resolve()
+        project_root = script_path.parent.parent.parent
+
+        logger.info(f"Running from source")
+        logger.info(f"Project root: {project_root}")
+
+        return project_root
+
 class InstallWorker(QThread):
     """Background worker for dependency installation."""
 
@@ -106,7 +140,8 @@ class LauncherWindow(QMainWindow):
         self.setMinimumSize(700, 600)
 
         # Initialize core components
-        self.install_dir = Path(__file__).parent.parent.parent
+        # self.install_dir = Path(__file__).parent.parent.parent
+        self.install_dir = get_install_directory()
         self.hardware_detector = HardwareDetector()
         self.version_manager = VersionManager()
         self.dependency_manager = DependencyManager(self.install_dir)

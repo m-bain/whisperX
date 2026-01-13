@@ -192,7 +192,7 @@ class HardwareDetector:
         return HardwareDetector.detect_gpu()['cuda_available']
 
     @staticmethod
-    def get_pytorch_install_command(install_type: str = 'cpu', python_version: str = '3.9') -> str:
+    def get_pytorch_install_command(install_type: str = 'cpu', python_version: str = '3.10') -> str:
         """
         Get the pip install command for PyTorch based on install type.
 

@@ -1,6 +1,7 @@
 ; WhisperX SmartVoice Installer Script for NSIS
 ; Creates a Windows installer that:
 ; - Installs launcher and main application
+; - Bundles Python for dependency installation
 ; - Creates shortcuts
 ; - Preserves user data on reinstall
 ; - Supports uninstallation
@@ -75,6 +76,13 @@ Section "SmartVoice Application" SecMain
   ; Install main application
   SetOutPath "$INSTDIR\SmartVoice"
   File /r "..\..\..\dist\SmartVoice\*.*"
+  
+  ; NEW: Install bundled Python (Python Embedded)
+  ; You need to download Python embeddable package and place it in your build directory
+  ; Download from: https://www.python.org/downloads/windows/
+  ; e.g., python-3.11.0-embed-amd64.zip
+  SetOutPath "$INSTDIR\python"
+  File /r "python_embedded\*.*"
 
   ; Create launcher shortcut in install dir
   CreateShortCut "$INSTDIR\SmartVoiceLauncher.exe.lnk" "$INSTDIR\Launcher\SmartVoiceLauncher.exe"
@@ -170,6 +178,7 @@ Section "Uninstall"
   ; Remove application files
   RMDir /r "$INSTDIR\Launcher"
   RMDir /r "$INSTDIR\SmartVoice"
+  RMDir /r "$INSTDIR\python"  ; NEW: Remove bundled Python
   Delete "$INSTDIR\Uninstall.exe"
   Delete "$INSTDIR\SmartVoiceLauncher.exe.lnk"
 

@@ -1,9 +1,5 @@
 @echo off
 REM Build Windows installer for WhisperX SmartVoice
-REM Prerequisites:
-REM   - Python 3.9+ with PyInstaller installed
-REM   - NSIS (Nullsoft Scriptable Install System) installed
-REM   - UV package manager (optional, for dependency management)
 
 echo ============================================
 echo WhisperX SmartVoice Windows Installer Build
@@ -13,32 +9,17 @@ echo.
 REM Change to project root
 cd /d "%~dp0..\..\..\"
 
-REM Check if virtual environment exists
-if not exist ".venv\bin\activate.bat" (
-    echo ERROR: Virtual environment not found at .venv\bin\
-    echo Current directory: %CD%
-    pause
-    exit /b 1
-)
-
 REM Activate virtual environment
-echo Activating virtual environment...
-call .venv\bin\activate.bat
+call .venv_windows\Scripts\activate.bat
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to activate virtual environment!
     pause
     exit /b 1
 )
 
-echo Virtual environment activated
-echo Verifying Python version:
-python --version
-python -c "import sys; print('Python executable:', sys.executable)"
-echo.
-
 echo Step 1: Building Launcher executable...
 echo ----------------------------------------
-python -m PyInstaller launcher.spec --clean
+python -m PyInstaller launcher.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Launcher build failed!
     pause
@@ -49,7 +30,7 @@ echo.
 
 echo Step 2: Building SmartVoice main executable...
 echo ----------------------------------------------
-python -m PyInstaller smartvoice.spec --clean
+python -m PyInstaller smartvoice_new.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: SmartVoice build failed!
     pause
@@ -60,7 +41,6 @@ echo.
 
 echo Step 3: Creating Windows installer with NSIS...
 echo -----------------------------------------------
-REM Check if NSIS is installed
 where makensis >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: NSIS makensis not found in PATH!
@@ -69,7 +49,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-makensis scripts\installers\windows\installer.nsi
+makensis scripts\installers\windows\installer_with_python.nsi
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Installer creation failed!
     pause
@@ -80,10 +60,7 @@ echo.
 echo ============================================
 echo Build completed successfully!
 echo ============================================
-echo.
 echo Installer created: SmartVoice-Setup-3.4.2.exe
-echo.
-echo You can now distribute this installer file.
 echo.
 
 pause
