@@ -5,6 +5,7 @@ import { UploadArea } from './UploadArea';
 import { TranscriptionTable } from './TranscriptionTable';
 import { StatsHeader } from './StatsHeader';
 import { useTranscriptions } from '../../hooks/useTranscriptions';
+import { UserMenu } from '../UserMenu';
 
 export function Dashboard() {
   const {
@@ -43,15 +44,7 @@ export function Dashboard() {
             </div>
 
             {/* User menu */}
-            <div className="flex items-center gap-4">
-              <button className="text-sm text-zinc-400 hover:text-zinc-50 transition-colors">
-                Documentazione
-              </button>
-              <button className="text-sm text-zinc-400 hover:text-zinc-50 transition-colors">
-                Impostazioni
-              </button>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500" />
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>

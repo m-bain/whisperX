@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { UserMenu } from '@/components/UserMenu';
 
 export default function HomePage() {
   const options = [
@@ -56,7 +57,11 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
       {/* Header */}
       <header className="border-b border-white/10 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          {/* Top bar with user menu */}
+          <div className="flex justify-end mb-4">
+            <UserMenu />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -67,7 +72,7 @@ export default function HomePage() {
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
               Scegli la dashboard che preferisci e testala subito.
-              Tutte hanno le stesse funzionalità, cambia solo lo stile! 🎨
+              Tutte hanno le stesse funzionalità, cambia solo lo stile!
             </p>
           </motion.div>
         </div>

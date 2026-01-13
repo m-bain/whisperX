@@ -7,6 +7,7 @@ import { useTranscriptions } from '../../hooks/useTranscriptions';
 import { UsageChart } from './UsageChart';
 import { CostTracker } from './CostTracker';
 import { StatsCards } from './StatsCards';
+import { UserMenu } from '../UserMenu';
 
 export function Dashboard() {
   const {
@@ -44,12 +45,15 @@ export function Dashboard() {
               </div>
             </div>
 
-            <button
-              onClick={refreshTranscriptions}
-              className="px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg text-sm text-violet-400 transition-colors"
-            >
-              Aggiorna
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={refreshTranscriptions}
+                className="px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg text-sm text-violet-400 transition-colors"
+              >
+                Aggiorna
+              </button>
+              <UserMenu />
+            </div>
           </div>
         </div>
       </header>

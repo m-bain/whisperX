@@ -9,6 +9,7 @@ import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { KanbanView } from './KanbanView';
 import { ViewSwitcher, ViewMode } from './ViewSwitcher';
+import { UserMenu } from '../UserMenu';
 
 export function Dashboard() {
   const {
@@ -76,6 +77,8 @@ export function Dashboard() {
               >
                 + Carica File
               </motion.button>
+
+              <UserMenu />
             </div>
           </div>
         </div>
