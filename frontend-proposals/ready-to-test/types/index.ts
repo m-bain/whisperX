@@ -14,6 +14,9 @@ export interface Transcription {
   createdAt: string;
   processingStartedAt?: string | null;
   processedAt?: string | null;
+  geminiDocumentId?: string | null;
+  detectedLanguage?: string | null;
+  speakerCount?: number | null;
 }
 
 export interface TranscriptionSegment {

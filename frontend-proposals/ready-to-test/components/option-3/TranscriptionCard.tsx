@@ -101,7 +101,7 @@ export function TranscriptionCard({ transcription, onDelete, index = 0 }: Transc
           </div>
         )}
 
-        {transcription.speakerCount !== undefined && transcription.speakerCount > 0 && (
+        {transcription.speakerCount && transcription.speakerCount > 0 && (
           <div className="bg-gray-900/50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">Speaker</p>
             <p className="text-sm font-medium text-gray-200">
@@ -120,7 +120,7 @@ export function TranscriptionCard({ transcription, onDelete, index = 0 }: Transc
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-4 border-t border-gray-700/50">
-        {transcription.status === 'completed' && transcription.transcriptionText && (
+        {transcription.status === 'completed' && transcription.transcriptText && (
           <ExportDropdown transcription={transcription} />
         )}
 

@@ -155,7 +155,7 @@ export function ListView({ transcriptions, isLoading, onDelete }: ListViewProps)
 
               {/* Actions */}
               <div className="col-span-2 flex items-center justify-end gap-2">
-                {transcription.status === 'completed' && transcription.transcriptionText && (
+                {transcription.status === 'completed' && transcription.transcriptText && (
                   <ExportDropdown transcription={transcription} />
                 )}
                 <motion.button

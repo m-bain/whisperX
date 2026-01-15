@@ -28,9 +28,11 @@ export function KanbanView({ transcriptions, isLoading, onDelete }: KanbanViewPr
     return transcriptions.filter((t) => t.status === status);
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
+  const handleDragStart = (e: any, id: string) => {
     setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
   };
 
   const handleDragEnd = () => {
@@ -147,7 +149,7 @@ export function KanbanView({ transcriptions, isLoading, onDelete }: KanbanViewPr
 
                       {/* Card Actions */}
                       <div className="flex items-center gap-2 pt-3 border-t border-gray-700/50">
-                        {transcription.status === 'completed' && transcription.transcriptionText && (
+                        {transcription.status === 'completed' && transcription.transcriptText && (
                           <ExportDropdown transcription={transcription} />
                         )}
 
