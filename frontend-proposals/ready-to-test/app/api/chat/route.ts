@@ -69,12 +69,8 @@ Please provide a detailed and accurate answer based ONLY on the information in t
     const response = result.response;
     const answer = response.text();
 
-    // Extract grounding metadata (citations)
-    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-    const citations = groundingMetadata?.groundingChunks?.map((chunk: any) => ({
-      text: chunk.text,
-      source: chunk.retrievalMetadata?.title || 'Unknown',
-    })) || [];
+    // Citations not available with direct prompt (would need RAG setup)
+    const citations: any[] = [];
 
     return NextResponse.json({
       answer,
