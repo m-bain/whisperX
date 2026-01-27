@@ -4016,7 +4016,7 @@ wheels = [
 
 [[package]]
 name = "whisperx"
-version = "3.7.4"
+version = "3.7.5"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
