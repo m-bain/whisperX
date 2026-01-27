@@ -15,7 +15,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           version: "0.5.14"
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Check if lockfile is up to date
         run: uv lock --check
