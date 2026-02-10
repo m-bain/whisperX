@@ -74,7 +74,11 @@ DEFAULT_ALIGN_MODELS_HF = {
     "lv": "jimregan/wav2vec2-large-xlsr-latvian-cv",
     "tl": "Khalsuu/filipino-wav2vec2-l-xls-r-300m-official",
     "sv": "KBLab/wav2vec2-large-voxrex-swedish",
+    "bn": "shahruk10/wav2vec2-xls-r-300m-bengali-commonvoice"
 }
+
+#https://huggingface.co/ai4bharat/indicwav2vec_v1_bengali
+#try next
 
 
 def load_align_model(language_code: str, device: str, model_name: Optional[str] = None, model_dir=None):
