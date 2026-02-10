@@ -72,6 +72,8 @@ class WhisperModel(faster_whisper.WhisperModel):
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
                 suppress_tokens=options.suppress_tokens,
+                no_repeat_ngram_size=options.no_repeat_ngram_size,
+                repetition_penalty=options.repetition_penalty,
             )
 
         tokens_batch = [x.sequences_ids[0] for x in result]
