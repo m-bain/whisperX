@@ -47,9 +47,7 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
   { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin'" },
 ]
-triton = [
-  { index = "pytorch", marker = "sys_platform == 'linux'" },
-]
+triton = [{ index = "pytorch", marker = "sys_platform == 'linux'" }]
 
 [[tool.uv.index]]
 name = "pytorch"
