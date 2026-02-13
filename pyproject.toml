@@ -14,7 +14,7 @@ dependencies = [
     "nltk>=3.9.1",
     "numpy>=2.1.0",
     "pandas>=2.2.3",
-    "pyannote-audio>=3.3.2,<4.0.0",
+    "pyannote-audio>=4.0.0",
     "huggingface-hub<1.0.0",
     "torch~=2.8.0",
     "torchaudio~=2.8.0",
@@ -35,6 +35,12 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["whisperx*"]
+
+# torchcodec (transitive dep of pyannote-audio >=4) has no wheels for Linux aarch64
+[tool.uv]
+override-dependencies = [
+    "torchcodec>=0.6.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
+]
 
 [tool.uv.sources]
 torch = [
