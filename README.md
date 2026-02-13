@@ -289,7 +289,7 @@ And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/py
 Valuable VAD & Diarization Models from:
 
 - [pyannote-audio](https://github.com/pyannote/pyannote-audio) — Speaker diarization powered by the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) by [pyannoteAI](https://www.pyannote.ai)
-- [silero vad][https://github.com/snakers4/silero-vad]
+- [silero-vad](https://github.com/snakers4/silero-vad)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 
