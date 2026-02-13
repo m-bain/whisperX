@@ -132,22 +132,15 @@ class DiarizationPipeline:
             'sample_rate': SAMPLE_RATE
         }
 
-        if return_embeddings:
-            diarization, embeddings = self.model(
-                audio_data,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-                return_embeddings=True,
-            )
-        else:
-            diarization = self.model(
-                audio_data,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-            )
-            embeddings = None
+        output = self.model(
+            audio_data,
+            num_speakers=num_speakers,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
+
+        diarization = output.speaker_diarization
+        embeddings = output.speaker_embeddings if return_embeddings else None
 
         diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
