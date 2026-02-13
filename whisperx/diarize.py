@@ -92,14 +92,14 @@ class DiarizationPipeline:
     def __init__(
         self,
         model_name=None,
-        use_auth_token=None,
+        token=None,
         device: Optional[Union[str, torch.device]] = "cpu",
     ):
         if isinstance(device, str):
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-3.1"
         logger.info(f"Loading diarization model: {model_config}")
-        self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
+        self.model = Pipeline.from_pretrained(model_config, token=token).to(device)
 
     def __call__(
         self,

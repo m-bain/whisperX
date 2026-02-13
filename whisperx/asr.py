@@ -407,7 +407,7 @@ def load_model(
                 device_vad = f'cuda:{device_index}'
             else:
                 device_vad = device
-            vad_model = Pyannote(torch.device(device_vad), use_auth_token=None, **default_vad_options)
+            vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
 
