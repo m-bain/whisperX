@@ -4,6 +4,7 @@ import os
 import warnings
 
 import numpy as np
+import pandas as pd
 import torch
 
 from whisperx.alignment import align, load_align_model
@@ -186,7 +187,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                         result["language"], device
                     )
                 logger.info("Performing alignment...")
-                result: AlignedTranscriptionResult = align(
+                aligned_result: AlignedTranscriptionResult = align(
                     result["segments"],
                     align_model,
                     align_metadata,
@@ -196,6 +197,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
                 )
+                result = aligned_result
 
             results.append((result, audio_path))
 
@@ -217,20 +219,28 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, use_auth_token=hf_token, device=device)
         for result, input_audio_path in tmp_results:
             diarize_result = diarize_model(
-                input_audio_path, 
-                min_speakers=min_speakers, 
-                max_speakers=max_speakers, 
+                input_audio_path,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
                 return_embeddings=return_speaker_embeddings
             )
 
             if return_speaker_embeddings:
+                if not isinstance(diarize_result, tuple):
+                    raise TypeError(
+                        f"Expected tuple when return_embeddings=True, got {type(diarize_result).__name__}"
+                    )
                 diarize_segments, speaker_embeddings = diarize_result
             else:
+                if not isinstance(diarize_result, pd.DataFrame):
+                    raise TypeError(
+                        f"Expected DataFrame when return_embeddings=False, got {type(diarize_result).__name__}"
+                    )
                 diarize_segments = diarize_result
                 speaker_embeddings = None
 
-            result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
-            results.append((result, input_audio_path))
+            diarized_result = assign_word_speakers(diarize_segments, result, speaker_embeddings)
+            results.append((diarized_result, input_audio_path))
     # >> Write
     for result, audio_path in results:
         result["language"] = align_language
