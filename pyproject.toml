@@ -13,6 +13,7 @@ dependencies = [
     "faster-whisper>=1.1.1",
     "nltk>=3.9.1",
     "numpy>=2.1.0",
+    "omegaconf>=2.3.0",
     "pandas>=2.2.3",
     "pyannote-audio>=4.0.0",
     "huggingface-hub<1.0.0",
