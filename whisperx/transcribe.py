@@ -183,7 +183,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                         f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
                     )
                     align_model, align_metadata = load_align_model(
-                        result["language"], device
+                        result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
                     )
                 logger.info("Performing alignment...")
                 result: AlignedTranscriptionResult = align(
@@ -214,7 +214,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         logger.info("Performing diarization...")
         logger.info(f"Using model: {diarize_model_name}")
         results = []
-        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=device)
+        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=device, cache_dir=model_dir)
         for result, input_audio_path in tmp_results:
             diarize_result = diarize_model(
                 input_audio_path, 
