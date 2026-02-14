@@ -317,7 +317,7 @@ class FasterWhisperPipeline(Pipeline):
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
 
-        if batch_size > 1:
+        if batch_size > 1 and self.use_batch_context:
             num_streams = batch_size
             # Distribute segments into streams
             # Manual split
