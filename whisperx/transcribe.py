@@ -141,6 +141,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         task=task,
         local_files_only=model_cache_only,
         threads=faster_whisper_threads,
+        use_auth_token=hf_token,
     )
 
     for audio_path in args.pop("audio"):

@@ -314,6 +314,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    use_auth_token: Optional[Union[str, bool]] = None,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -341,7 +342,8 @@ def load_model(
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
-                         cpu_threads=threads)
+                         cpu_threads=threads,
+                         use_auth_token=use_auth_token)
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
