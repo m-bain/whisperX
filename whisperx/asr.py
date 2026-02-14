@@ -46,49 +46,36 @@ class WhisperModel(faster_whisper.WhisperModel):
         batch_size = features.shape[0]
         if previous_batch_context_tokens is None:
             previous_batch_context_tokens = [[] for _ in range(batch_size)]
-        
-        prompts = []
+
+        initial_prompt_tokens = []
+        if options.initial_prompt is not None:
+            initial_prompt = " " + options.initial_prompt.strip()
+            initial_prompt_tokens = tokenizer.encode(initial_prompt)
+
         batch_tokens = []
         for i in range(batch_size):
-            all_tokens = []
-            if options.initial_prompt is not None:
-                initial_prompt = " " + options.initial_prompt.strip()
-                initial_prompt_tokens = tokenizer.encode(initial_prompt)
-                all_tokens.extend(initial_prompt_tokens)
-            
+            all_tokens = list(initial_prompt_tokens)
             if use_batch_context:
-                # previous_batch_context_tokens is now List[List[int]]
-                # verify we have enough context history lists
                 if i < len(previous_batch_context_tokens):
                     ctx = previous_batch_context_tokens[i]
                     if ctx:
-                        max_prompt_tokens = 223
-                        current_len = len(all_tokens)
-                        available = max_prompt_tokens - current_len
+                        # 223 is max prompt tokens
+                        available = 223 - len(all_tokens)
                         if available > 0:
                             all_tokens.extend(ctx[-available:])
             batch_tokens.append(all_tokens)
 
-        # Calculate max length in the batch
         max_batch_tokens = max([len(t) for t in batch_tokens] + [0])
         
-        # Pad tokens to ensure consistent length across batch
-        # We use left-padding with EOT to preserve the immediate context before SOT
-        for i in range(batch_size):
-            current_tokens = batch_tokens[i]
-            if len(current_tokens) < max_batch_tokens:
-                padding_len = max_batch_tokens - len(current_tokens)
-                # Pad with EOT (End of Transcript) which is usually ignored or treated as break
-                current_tokens = [tokenizer.eot] * padding_len + current_tokens
-            
-            prompt = self.get_prompt(
+        prompts = [
+            self.get_prompt(
                 tokenizer,
-                current_tokens,
+                [tokenizer.eot] * (max_batch_tokens - len(t)) + t,
                 without_timestamps=options.without_timestamps,
                 prefix=options.prefix,
                 hotwords=options.hotwords
-            )
-            prompts.append(prompt)
+            ) for t in batch_tokens
+        ]
 
         encoder_output = self.encode(features)
         
