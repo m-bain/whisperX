@@ -216,6 +216,7 @@ def align(
         t1 = segment["start"]
         t2 = segment["end"]
         text = segment["text"]
+        avg_logprob = segment.get("avg_logprob")
 
         aligned_seg: SingleAlignedSegment = {
             "start": t1,
@@ -224,6 +225,9 @@ def align(
             "words": [],
             "chars": None,
         }
+
+        if avg_logprob is not None:
+            aligned_seg["avg_logprob"] = avg_logprob
 
         if return_char_alignments:
             aligned_seg["chars"] = []
@@ -353,12 +357,15 @@ def align(
 
                 sentence_words.append(word_segment)
 
-            aligned_subsegments.append({
+            subsegment = {
                 "text": sentence_text,
                 "start": sentence_start,
                 "end": sentence_end,
                 "words": sentence_words,
-            })
+            }
+            if avg_logprob is not None:
+                subsegment["avg_logprob"] = avg_logprob
+            aligned_subsegments.append(subsegment)
 
             if return_char_alignments:
                 curr_chars = curr_chars[["char", "start", "end", "score"]]
@@ -376,6 +383,8 @@ def align(
             agg_dict["text"] = "".join
         if return_char_alignments:
             agg_dict["chars"] = "sum"
+        if avg_logprob is not None:
+            agg_dict["avg_logprob"] = "first"
         aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
         aligned_subsegments = aligned_subsegments.to_dict('records')
         aligned_segments += aligned_subsegments
