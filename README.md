@@ -113,10 +113,7 @@ You may also need to install ffmpeg, rust etc. Follow openAI instructions here h
 
 ### Speaker Diarization
 
-To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation-3.0) and [Speaker-Diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) (if you choose to use Speaker-Diarization 2.x, follow requirements [here](https://huggingface.co/pyannote/speaker-diarization) instead.)
-
-> **Note**<br>
-> As of Oct 11, 2023, there is a known issue regarding slow performance with pyannote/Speaker-Diarization-3.0 in whisperX. It is due to dependency conflicts between faster-whisper and pyannote-audio 3.0.0. Please see [this issue](https://github.com/m-bain/whisperX/issues/499) for more details and potential workarounds.
+To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model.
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
 
@@ -197,7 +194,7 @@ print(result["segments"]) # after alignment
 # import gc; import torch; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
-diarize_model = DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
+diarize_model = DiarizationPipeline(token=YOUR_HF_TOKEN, device=device)
 
 # add min/max number of speakers if known
 diarize_segments = diarize_model(audio)
@@ -291,8 +288,8 @@ And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/py
 
 Valuable VAD & Diarization Models from:
 
-- [pyannote audio][https://github.com/pyannote/pyannote-audio]
-- [silero vad][https://github.com/snakers4/silero-vad]
+- [pyannote-audio](https://github.com/pyannote/pyannote-audio) — Speaker diarization powered by the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) by [pyannoteAI](https://www.pyannote.ai)
+- [silero-vad](https://github.com/snakers4/silero-vad)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
 

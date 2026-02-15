@@ -306,10 +306,19 @@ class SubtitlesWriter(ResultWriter):
                 yield subtitle, times
 
         if "words" in result["segments"][0]:
-            for subtitle, _ in iterate_subtitles():
-                sstart, ssend, speaker = _[0]
-                subtitle_start = self.format_timestamp(sstart)
-                subtitle_end = self.format_timestamp(ssend)
+            for subtitle, times in iterate_subtitles():
+                speaker = times[0][2]
+
+                # Derive cue times from word-level timestamps when available,
+                # falling back to segment-level times for fully unalignable subtitles.
+                word_starts = [w["start"] for w in subtitle if "start" in w]
+                word_ends = [w["end"] for w in subtitle if "end" in w]
+                if word_starts and word_ends:
+                    subtitle_start = self.format_timestamp(min(word_starts))
+                    subtitle_end = self.format_timestamp(max(word_ends))
+                else:
+                    subtitle_start = self.format_timestamp(times[0][0])
+                    subtitle_end = self.format_timestamp(times[0][1])
                 if result["language"] in LANGUAGES_WITHOUT_SPACES:
                     subtitle_text = "".join([word["word"] for word in subtitle])
                 else:

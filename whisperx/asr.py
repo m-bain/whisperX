@@ -88,6 +88,8 @@ class WhisperModel(faster_whisper.WhisperModel):
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
                 suppress_tokens=options.suppress_tokens,
+                no_repeat_ngram_size=options.no_repeat_ngram_size,
+                repetition_penalty=options.repetition_penalty,
             )
 
         tokens_batch = [x.sequences_ids[0] for x in result]
@@ -397,6 +399,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    use_auth_token: Optional[Union[str, bool]] = None,
     use_batch_context: bool = False,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
@@ -425,7 +428,8 @@ def load_model(
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
-                         cpu_threads=threads)
+                         cpu_threads=threads,
+                         use_auth_token=use_auth_token)
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
@@ -491,7 +495,7 @@ def load_model(
                 device_vad = f'cuda:{device_index}'
             else:
                 device_vad = device
-            vad_model = Pyannote(torch.device(device_vad), use_auth_token=None, **default_vad_options)
+            vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
 
