@@ -70,9 +70,16 @@ class WhisperModel(faster_whisper.WhisperModel):
                 suppress_tokens=options.suppress_tokens,
                 no_repeat_ngram_size=options.no_repeat_ngram_size,
                 repetition_penalty=options.repetition_penalty,
+                return_scores=True,
             )
 
         tokens_batch = [x.sequences_ids[0] for x in result]
+
+        avg_logprobs = []
+        for res in result:
+            seq_len = len(res.sequences_ids[0])
+            cum_logprob = res.scores[0] * (seq_len ** options.length_penalty)
+            avg_logprobs.append(cum_logprob / (seq_len + 1))
 
         def decode_batch(tokens: List[List[int]]) -> List[str]:
             res = []
@@ -83,7 +90,7 @@ class WhisperModel(faster_whisper.WhisperModel):
 
         text = decode_batch(tokens_batch)
 
-        return text
+        return {'text': text, 'avg_logprob': avg_logprobs}
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
@@ -161,7 +168,7 @@ class FasterWhisperPipeline(Pipeline):
 
     def _forward(self, model_inputs):
         outputs = self.model.generate_segment_batched(model_inputs['inputs'], self.tokenizer, self.options)
-        return {'text': outputs}
+        return outputs
 
     def postprocess(self, model_outputs):
         return model_outputs
@@ -262,15 +269,18 @@ class FasterWhisperPipeline(Pipeline):
                 percent_complete = base_progress / 2 if combined_progress else base_progress
                 print(f"Progress: {percent_complete:.2f}%...")
             text = out['text']
+            avg_logprob = out['avg_logprob']
             if batch_size in [0, 1, None]:
                 text = text[0]
+                avg_logprob = avg_logprob[0]
             if verbose:
                 print(f"Transcript: [{round(vad_segments[idx]['start'], 3)} --> {round(vad_segments[idx]['end'], 3)}] {text}")
             segments.append(
                 {
                     "text": text,
                     "start": round(vad_segments[idx]['start'], 3),
-                    "end": round(vad_segments[idx]['end'], 3)
+                    "end": round(vad_segments[idx]['end'], 3),
+                    "avg_logprob": avg_logprob,
                 }
             )
 
