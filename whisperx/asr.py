@@ -40,28 +40,48 @@ class WhisperModel(faster_whisper.WhisperModel):
         tokenizer: Tokenizer,
         options: TranscriptionOptions,
         encoder_output=None,
+        use_batch_context: bool = False,
+        previous_batch_context_tokens: List[List[int]] = None,
     ):
         batch_size = features.shape[0]
-        all_tokens = []
-        prompt_reset_since = 0
+        if previous_batch_context_tokens is None:
+            previous_batch_context_tokens = [[] for _ in range(batch_size)]
+
+        initial_prompt_tokens = []
         if options.initial_prompt is not None:
             initial_prompt = " " + options.initial_prompt.strip()
             initial_prompt_tokens = tokenizer.encode(initial_prompt)
-            all_tokens.extend(initial_prompt_tokens)
-        previous_tokens = all_tokens[prompt_reset_since:]
-        prompt = self.get_prompt(
-            tokenizer,
-            previous_tokens,
-            without_timestamps=options.without_timestamps,
-            prefix=options.prefix,
-            hotwords=options.hotwords
-        )
+
+        batch_tokens = []
+        for i in range(batch_size):
+            all_tokens = list(initial_prompt_tokens)
+            if use_batch_context:
+                if i < len(previous_batch_context_tokens):
+                    ctx = previous_batch_context_tokens[i]
+                    if ctx:
+                        # 223 is max prompt tokens
+                        available = 223 - len(all_tokens)
+                        if available > 0:
+                            all_tokens.extend(ctx[-available:])
+            batch_tokens.append(all_tokens)
+
+        max_batch_tokens = max([len(t) for t in batch_tokens] + [0])
+        
+        prompts = [
+            self.get_prompt(
+                tokenizer,
+                [tokenizer.eot] * (max_batch_tokens - len(t)) + t,
+                without_timestamps=options.without_timestamps,
+                prefix=options.prefix,
+                hotwords=options.hotwords
+            ) for t in batch_tokens
+        ]
 
         encoder_output = self.encode(features)
-        
+
         result = self.model.generate(
                 encoder_output,
-                [prompt] * batch_size,
+                prompts,
                 beam_size=options.beam_size,
                 patience=options.patience,
                 length_penalty=options.length_penalty,
@@ -82,9 +102,9 @@ class WhisperModel(faster_whisper.WhisperModel):
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
-
         return text
 
+    
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
         # to the CPU since we don't know which GPU will handle the next job.
@@ -115,6 +135,7 @@ class FasterWhisperPipeline(Pipeline):
         framework="pt",
         language: Optional[str] = None,
         suppress_numerals: bool = False,
+        use_batch_context: bool = False,
         **kwargs,
     ):
         self.model = model
@@ -122,6 +143,7 @@ class FasterWhisperPipeline(Pipeline):
         self.options = options
         self.preset_language = language
         self.suppress_numerals = suppress_numerals
+        self.use_batch_context = use_batch_context
         self._batch_size = kwargs.pop("batch_size", None)
         self._num_workers = 1
         self._preprocess_params, self._forward_params, self._postprocess_params = self._sanitize_parameters(**kwargs)
@@ -142,6 +164,8 @@ class FasterWhisperPipeline(Pipeline):
         super(Pipeline, self).__init__()
         self.vad_model = vad
         self._vad_params = vad_params
+        self.previous_batch_context_tokens = []
+
 
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
@@ -160,7 +184,35 @@ class FasterWhisperPipeline(Pipeline):
         return {'inputs': features}
 
     def _forward(self, model_inputs):
-        outputs = self.model.generate_segment_batched(model_inputs['inputs'], self.tokenizer, self.options)
+        current_batch_size = model_inputs['inputs'].shape[0]
+        # Ideally, batch[i] corresponds to stream[i].
+        # This holds if batch_size == number of streams.
+        valid_contexts = self.previous_batch_context_tokens[:current_batch_size]
+        
+        outputs = self.model.generate_segment_batched(
+            model_inputs['inputs'],
+            self.tokenizer,
+            self.options,
+            use_batch_context=self.use_batch_context,
+            previous_batch_context_tokens=valid_contexts,
+        )
+        if self.use_batch_context:
+            initial_prompt_length = 0
+            if self.options.initial_prompt is not None:
+                initial_prompt = " " + self.options.initial_prompt.strip()
+                initial_prompt_length = len(self.tokenizer.encode(initial_prompt))
+            
+            # Use 220 instead of 224 to be safe 
+            max_context_window = max(0, 220 - initial_prompt_length)
+
+            for i, text in enumerate(outputs):
+                if i < len(self.previous_batch_context_tokens):
+                    # Filter out special tokens (timestamps, SOT, EOT, etc.)
+                    # We only want the text content for context.
+                    tokens = [t for t in self.tokenizer.encode(text) if t < self.tokenizer.eot]
+                    self.previous_batch_context_tokens[i].extend(tokens)
+                    self.previous_batch_context_tokens[i] = self.previous_batch_context_tokens[i][-max_context_window:]
+
         return {'text': outputs}
 
     def postprocess(self, model_outputs):
@@ -201,6 +253,14 @@ class FasterWhisperPipeline(Pipeline):
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
+        
+        batch_size = batch_size or self._batch_size
+        # Initialize context for each stream. 
+        # We have 'batch_size' concurrent streams.
+        if batch_size is None or batch_size < 1:
+            batch_size = 1
+        
+        self.previous_batch_context_tokens = [[] for _ in range(batch_size)]
 
         def data(audio, segments):
             for seg in segments:
@@ -252,10 +312,33 @@ class FasterWhisperPipeline(Pipeline):
             new_suppressed_tokens = numeral_symbol_tokens + self.options.suppress_tokens
             new_suppressed_tokens = list(set(new_suppressed_tokens))
             self.options = replace(self.options, suppress_tokens=new_suppressed_tokens)
-
+        
         segments: List[SingleSegment] = []
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
+
+        if batch_size > 1 and self.use_batch_context:
+            num_streams = batch_size
+            # Distribute segments into streams
+            # Manual split
+            k, m = divmod(len(vad_segments), num_streams)
+            # lengths of each part: first m parts have k+1, rest have k
+            stream_segments = []
+            start_idx = 0
+            for i in range(num_streams):
+                part_len = k + 1 if i < m else k
+                stream_segments.append(vad_segments[start_idx : start_idx + part_len])
+                start_idx += part_len
+            # Interleave
+            # We need to pick [s0[0], s1[0], s2[0]... s0[1], s1[1]...]
+            interleaved_segments = []
+            max_len = max(len(s) for s in stream_segments)
+            for i in range(max_len):
+                for stream in stream_segments:
+                    if i < len(stream):
+                        interleaved_segments.append(stream[i])
+            vad_segments = interleaved_segments
+
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
@@ -273,6 +356,8 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]['end'], 3)
                 }
             )
+        # Sort segments by start time to restore original order
+        segments.sort(key=lambda x: x['start'])
 
         # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
@@ -289,8 +374,8 @@ class FasterWhisperPipeline(Pipeline):
             logger.warning("Audio is shorter than 30s, language detection may be inaccurate")
         model_n_mels = self.model.feat_kwargs.get("feature_size")
         segment = log_mel_spectrogram(audio[: N_SAMPLES],
-                                      n_mels=model_n_mels if model_n_mels is not None else 80,
-                                      padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
+        n_mels=model_n_mels if model_n_mels is not None else 80,
+        padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
         encoder_output = self.model.encode(segment)
         results = self.model.model.detect_language(encoder_output)
         language_token, language_probability = results[0][0]
@@ -315,6 +400,7 @@ def load_model(
     local_files_only=False,
     threads=4,
     use_auth_token: Optional[Union[str, bool]] = None,
+    use_batch_context: bool = False,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
@@ -421,4 +507,5 @@ def load_model(
         language=language,
         suppress_numerals=suppress_numerals,
         vad_params=default_vad_options,
+        use_batch_context=use_batch_context,
     )

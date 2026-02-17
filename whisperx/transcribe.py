@@ -63,6 +63,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     diarize_model_name: str = args.pop("diarize_model")
     print_progress: bool = args.pop("print_progress")
     return_speaker_embeddings: bool = args.pop("speaker_embeddings")
+    batch_context: bool = args.pop("batch_context", False)
 
     if return_speaker_embeddings and not diarize:
         warnings.warn("--speaker_embeddings has no effect without --diarize")
@@ -142,6 +143,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         local_files_only=model_cache_only,
         threads=faster_whisper_threads,
         use_auth_token=hf_token,
+        use_batch_context=batch_context,
     )
 
     for audio_path in args.pop("audio"):
