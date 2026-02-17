@@ -18,7 +18,6 @@ from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
 
-
 def find_numeral_symbol_tokens(tokenizer):
     numeral_symbol_tokens = []
     for i in range(tokenizer.eot):
@@ -356,6 +355,23 @@ class FasterWhisperPipeline(Pipeline):
                     "end": round(vad_segments[idx]['end'], 3)
                 }
             )
+
+        if self.use_batch_context and batch_size > 1:
+            last_stream_index = (total_segments - 1) % batch_size
+            final_context = self.previous_batch_context_tokens[last_stream_index]
+            # Prepare context for the wrap-around re-run
+            # ONLY Stream 0 (which processes the start of the file) should get the context (which comes from the end of the file).
+            # All other streams should have EMPTY context for this re-run to avoid self-referencing loops (feeding Segment N to Segment N).
+            new_rerun_context = [[] for _ in range(batch_size)]
+            new_rerun_context[0] = final_context
+            # Temporarily overwrite previous_batch_context_tokens for the re-run
+            self.previous_batch_context_tokens = new_rerun_context
+            first_batch_segments = vad_segments[:batch_size]
+            # Runs the model again just on 'first_batch_segments'
+            for i, out in enumerate(self.__call__(data(audio, first_batch_segments), batch_size=batch_size, num_workers=num_workers)):
+                text = out['text']
+                # L398: Overwrite the existing text with the new wrap-around text
+                segments[i]['text'] = text
         # Sort segments by start time to restore original order
         segments.sort(key=lambda x: x['start'])
 
