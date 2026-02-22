@@ -313,7 +313,7 @@ def load_model(
     whisper_arch: str,
     device: str,
     device_index=0,
-    compute_type="float16",
+    compute_type="default",
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
     vad_model: Optional[Vad]= None,
@@ -331,6 +331,7 @@ def load_model(
         whisper_arch - The name of the Whisper model to load.
         device - The device to load the model on.
         compute_type - The compute type to use for the model.
+            Use "default" to automatically select based on device (float16 for GPU, float32 for CPU).
         vad_model - The vad model to manually assign.
         vad_method - The vad method to use. vad_model has a higher priority if it is not None.
         options - A dictionary of options to use for the model.
@@ -342,6 +343,10 @@ def load_model(
     Returns:
         A Whisper pipeline.
     """
+
+    if compute_type == "default":
+        compute_type = "float16" if device == "cuda" else "float32"
+        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {device}")
 
     if whisper_arch.endswith(".en"):
         language = "en"
