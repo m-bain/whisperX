@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
-from typing import Optional, Union, List, Tuple
+from typing import Any, Callable, Optional, Union, List, Tuple
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
@@ -109,6 +109,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         return_embeddings: bool = False,
+        hook: Optional[Callable] = None,
     ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
         Perform speaker diarization on audio.
@@ -138,6 +139,7 @@ class DiarizationPipeline:
             num_speakers=num_speakers,
             min_speakers=min_speakers,
             max_speakers=max_speakers,
+            hook=hook,
         )
 
         diarization = output.speaker_diarization
