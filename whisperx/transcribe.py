@@ -11,7 +11,7 @@ from whisperx.asr import load_model
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
-from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
+from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writers
 from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
@@ -31,7 +31,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     model_dir: str = args.pop("model_dir")
     model_cache_only: bool = args.pop("model_cache_only")
     output_dir: str = args.pop("output_dir")
-    output_format: str = args.pop("output_format")
+    output_format: list[str] = args.pop("output_format")
     device: str = args.pop("device")
     device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
@@ -111,7 +111,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         "suppress_numerals": args.pop("suppress_numerals"),
     }
 
-    writer = get_writer(output_format, output_dir)
+    writer = get_writers(output_format, output_dir)
     word_options = ["highlight_words", "max_line_count", "max_line_width"]
     if no_align:
         for option in word_options:
