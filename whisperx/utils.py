@@ -149,6 +149,8 @@ PUNKT_LANGUAGES = {
     "ru": "russian",
 }
 
+OUTPUT_FORMATS = ["all", "srt", "vtt", "txt", "tsv", "json", "aud"]
+
 system_encoding = sys.getdefaultencoding()
 
 if system_encoding != "utf-8":
@@ -184,6 +186,22 @@ def optional_int(string):
 
 def optional_float(string):
     return None if string == "None" else float(string)
+
+
+def choice_list(valid_choices):
+    def validator(string):
+        selected = [f.strip() for f in string.split(",") if f.strip()]
+
+        invalid = [s for s in selected if s not in valid_choices]
+        if invalid:
+            raise ValueError(
+                f"Expected combo of '{', '.join(valid_choices)}, got '{', '.join(invalid)}'"
+            )
+
+        # Remove duplicates
+        return list(dict.fromkeys((selected)))
+
+    return validator
 
 
 def compression_ratio(text) -> float:
@@ -440,8 +458,8 @@ class WriteJSON(ResultWriter):
         json.dump(result, file, ensure_ascii=False)
 
 
-def get_writer(
-    output_format: str, output_dir: str
+def get_writers(
+    output_formats: list[str], output_dir: str
 ) -> Callable[[dict, str, dict], None]:
     writers = {
         "txt": WriteTXT,
@@ -453,19 +471,25 @@ def get_writer(
     optional_writers = {
         "aud": WriteAudacity,
     }
+    all_writers = {
+        **writers, **optional_writers,
+    }
 
-    if output_format == "all":
-        all_writers = [writer(output_dir) for writer in writers.values()]
+    selected_formats = set()
 
-        def write_all(result: dict, file: str, options: dict):
-            for writer in all_writers:
-                writer(result, file, options)
+    if "all" in output_formats:
+        selected_formats.update([format for format in writers])
+    else:
+        selected_formats.update([format for format in writers if format in output_formats])
+    selected_formats.update([format for format in optional_writers if format in output_formats])
 
-        return write_all
-
-    if output_format in optional_writers:
-        return optional_writers[output_format](output_dir)
-    return writers[output_format](output_dir)
+    active_writers = [all_writers[fmt](output_dir) for fmt in selected_formats]
+    
+    def write_selected(result: dict, file: str, options: dict):
+        for writer in active_writers:
+            writer(result, file, options)
+    
+    return write_selected
 
 def interpolate_nans(x, method='nearest'):
     if x.notnull().sum() > 1:
