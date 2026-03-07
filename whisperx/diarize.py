@@ -109,7 +109,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         return_embeddings: bool = False,
-        hook: Optional[Callable] = None,
+        progress_callback: Optional[Callable] = None,
     ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
         Perform speaker diarization on audio.
@@ -120,6 +120,7 @@ class DiarizationPipeline:
             min_speakers: Minimum number of speakers to detect
             max_speakers: Maximum number of speakers to detect
             return_embeddings: Whether to return speaker embeddings
+            progress_callback: Optional callable receiving a float (0-100) with progress percentage
 
         Returns:
             If return_embeddings is True:
@@ -133,6 +134,13 @@ class DiarizationPipeline:
             'waveform': torch.from_numpy(audio[None, :]),
             'sample_rate': SAMPLE_RATE
         }
+
+        # Wrap progress_callback into a pyannote-compatible hook
+        hook = None
+        if progress_callback:
+            def hook(step_name, step_artefact, file=None, total=None, completed=None):
+                if total is not None and completed is not None and total > 0:
+                    progress_callback((completed / total) * 100)
 
         output = self.model(
             audio_data,
