@@ -149,10 +149,11 @@ def align(
     segment_data: dict[int, SegmentData] = {}
     for sdx, segment in enumerate(transcript):
         # strip spaces at beginning / end, but keep track of the amount.
-        if print_progress:
+        if print_progress or progress_callback:
             base_progress = ((sdx + 1) / total_segments) * 100
             percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
-            print(f"Progress: {percent_complete:.2f}%...")
+            if print_progress:
+                print(f"Progress: {percent_complete:.2f}%...")
             if progress_callback:
                 progress_callback(percent_complete)
 
