@@ -1,5 +1,6 @@
 import os
-from typing import List, Optional, Union
+import types
+from typing import Callable, List, Optional, Union
 from dataclasses import replace
 
 import ctranslate2
@@ -150,6 +151,23 @@ class FasterWhisperPipeline(Pipeline):
         self.vad_model = vad
         self._vad_params = vad_params
 
+    def __call__(self, inputs, *args, **kwargs):
+        # transformers >= 5.0 eagerly converts generators to lists for chat
+        # detection, which breaks lazy iteration and causes progress callbacks
+        # to fire all at once. Preserve generator laziness by routing through
+        # get_iterator directly.
+        if isinstance(inputs, types.GeneratorType):
+            num_workers = kwargs.pop("num_workers", None) or self._num_workers or 0
+            batch_size = kwargs.pop("batch_size", None) or self._batch_size or 1
+            preprocess_params, forward_params, postprocess_params = self._sanitize_parameters(**kwargs)
+            preprocess_params = {**self._preprocess_params, **preprocess_params}
+            forward_params = {**self._forward_params, **forward_params}
+            postprocess_params = {**self._postprocess_params, **postprocess_params}
+            return self.get_iterator(
+                inputs, num_workers, batch_size, preprocess_params, forward_params, postprocess_params
+            )
+        return super().__call__(inputs, *args, **kwargs)
+
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
         if "tokenizer" in kwargs:
@@ -205,6 +223,7 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -264,10 +283,13 @@ class FasterWhisperPipeline(Pipeline):
         batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
-            if print_progress:
+            if print_progress or progress_callback:
                 base_progress = ((idx + 1) / total_segments) * 100
                 percent_complete = base_progress / 2 if combined_progress else base_progress
-                print(f"Progress: {percent_complete:.2f}%...")
+                if print_progress:
+                    print(f"Progress: {percent_complete:.2f}%...")
+                if progress_callback:
+                    progress_callback(percent_complete)
             text = out['text']
             avg_logprob = out['avg_logprob']
             if batch_size in [0, 1, None]:
