@@ -5,7 +5,7 @@ C. Max Bain
 import math
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, List
+from typing import Callable, Iterable, Optional, Union, List
 
 import numpy as np
 import pandas as pd
@@ -124,7 +124,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
-    progress_callback=None,
+    progress_callback: Optional[Callable[[float], None]] = None,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
