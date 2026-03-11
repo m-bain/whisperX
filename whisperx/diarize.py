@@ -5,7 +5,7 @@ from typing import Optional, Union, List, Tuple
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
-from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult
+from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult, ProgressCallback
 from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
@@ -109,6 +109,7 @@ class DiarizationPipeline:
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         return_embeddings: bool = False,
+        progress_callback: ProgressCallback = None,
     ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
         """
         Perform speaker diarization on audio.
@@ -119,6 +120,7 @@ class DiarizationPipeline:
             min_speakers: Minimum number of speakers to detect
             max_speakers: Maximum number of speakers to detect
             return_embeddings: Whether to return speaker embeddings
+            progress_callback: Optional callable receiving a float (0-100) with progress percentage
 
         Returns:
             If return_embeddings is True:
@@ -133,12 +135,34 @@ class DiarizationPipeline:
             'sample_rate': SAMPLE_RATE
         }
 
+        hook = None
+        if progress_callback is not None:
+            # pyannote's diarization has two progress-trackable steps, each with
+            # its own completed/total counter that resets between steps. Map each
+            # step into a sub-range so progress is monotonic and meaningful.
+            _STEP_RANGES = {
+                "segmentation": (0.0, 50.0),
+                "embeddings": (50.0, 99.0),
+            }
+            last_pct = [0.0]
+            def hook(step_name, step_artifact, file=None, total=None, completed=None):
+                if total is not None and completed is not None and total > 0:
+                    offset, end = _STEP_RANGES.get(step_name, (0.0, 99.0))
+                    pct = offset + min(completed / total, 1.0) * (end - offset)
+                    if pct > last_pct[0]:
+                        last_pct[0] = pct
+                        progress_callback(pct)
+
         output = self.model(
             audio_data,
             num_speakers=num_speakers,
             min_speakers=min_speakers,
             max_speakers=max_speakers,
+            **({"hook": hook} if hook is not None else {}),
         )
+
+        if progress_callback is not None:
+            progress_callback(100.0)
 
         diarization = output.speaker_diarization
         embeddings = output.speaker_embeddings if return_embeddings else None
