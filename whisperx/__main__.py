@@ -6,7 +6,7 @@ import torch
 
 from whisperx.utils import (
     LANGUAGES,
-    OUTPUT_FORMATS,
+    OUTPUT_FORMAT_CHOICES,
     TO_LANGUAGE_CODE,
     choice_list,
     optional_float,
@@ -29,7 +29,7 @@ def cli():
     parser.add_argument("--compute_type", default="default", type=str, choices=["default", "float16", "float32", "int8"], help="compute type for computation; 'default' uses float16 on GPU, float32 on CPU")
 
     parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
-    parser.add_argument("--output_format", "-f", type=choice_list(OUTPUT_FORMATS), default="all", metavar="FMT[,FMT...]", help=f"Output format(s) as a comma-separated list. Available: {', '.join(sorted(OUTPUT_FORMATS))}")
+    parser.add_argument("--output_format", "-f", type=choice_list(OUTPUT_FORMAT_CHOICES), default="standard", metavar="FMT[,FMT...]", help=f"Output format(s) as a comma-separated list. 'standard' for usual formats, 'all' for everything. Available: {', '.join(OUTPUT_FORMAT_CHOICES)}")
     parser.add_argument("--verbose", type=str2bool, default=True, help="whether to print out the progress and debug messages")
     parser.add_argument("--log-level", type=str, default=None, choices=["debug", "info", "warning", "error", "critical"], help="logging level (overrides --verbose if set)")
 

@@ -149,7 +149,7 @@ PUNKT_LANGUAGES = {
     "ru": "russian",
 }
 
-OUTPUT_FORMATS = ["all", "srt", "vtt", "txt", "tsv", "json", "aud"]
+OUTPUT_FORMAT_CHOICES = ["standard", "all", "srt", "vtt", "txt", "tsv", "json", "aud"]
 
 system_encoding = sys.getdefaultencoding()
 
@@ -195,7 +195,7 @@ def choice_list(valid_choices):
         invalid = [s for s in selected if s not in valid_choices]
         if invalid:
             raise ValueError(
-                f"Expected combo of '{', '.join(valid_choices)}, got '{', '.join(invalid)}'"
+                f"Expected combo of '{', '.join(valid_choices)}', got '{', '.join(invalid)}'"
             )
 
         # Remove duplicates
@@ -461,7 +461,12 @@ class WriteJSON(ResultWriter):
 def get_writers(
     output_formats: list[str], output_dir: str
 ) -> Callable[[dict, str, dict], None]:
-    writers = {
+    """
+    Returns a function that writes transcription results in the selected formats.
+    Supports 'standard' (usual formats), 'all' (everything), and specific formats.
+    """
+
+    standard_writers = {
         "txt": WriteTXT,
         "vtt": WriteVTT,
         "srt": WriteSRT,
@@ -472,23 +477,36 @@ def get_writers(
         "aud": WriteAudacity,
     }
     all_writers = {
-        **writers, **optional_writers,
+        **standard_writers, **optional_writers,
     }
+
+    # Validation against supported formats and meta-choices
+    valid_options = set(all_writers.keys()) | {"all", "standard"}
+
+    invalid = [f for f in output_formats if f not in valid_options]
+    if invalid:
+        raise ValueError(
+            f"Unknown format(s): '{', '.join(invalid)}'. "
+            f"Valid options are: '{', '.join(valid_options)}'"
+        )
 
     selected_formats = set()
 
     if "all" in output_formats:
-        selected_formats.update([format for format in writers])
-    else:
-        selected_formats.update([format for format in writers if format in output_formats])
-    selected_formats.update([format for format in optional_writers if format in output_formats])
+        selected_formats.update(all_writers.keys())
+    elif "standard" in output_formats:
+        selected_formats.update(standard_writers.keys())
+
+    for fmt in output_formats:
+        if fmt in all_writers:
+            selected_formats.add(fmt)
 
     active_writers = [all_writers[fmt](output_dir) for fmt in selected_formats]
-    
+
     def write_selected(result: dict, file: str, options: dict):
         for writer in active_writers:
             writer(result, file, options)
-    
+
     return write_selected
 
 def interpolate_nans(x, method='nearest'):
