@@ -149,6 +149,8 @@ PUNKT_LANGUAGES = {
     "ru": "russian",
 }
 
+OUTPUT_FORMAT_CHOICES = ["standard", "all", "srt", "vtt", "txt", "tsv", "json", "aud"]
+
 system_encoding = sys.getdefaultencoding()
 
 if system_encoding != "utf-8":
@@ -184,6 +186,22 @@ def optional_int(string):
 
 def optional_float(string):
     return None if string == "None" else float(string)
+
+
+def choice_list(valid_choices):
+    def validator(string):
+        selected = [f.strip() for f in string.split(",") if f.strip()]
+
+        invalid = [s for s in selected if s not in valid_choices]
+        if invalid:
+            raise ValueError(
+                f"Expected combo of '{', '.join(valid_choices)}', got '{', '.join(invalid)}'"
+            )
+
+        # Remove duplicates
+        return list(dict.fromkeys((selected)))
+
+    return validator
 
 
 def compression_ratio(text) -> float:
@@ -440,10 +458,15 @@ class WriteJSON(ResultWriter):
         json.dump(result, file, ensure_ascii=False)
 
 
-def get_writer(
-    output_format: str, output_dir: str
+def get_writers(
+    output_formats: list[str], output_dir: str
 ) -> Callable[[dict, str, dict], None]:
-    writers = {
+    """
+    Returns a function that writes transcription results in the selected formats.
+    Supports 'standard' (usual formats), 'all' (everything), and specific formats.
+    """
+
+    standard_writers = {
         "txt": WriteTXT,
         "vtt": WriteVTT,
         "srt": WriteSRT,
@@ -453,19 +476,38 @@ def get_writer(
     optional_writers = {
         "aud": WriteAudacity,
     }
+    all_writers = {
+        **standard_writers, **optional_writers,
+    }
 
-    if output_format == "all":
-        all_writers = [writer(output_dir) for writer in writers.values()]
+    # Validation against supported formats and meta-choices
+    valid_options = set(all_writers.keys()) | {"all", "standard"}
 
-        def write_all(result: dict, file: str, options: dict):
-            for writer in all_writers:
-                writer(result, file, options)
+    invalid = [f for f in output_formats if f not in valid_options]
+    if invalid:
+        raise ValueError(
+            f"Unknown format(s): '{', '.join(invalid)}'. "
+            f"Valid options are: '{', '.join(valid_options)}'"
+        )
 
-        return write_all
+    selected_formats = set()
 
-    if output_format in optional_writers:
-        return optional_writers[output_format](output_dir)
-    return writers[output_format](output_dir)
+    if "all" in output_formats:
+        selected_formats.update(all_writers.keys())
+    elif "standard" in output_formats:
+        selected_formats.update(standard_writers.keys())
+
+    for fmt in output_formats:
+        if fmt in all_writers:
+            selected_formats.add(fmt)
+
+    active_writers = [all_writers[fmt](output_dir) for fmt in selected_formats]
+
+    def write_selected(result: dict, file: str, options: dict):
+        for writer in active_writers:
+            writer(result, file, options)
+
+    return write_selected
 
 def interpolate_nans(x, method='nearest'):
     if x.notnull().sum() > 1:
