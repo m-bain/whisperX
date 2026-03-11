@@ -19,6 +19,7 @@ from whisperx.schema import (
     SingleAlignedSegment,
     SingleWordSegment,
     SegmentData,
+    ProgressCallback,
 )
 import nltk
 from nltk.data import load as nltk_load
@@ -122,6 +123,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
+    progress_callback: ProgressCallback = None,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -376,6 +378,9 @@ def align(
             agg_dict["avg_logprob"] = "first"
         aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
         aligned_subsegments = aligned_subsegments.to_dict('records')
+        if progress_callback is not None:
+            progress_callback(((sdx + 1) / total_segments) * 100)
+
         aligned_segments += aligned_subsegments
 
     # create word_segments list
