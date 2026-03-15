@@ -175,11 +175,12 @@ def align(
             elif char_ in model_dictionary.keys():
                 clean_char.append(char_)
                 clean_cdx.append(cdx)
+            elif char_ not in (" ", "|"):
+                # unknown char (digit, symbol, foreign script) — use wildcard
+                clean_char.append(char_)
+                clean_cdx.append(cdx)
 
-        clean_wdx = []
-        for wdx, wrd in enumerate(per_word):
-            if any([c in model_dictionary.keys() for c in wrd.lower()]):
-                clean_wdx.append(wdx)
+        clean_wdx = list(range(len(per_word)))
 
         try:
             sentence_splitter = nltk_load('tokenizers/punkt/english.pickle')
@@ -227,7 +228,6 @@ def align(
             continue
 
         text_clean = "".join(segment_data[sdx]["clean_char"])
-        tokens = [model_dictionary[c] for c in text_clean]
 
         f1 = int(t1 * SAMPLE_RATE)
         f2 = int(t2 * SAMPLE_RATE)
@@ -258,6 +258,19 @@ def align(
         for char, code in model_dictionary.items():
             if char == '[pad]' or char == '<pad>':
                 blank_id = code
+
+        # Build tokens, mapping unknown chars to a wildcard column
+        has_wildcard = any(c not in model_dictionary for c in text_clean)
+        if has_wildcard:
+            # Extend emission with a wildcard column: max non-blank score per frame
+            non_blank_mask = torch.ones(emission.size(1), dtype=torch.bool)
+            non_blank_mask[blank_id] = False
+            wildcard_col = emission[:, non_blank_mask].max(dim=1).values
+            emission = torch.cat([emission, wildcard_col.unsqueeze(1)], dim=1)
+            wildcard_id = emission.size(1) - 1
+            tokens = [model_dictionary.get(c, wildcard_id) for c in text_clean]
+        else:
+            tokens = [model_dictionary[c] for c in text_clean]
 
         trellis = get_trellis(emission, tokens, blank_id)
         path = backtrack(trellis, emission, tokens, blank_id)
@@ -338,6 +351,19 @@ def align(
                     word_segment["score"] = word_score
 
                 sentence_words.append(word_segment)
+
+            # Interpolate timestamps for words with no alignable characters
+            if sentence_words:
+                _starts = pd.Series([w.get("start", np.nan) for w in sentence_words])
+                _ends = pd.Series([w.get("end", np.nan) for w in sentence_words])
+                if _starts.isna().any() and _starts.notna().any():
+                    _starts = interpolate_nans(_starts, method=interpolate_method)
+                    _ends = interpolate_nans(_ends, method=interpolate_method)
+                    for i, w in enumerate(sentence_words):
+                        if "start" not in w and pd.notna(_starts.iloc[i]):
+                            w["start"] = _starts.iloc[i]
+                        if "end" not in w and pd.notna(_ends.iloc[i]):
+                            w["end"] = _ends.iloc[i]
 
             aligned_subsegments.append({
                 "text": sentence_text,
