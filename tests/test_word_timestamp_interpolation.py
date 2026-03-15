@@ -133,3 +133,17 @@ class TestAlignWithWildcards:
             assert starts[i] >= starts[i - 1], (
                 f"Timestamps not ordered: {starts}"
             )
+
+    def test_issue_1372_digits_comma_no_timestamps(self):
+        """Regression: '4,9' (digits+comma) must get timestamps.
+
+        https://github.com/m-bain/whisperX/issues/1372#issuecomment-4051234966
+        Reporter showed that align() returned {'word': '4,9'} with no
+        start/end/score for German text containing '4,9'.
+        """
+        result = self._run_align("halt mit 4,9 nicht ins parlament", num_frames=200)
+        words = {w["word"]: w for w in result["word_segments"]}
+        assert "4,9" in words, f"'4,9' not in word_segments: {list(words.keys())}"
+        assert "start" in words["4,9"], "'4,9' missing start"
+        assert "end" in words["4,9"], "'4,9' missing end"
+        assert "score" in words["4,9"], "'4,9' missing score"
