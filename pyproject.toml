@@ -24,6 +24,9 @@ dependencies = [
 ]
 
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.scripts]
 whisperx = "whisperx.__main__:cli"
 
