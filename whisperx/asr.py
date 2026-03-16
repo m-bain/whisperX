@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import List, Optional, Union
 from dataclasses import replace
 
@@ -189,6 +190,15 @@ class FasterWhisperPipeline(Pipeline):
 
         def stack(items):
             return {'inputs': torch.stack([x['inputs'] for x in items])}
+
+        # Force num_workers=0 on macOS to avoid segmentation faults with multiprocessing (issue #543)
+        if sys.platform == "darwin" and num_workers > 0:
+            logger.warning(
+                f"num_workers={num_workers} is not supported on macOS due to multiprocessing issues. "
+                "Setting num_workers=0."
+            )
+            num_workers = 0
+
         dataloader = torch.utils.data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, collate_fn=stack)
         model_iterator = PipelineIterator(dataloader, self.forward, forward_params, loader_batch_size=batch_size)
         final_iterator = PipelineIterator(model_iterator, self.postprocess, postprocess_params)

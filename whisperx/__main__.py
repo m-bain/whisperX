@@ -1,6 +1,7 @@
 import argparse
 import importlib.metadata
 import platform
+import sys
 
 import torch
 
@@ -10,6 +11,17 @@ from whisperx.log_utils import setup_logging
 
 
 def cli():
+    # Set multiprocessing start method to 'spawn' on macOS to avoid segmentation faults
+    # with leaked semaphore objects (see issue #543)
+    if sys.platform == "darwin":
+        import multiprocessing
+        if multiprocessing.get_start_method(allow_none=True) != "spawn":
+            try:
+                multiprocessing.set_start_method("spawn", force=True)
+            except RuntimeError:
+                # Already set, ignore
+                pass
+
     # fmt: off
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
