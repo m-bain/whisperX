@@ -31,7 +31,13 @@ class Vad:
 
         curr_start = segments[0].start
         for seg in segments:
-            if seg.end - curr_start > chunk_size and curr_end - curr_start > 0:
+            # Check if we should finalize the current merged segment:
+            # 1. If the total duration exceeds chunk_size, OR
+            # 2. If there's a gap between the last segment and current segment (silence)
+            is_chunk_full = seg.end - curr_start > chunk_size and curr_end - curr_start > 0
+            has_gap = curr_end > 0 and seg.start > curr_end  # gap between prev segment end and current start
+
+            if is_chunk_full or has_gap:
                 merged_segments.append({
                     "start": curr_start,
                     "end": curr_end,
