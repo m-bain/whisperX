@@ -210,6 +210,7 @@ def transcribe_all_audio_under_folder(
     """
     Input: <folder>/audio_vocals.wav
     Output: <folder>/transcript.json
+            <folder>/SPEAKER/<speaker>.wav
     """
 
     for root, dirs, files in os.walk(folder):

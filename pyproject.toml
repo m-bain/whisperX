@@ -42,8 +42,10 @@ include = ["whisperx*"]
 
 # torchcodec (transitive dep of pyannote-audio >=4) has no wheels for Linux aarch64
 [tool.uv]
+# NOTE: torchcodec -- torch compatibility table: 
+# https://github.com/meta-pytorch/torchcodec#:~:text=The%20following%20table%20indicates%20the%20compatibility%20between%20versions%20of%20torchcodec%2C%20torch%20and%20Python.
 override-dependencies = [
-    "torchcodec>=0.6.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
+    "torchcodec~=0.7.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
 ]
 
 [tool.uv.sources]
