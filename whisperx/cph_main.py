@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from scipy.io import wavfile
 
 import whisperx
+import whisperx.diarize
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -75,7 +76,7 @@ def load_diarize_model(device="auto"):
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     t_start = time.time()
-    diarize_model = whisperx.DiarizationPipeline(
+    diarize_model = whisperx.diarize.DiarizationPipeline(
         use_auth_token=os.getenv("HF_TOKEN"), device=device
     )
     t_end = time.time()
