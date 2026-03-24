@@ -118,6 +118,7 @@ def transcribe_audio(
     min_speakers=None,
     max_speakers=None,
 ):
+    logger.info(f"transcribe_audio: {folder}")
     if os.path.exists(os.path.join(folder, "transcript.json")):
         logger.info(f"Transcript already exists in {folder}")
         return True
@@ -214,6 +215,7 @@ def transcribe_all_audio_under_folder(
             <folder>/SPEAKER/<speaker>.wav
     """
 
+    logger.info(f"transcribe_all_audio_under_folder: {folder}")
     for root, dirs, files in os.walk(folder):
         if "audio_vocals.wav" in files and "transcript.json" not in files:
             transcribe_audio(
@@ -230,6 +232,7 @@ def transcribe_all_audio_under_folder(
 
 
 def cli():
+    logger.info("============")
     import argparse
 
     parser = argparse.ArgumentParser(
