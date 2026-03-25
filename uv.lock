@@ -3103,7 +3103,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ctranslate2", specifier = ">=4.5.0" },
-    { name = "faster-whisper", specifier = ">=1.1.1" },
+    { name = "faster-whisper", specifier = ">=1.2.0" },
     { name = "huggingface-hub", specifier = "<1.0.0" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "numpy", specifier = ">=2.1.0" },
