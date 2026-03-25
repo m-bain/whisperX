@@ -128,23 +128,23 @@ LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
 # Mapping of language codes to NLTK Punkt tokenizer model names
 PUNKT_LANGUAGES = {
-    'cs': 'czech',
-    'da': 'danish', 
-    'de': 'german',
-    'el': 'greek',
-    'en': 'english',
-    'es': 'spanish',
-    'et': 'estonian',
-    'fi': 'finnish',
-    'fr': 'french',
-    'it': 'italian',
-    'nl': 'dutch',
-    'no': 'norwegian',
-    'pl': 'polish',
-    'pt': 'portuguese',
-    'sl': 'slovene',
-    'sv': 'swedish',
-    'tr': 'turkish',
+    "cs": "czech",
+    "da": "danish",
+    "de": "german",
+    "el": "greek",
+    "en": "english",
+    "es": "spanish",
+    "et": "estonian",
+    "fi": "finnish",
+    "fr": "french",
+    "it": "italian",
+    "nl": "dutch",
+    "no": "norwegian",
+    "pl": "polish",
+    "pt": "portuguese",
+    "sl": "slovene",
+    "sv": "swedish",
+    "tr": "turkish",
     "ml": "malayalam",
     "ru": "russian",
 }
@@ -299,7 +299,9 @@ class SubtitlesWriter(ResultWriter):
                             timing["word"] = "\n" + timing["word"]
                         line_len = len(timing["word"].strip())
                     subtitle.append(timing)
-                    times.append((segment["start"], segment["end"], segment.get("speaker")))
+                    times.append(
+                        (segment["start"], segment["end"], segment.get("speaker"))
+                    )
                     if "start" in timing:
                         last = timing["start"]
             if len(subtitle) > 0:
@@ -340,13 +342,18 @@ class SubtitlesWriter(ResultWriter):
                             if last != start:
                                 yield last, start, prefix + subtitle_text
 
-                            yield start, end, prefix + " ".join(
-                                [
-                                    re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
-                                    if j == i
-                                    else word
-                                    for j, word in enumerate(all_words)
-                                ]
+                            yield (
+                                start,
+                                end,
+                                prefix
+                                + " ".join(
+                                    [
+                                        re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
+                                        if j == i
+                                        else word
+                                        for j, word in enumerate(all_words)
+                                    ]
+                                ),
                             )
                             last = end
                 else:
@@ -410,28 +417,33 @@ class WriteTSV(ResultWriter):
             print(round(1000 * segment["end"]), file=file, end="\t")
             print(segment["text"].strip().replace("\t", " "), file=file, flush=True)
 
+
 class WriteAudacity(ResultWriter):
     """
     Write a transcript to a text file that audacity can import as labels.
     The extension used is "aud" to distinguish it from the txt file produced by WriteTXT.
     Yet this is not an audacity project but only a label file!
-    
-    Please note : Audacity uses seconds in timestamps not ms! 
+
+    Please note : Audacity uses seconds in timestamps not ms!
     Also there is no header expected.
 
     If speaker is provided it is prepended to the text between double square brackets [[]].
     """
 
-    extension: str = "aud"    
+    extension: str = "aud"
 
     def write_result(self, result: dict, file: TextIO, options: dict):
         ARROW = "	"
         for segment in result["segments"]:
             print(segment["start"], file=file, end=ARROW)
             print(segment["end"], file=file, end=ARROW)
-            print( ( ("[[" + segment["speaker"] + "]]") if "speaker" in segment else "") + segment["text"].strip().replace("\t", " "), file=file, flush=True)
+            print(
+                (("[[" + segment["speaker"] + "]]") if "speaker" in segment else "")
+                + segment["text"].strip().replace("\t", " "),
+                file=file,
+                flush=True,
+            )
 
-            
 
 class WriteJSON(ResultWriter):
     extension: str = "json"
@@ -467,7 +479,8 @@ def get_writer(
         return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
 
-def interpolate_nans(x, method='nearest'):
+
+def interpolate_nans(x, method="nearest"):
     if x.notnull().sum() > 1:
         return x.interpolate(method=method).ffill().bfill()
     else:

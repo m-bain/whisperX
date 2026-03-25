@@ -54,7 +54,7 @@ class IntervalTree:
 
         # Binary search to find candidate intervals
         # Only intervals with start < end could overlap
-        right_idx = np.searchsorted(self.starts, end, side='left')
+        right_idx = np.searchsorted(self.starts, end, side="left")
         if right_idx == 0:
             return []
 
@@ -100,7 +100,9 @@ class DiarizationPipeline:
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-community-1"
         logger.info(f"Loading diarization model: {model_config}")
-        self.model = Pipeline.from_pretrained(model_config, token=token, cache_dir=cache_dir).to(device)
+        self.model = Pipeline.from_pretrained(
+            model_config, token=token, cache_dir=cache_dir
+        ).to(device)
 
     def __call__(
         self,
@@ -129,8 +131,8 @@ class DiarizationPipeline:
         if isinstance(audio, str):
             audio = load_audio(audio)
         audio_data = {
-            'waveform': torch.from_numpy(audio[None, :]),
-            'sample_rate': SAMPLE_RATE
+            "waveform": torch.from_numpy(audio[None, :]),
+            "sample_rate": SAMPLE_RATE,
         }
 
         output = self.model(
@@ -143,14 +145,20 @@ class DiarizationPipeline:
         diarization = output.speaker_diarization
         embeddings = output.speaker_embeddings if return_embeddings else None
 
-        diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
-        diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
-        diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
+        diarize_df = pd.DataFrame(
+            diarization.itertracks(yield_label=True),
+            columns=["segment", "label", "speaker"],
+        )
+        diarize_df["start"] = diarize_df["segment"].apply(lambda x: x.start)
+        diarize_df["end"] = diarize_df["segment"].apply(lambda x: x.end)
 
         if return_embeddings and embeddings is not None:
-            speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
+            speaker_embeddings = {
+                speaker: embeddings[s].tolist()
+                for s, speaker in enumerate(diarization.labels())
+            }
             return diarize_df, speaker_embeddings
-        
+
         # For backwards compatibility
         if return_embeddings:
             return diarize_df, None
@@ -185,14 +193,13 @@ def assign_word_speakers(
 
     # Build interval tree from diarization segments for O(log n) queries
     intervals = [
-        (row['start'], row['end'], row['speaker'])
-        for _, row in diarize_df.iterrows()
+        (row["start"], row["end"], row["speaker"]) for _, row in diarize_df.iterrows()
     ]
     tree = IntervalTree(intervals)
 
     for seg in transcript_segments:
-        seg_start = seg.get('start', 0.0)
-        seg_end = seg.get('end', 0.0)
+        seg_start = seg.get("start", 0.0)
+        seg_end = seg.get("end", 0.0)
 
         # Query overlapping segments using interval tree
         overlaps = tree.query(seg_start, seg_end)
@@ -201,36 +208,42 @@ def assign_word_speakers(
             # Sum intersection durations per speaker and pick the dominant one
             speaker_intersections: dict[str, float] = {}
             for speaker, intersection in overlaps:
-                speaker_intersections[speaker] = speaker_intersections.get(speaker, 0.0) + intersection
-            seg['speaker'] = max(speaker_intersections.items(), key=lambda x: x[1])[0]
+                speaker_intersections[speaker] = (
+                    speaker_intersections.get(speaker, 0.0) + intersection
+                )
+            seg["speaker"] = max(speaker_intersections.items(), key=lambda x: x[1])[0]
         elif fill_nearest:
             # Find nearest segment if no overlap
             seg_mid = (seg_start + seg_end) / 2
             nearest_speaker = tree.find_nearest(seg_mid)
             if nearest_speaker:
-                seg['speaker'] = nearest_speaker
+                seg["speaker"] = nearest_speaker
 
         # Assign speaker to words
-        if 'words' in seg:
-            for word in seg['words']:
-                if 'start' not in word:
+        if "words" in seg:
+            for word in seg["words"]:
+                if "start" not in word:
                     continue
 
-                word_start = word['start']
-                word_end = word.get('end', word_start)
+                word_start = word["start"]
+                word_end = word.get("end", word_start)
 
                 word_overlaps = tree.query(word_start, word_end)
 
                 if word_overlaps:
                     speaker_intersections = {}
                     for speaker, intersection in word_overlaps:
-                        speaker_intersections[speaker] = speaker_intersections.get(speaker, 0.0) + intersection
-                    word['speaker'] = max(speaker_intersections.items(), key=lambda x: x[1])[0]
+                        speaker_intersections[speaker] = (
+                            speaker_intersections.get(speaker, 0.0) + intersection
+                        )
+                    word["speaker"] = max(
+                        speaker_intersections.items(), key=lambda x: x[1]
+                    )[0]
                 elif fill_nearest:
                     word_mid = (word_start + word_end) / 2
                     nearest_speaker = tree.find_nearest(word_mid)
                     if nearest_speaker:
-                        word['speaker'] = nearest_speaker
+                        word["speaker"] = nearest_speaker
 
     # Add speaker embeddings to the result if provided
     if speaker_embeddings is not None:
@@ -240,7 +253,7 @@ def assign_word_speakers(
 
 
 class Segment:
-    def __init__(self, start:int, end:int, speaker:Optional[str]=None):
+    def __init__(self, start: int, end: int, speaker: Optional[str] = None):
         self.start = start
         self.end = end
         self.speaker = speaker
