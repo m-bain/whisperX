@@ -245,7 +245,7 @@ def cli():
     )
     args = parser.parse_args()
 
-    transcribe_all_audio_under_folder(args.audio_folder)
+    transcribe_all_audio_under_folder(args.audio_folder, "turbo")
 
 
 if __name__ == "__main__":
