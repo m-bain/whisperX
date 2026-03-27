@@ -48,7 +48,7 @@ def load_whisper_model(
     logger.info(f"Loading WhisperX model: {model_name}")
     t_start = time.time()
     whisper_model = whisperx.load_model(
-        model_name, download_root=download_root, device=device
+        model_name, download_root=download_root, device=device, language="en"
     )
     t_end = time.time()
     logger.info(f"Loaded WhisperX model: {model_name} in {t_end - t_start:.2f}s")
@@ -131,7 +131,9 @@ def transcribe_audio(
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     load_whisper_model(model_name, download_root, device)
-    rec_result = whisper_model.transcribe(wav_path, batch_size=batch_size)
+    rec_result = whisper_model.transcribe(
+        wav_path, batch_size=batch_size, language="en"
+    )
 
     if rec_result["language"] == "nn":
         logger.warning(f"No language detected in {wav_path}")
