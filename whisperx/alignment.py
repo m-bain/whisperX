@@ -73,6 +73,7 @@ DEFAULT_ALIGN_MODELS_HF = {
     "lv": "jimregan/wav2vec2-large-xlsr-latvian-cv",
     "tl": "Khalsuu/filipino-wav2vec2-l-xls-r-300m-official",
     "sv": "KBLab/wav2vec2-large-voxrex-swedish",
+    "id": "megaaziib/wav2vec2-large-xlsr-indonesian-safetensors",
 }
 
 
