@@ -1,0 +1,13 @@
+[package]
+name = "whisperx_ext"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "whisperx_ext"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
+numpy = "0.28"
+ndarray = "0.17"
