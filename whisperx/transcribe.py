@@ -26,7 +26,14 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     """
     # fmt: off
 
+    asr_backend: str = args.pop("asr_backend")
     model_name: str = args.pop("model")
+    qwen_asr_model: str = args.pop("qwen_asr_model")
+    qwen_forced_aligner: str = args.pop("qwen_forced_aligner")
+    qwen_dtype: str = args.pop("qwen_dtype")
+    qwen_device_map: str = args.pop("qwen_device_map")
+    if qwen_device_map in ("", "None", "none", "null"):
+        qwen_device_map = None
     batch_size: int = args.pop("batch_size")
     model_dir: str = args.pop("model_dir")
     model_cache_only: bool = args.pop("model_cache_only")
@@ -75,15 +82,18 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             else:
                 raise ValueError(f"Unsupported language: {args['language']}")
 
-    if model_name.endswith(".en") and args["language"] != "en":
+    if asr_backend == "qwen3" and task == "translate":
+        parser.error("--task translate is not supported with --asr_backend qwen3")
+
+    if asr_backend == "faster-whisper" and model_name.endswith(".en") and args["language"] != "en":
         if args["language"] is not None:
             warnings.warn(
                 f"{model_name} is an English-only model but received '{args['language']}'; using English instead."
             )
         args["language"] = "en"
     align_language = (
-        args["language"] if args["language"] is not None else "en"
-    )  # default to loading english if not specified
+        args["language"] if args["language"] is not None else ("en" if asr_backend == "faster-whisper" else None)
+    )
 
     temperature = args.pop("temperature")
     if (increment := args.pop("temperature_increment_on_fallback")) is not None:
@@ -123,26 +133,50 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     # Part 1: VAD & ASR Loop
     results = []
-    # model = load_model(model_name, device=device, download_root=model_dir)
-    model = load_model(
-        model_name,
-        device=device,
-        device_index=device_index,
-        download_root=model_dir,
-        compute_type=compute_type,
-        language=args["language"],
-        asr_options=asr_options,
-        vad_method=vad_method,
-        vad_options={
-            "chunk_size": chunk_size,
-            "vad_onset": vad_onset,
-            "vad_offset": vad_offset,
-        },
-        task=task,
-        local_files_only=model_cache_only,
-        threads=faster_whisper_threads,
-        use_auth_token=hf_token,
-    )
+    vad_options = {
+        "chunk_size": chunk_size,
+        "vad_onset": vad_onset,
+        "vad_offset": vad_offset,
+    }
+    if asr_backend == "faster-whisper":
+        model = load_model(
+            model_name,
+            device=device,
+            device_index=device_index,
+            download_root=model_dir,
+            compute_type=compute_type,
+            language=args["language"],
+            asr_options=asr_options,
+            vad_method=vad_method,
+            vad_options=vad_options,
+            task=task,
+            local_files_only=model_cache_only,
+            threads=faster_whisper_threads,
+            use_auth_token=hf_token,
+        )
+    elif asr_backend == "qwen3":
+        from whisperx.asr_qwen import load_model as load_qwen_model
+
+        qwen_model_name = qwen_asr_model or model_name
+        model = load_qwen_model(
+            qwen_model_name,
+            device=device,
+            device_index=device_index,
+            download_root=model_dir,
+            compute_type=compute_type,
+            language=args["language"],
+            asr_options=asr_options,
+            vad_method=vad_method,
+            vad_options=vad_options,
+            task=task,
+            local_files_only=model_cache_only,
+            threads=faster_whisper_threads,
+            use_auth_token=hf_token,
+            qwen_dtype=qwen_dtype,
+            qwen_device_map=qwen_device_map,
+        )
+    else:
+        parser.error(f"Unsupported --asr_backend: {asr_backend}")
 
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
@@ -166,44 +200,100 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     if not no_align:
         tmp_results = results
         results = []
-        align_model, align_metadata = load_align_model(
-            align_language, device, model_name=align_model, model_dir=model_dir, model_cache_only=model_cache_only
-        )
-        for result, audio_path in tmp_results:
-            # >> Align
-            if len(tmp_results) > 1:
-                input_audio = audio_path
-            else:
-                # lazily load audio from part 1
-                input_audio = audio
+        if asr_backend == "qwen3":
+            if return_char_alignments:
+                parser.error("--return_char_alignments is not supported with --asr_backend qwen3")
+            from whisperx.alignment_qwen import align as align_qwen
+            from whisperx.alignment_qwen import load_align_model as load_align_model_qwen
 
-            if align_model is not None and len(result["segments"]) > 0:
-                if result.get("language", "en") != align_metadata["language"]:
-                    # load new language
-                    logger.info(
-                        f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
+            qwen_align_model_name = align_model or qwen_forced_aligner
+            initial_align_language = align_language
+            if initial_align_language is None:
+                for result, _ in tmp_results:
+                    detected = result.get("language")
+                    if detected:
+                        initial_align_language = detected
+                        break
+            if initial_align_language is None:
+                initial_align_language = "en"
+
+            align_model_obj, align_metadata = load_align_model_qwen(
+                initial_align_language,
+                device,
+                model_name=qwen_align_model_name,
+                model_dir=model_dir,
+                model_cache_only=model_cache_only,
+                qwen_dtype=qwen_dtype,
+                qwen_device_map=qwen_device_map,
+                use_auth_token=hf_token,
+            )
+            for result, audio_path in tmp_results:
+                if len(tmp_results) > 1:
+                    input_audio = audio_path
+                else:
+                    input_audio = audio
+
+                if align_model_obj is not None and len(result["segments"]) > 0:
+                    detected = result.get("language")
+                    if detected:
+                        align_metadata["language"] = detected
+                    logger.info("Performing Qwen forced alignment...")
+                    result = align_qwen(
+                        result["segments"],
+                        align_model_obj,
+                        align_metadata,
+                        input_audio,
+                        device,
+                        interpolate_method=interpolate_method,
+                        return_char_alignments=False,
+                        print_progress=print_progress,
                     )
-                    align_model, align_metadata = load_align_model(
-                        result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
+
+                results.append((result, audio_path))
+
+            # Unload align model
+            del align_model_obj
+            gc.collect()
+            torch.cuda.empty_cache()
+        else:
+            align_model, align_metadata = load_align_model(
+                align_language, device, model_name=align_model, model_dir=model_dir, model_cache_only=model_cache_only
+            )
+            for result, audio_path in tmp_results:
+                # >> Align
+                if len(tmp_results) > 1:
+                    input_audio = audio_path
+                else:
+                    # lazily load audio from part 1
+                    input_audio = audio
+
+                if align_model is not None and len(result["segments"]) > 0:
+                    if result.get("language", "en") != align_metadata["language"]:
+                        # load new language
+                        logger.info(
+                            f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
+                        )
+                        align_model, align_metadata = load_align_model(
+                            result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
+                        )
+                    logger.info("Performing alignment...")
+                    result = align(
+                        result["segments"],
+                        align_model,
+                        align_metadata,
+                        input_audio,
+                        device,
+                        interpolate_method=interpolate_method,
+                        return_char_alignments=return_char_alignments,
+                        print_progress=print_progress,
                     )
-                logger.info("Performing alignment...")
-                result: AlignedTranscriptionResult = align(
-                    result["segments"],
-                    align_model,
-                    align_metadata,
-                    input_audio,
-                    device,
-                    interpolate_method=interpolate_method,
-                    return_char_alignments=return_char_alignments,
-                    print_progress=print_progress,
-                )
 
-            results.append((result, audio_path))
+                results.append((result, audio_path))
 
-        # Unload align model
-        del align_model
-        gc.collect()
-        torch.cuda.empty_cache()
+            # Unload align model
+            del align_model
+            gc.collect()
+            torch.cuda.empty_cache()
 
     # >> Diarize
     if diarize:
@@ -234,5 +324,8 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
-        result["language"] = align_language
+        if align_language is not None:
+            result["language"] = align_language
+        elif not result.get("language"):
+            result["language"] = "en" if asr_backend == "faster-whisper" else ""
         writer(result, audio_path, writer_args)
