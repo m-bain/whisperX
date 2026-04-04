@@ -79,6 +79,12 @@ The easiest way to install WhisperX is through PyPi:
 pip install whisperx
 ```
 
+To use the in-process Qwen3 backend:
+
+```bash
+pip install "whisperx[qwen]"
+```
+
 Or if using [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools):
 
 ```bash
@@ -142,6 +148,18 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
+
+### Qwen3 backend (ASR + forced aligner)
+
+Run WhisperX with Qwen3 ASR and Qwen3 forced alignment:
+
+    whisperx path/to/audio.wav --asr_backend qwen3 --qwen_asr_model Qwen/Qwen3-ASR-1.7B --qwen_forced_aligner Qwen/Qwen3-ForcedAligner-0.6B --device mps
+
+Notes:
+
+- `--task translate` is not supported on the Qwen3 backend.
+- `--return_char_alignments` is not supported on the Qwen3 forced aligner path.
+- If you pass `--qwen_device_map auto`, model placement is delegated to Hugging Face Accelerate.
 
 ### Other languages
 
