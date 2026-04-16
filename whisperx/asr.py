@@ -327,6 +327,7 @@ def load_model(
     download_root: Optional[str] = None,
     local_files_only=False,
     threads=4,
+    token: Optional[Union[str, bool]] = None,
     use_auth_token: Optional[Union[str, bool]] = None,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
@@ -343,9 +344,16 @@ def load_model(
         download_root - The root directory to download the model to.
         local_files_only - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
         threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
+        token - Hugging Face authentication token. Preferred alias.
+        use_auth_token - Legacy Hugging Face authentication token alias kept for backward compatibility.
     Returns:
         A Whisper pipeline.
     """
+
+    if token is not None and use_auth_token is not None and token != use_auth_token:
+        raise ValueError("Received conflicting values for 'token' and 'use_auth_token'")
+
+    token = token if token is not None else use_auth_token
 
     if compute_type == "default":
         compute_type = "float16" if device == "cuda" else "float32"
@@ -361,7 +369,7 @@ def load_model(
                          download_root=download_root,
                          local_files_only=local_files_only,
                          cpu_threads=threads,
-                         use_auth_token=use_auth_token)
+                         use_auth_token=token)
     if language is not None:
         tokenizer = Tokenizer(model.hf_tokenizer, model.model.is_multilingual, task=task, language=language)
     else:
