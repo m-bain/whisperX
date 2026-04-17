@@ -36,7 +36,7 @@ def _make_emission(num_frames, dictionary, transcript_chars, blank_id=0):
                      if c.lower() in dictionary]
     if chars_in_dict:
         frames_per_char = num_frames // (len(transcript_chars) + 1)
-        for seq_idx, (char_idx, char) in enumerate(chars_in_dict):
+        for char_idx, char in chars_in_dict:
             center = (char_idx + 1) * frames_per_char
             start = max(0, center - frames_per_char // 2)
             end = min(num_frames, center + frames_per_char // 2)

@@ -82,9 +82,10 @@ class WhisperModel(faster_whisper.WhisperModel):
             avg_logprobs.append(cum_logprob / (seq_len + 1))
 
         def decode_batch(tokens: List[List[int]]) -> List[str]:
-            res = []
-            for tk in tokens:
-                res.append([token for token in tk if token < tokenizer.eot])
+            res = [
+                [token for token in tk if token < tokenizer.eot]
+                for tk in tokens
+            ]
             # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
 
@@ -308,7 +309,11 @@ class FasterWhisperPipeline(Pipeline):
         results = self.model.model.detect_language(encoder_output)
         language_token, language_probability = results[0][0]
         language = language_token[2:-2]
-        logger.info(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio")
+        logger.info(
+            "Detected language: %s (%.2f) in first 30s of audio",
+            language,
+            language_probability,
+        )
         return language
 
 
@@ -349,7 +354,11 @@ def load_model(
 
     if compute_type == "default":
         compute_type = "float16" if device == "cuda" else "float32"
-        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {device}")
+        logger.info(
+            "Compute type not specified, defaulting to %s for device %s",
+            compute_type,
+            device,
+        )
 
     if whisper_arch.endswith(".en"):
         language = "en"
@@ -418,7 +427,6 @@ def load_model(
     # Note: manually assigned vad_model has higher priority than vad_method!
     if vad_model is not None:
         print("Use manually assigned vad_model. vad_method is ignored.")
-        vad_model = vad_model
     else:
         if vad_method == "silero":
             vad_model = Silero(**default_vad_options)

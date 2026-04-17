@@ -173,7 +173,7 @@ class Binarize:
         # also: fill same speaker gaps shorter than min_duration_off
         if self.pad_offset > 0.0 or self.pad_onset > 0.0 or self.min_duration_off > 0.0:
             if self.max_duration < float("inf"):
-                raise NotImplementedError(f"This would break current max_duration param")
+                raise NotImplementedError("This would break current max_duration param")
             active = active.support(collar=self.min_duration_off)
 
         # remove tracks shorter than min_duration_on
@@ -253,9 +253,10 @@ class Pyannote(Vad):
         assert chunk_size > 0
         binarize = Binarize(max_duration=chunk_size, onset=onset, offset=offset)
         segments = binarize(segments)
-        segments_list = []
-        for speech_turn in segments.get_timeline():
-            segments_list.append(SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN"))
+        segments_list = [
+            SegmentX(speech_turn.start, speech_turn.end, "UNKNOWN")
+            for speech_turn in segments.get_timeline()
+        ]
 
         if len(segments_list) == 0:
             logger.warning("No active speech found in audio")

@@ -323,7 +323,7 @@ class SubtitlesWriter(ResultWriter):
                     subtitle_text = "".join([word["word"] for word in subtitle])
                 else:
                     subtitle_text = " ".join([word["word"] for word in subtitle])
-                has_timing = any(["start" in word for word in subtitle])
+                has_timing = any("start" in word for word in subtitle)
 
                 # add [$SPEAKER_ID]: to each subtitle if speaker is available
                 prefix = ""

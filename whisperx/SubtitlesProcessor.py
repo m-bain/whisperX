@@ -75,8 +75,8 @@ class SubtitlesProcessor:
 
     def process_segments(self, advanced_splitting=True):
         subtitles = []
-        for i, segment in enumerate(self.segments):
-            next_segment_start_time = self.segments[i + 1]['start'] if i + 1 < len(self.segments) else None
+        for seg_idx, segment in enumerate(self.segments):
+            next_segment_start_time = self.segments[seg_idx + 1]['start'] if seg_idx + 1 < len(self.segments) else None
 
             if advanced_splitting:
 
@@ -84,9 +84,9 @@ class SubtitlesProcessor:
                 subtitles.extend(self.generate_subtitles_from_split_points(segment, split_points, next_segment_start_time))
             else:
                 words = segment['words']
-                for i, word in enumerate(words):
+                for word_idx, word in enumerate(words):
                     if 'start' not in word or 'end' not in word:
-                        self.estimate_timestamp_for_word(words, i, next_segment_start_time)
+                        self.estimate_timestamp_for_word(words, word_idx, next_segment_start_time)
 
                 subtitles.append({
                 'start': segment['start'],

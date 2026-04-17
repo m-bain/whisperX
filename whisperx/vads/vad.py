@@ -1,8 +1,5 @@
 from typing import Optional
 
-import pandas as pd
-from pyannote.core import Annotation, Segment
-
 
 class Vad:
     def __init__(self, vad_onset):

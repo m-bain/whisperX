@@ -99,7 +99,7 @@ class DiarizationPipeline:
         if isinstance(device, str):
             device = torch.device(device)
         model_config = model_name or "pyannote/speaker-diarization-community-1"
-        logger.info(f"Loading diarization model: {model_config}")
+        logger.info("Loading diarization model: %s", model_config)
         self.model = Pipeline.from_pretrained(model_config, token=token, cache_dir=cache_dir).to(device)
 
     def __call__(
