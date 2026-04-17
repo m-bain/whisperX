@@ -174,7 +174,7 @@ class DiarizationPipeline:
         if return_embeddings and embeddings is not None:
             speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
             return diarize_df, speaker_embeddings
-        
+
         # For backwards compatibility
         if return_embeddings:
             return diarize_df, None
