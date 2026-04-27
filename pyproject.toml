@@ -5,11 +5,11 @@ name = "whisperx"
 version = "3.8.5"
 description = "Time-Accurate Automatic Speech Recognition using Whisper."
 readme = "README.md"
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.10, <3.15"
 license = { text = "BSD-2-Clause" }
 
 dependencies = [
-    "ctranslate2>=4.5.0",
+    "ctranslate2>=4.6.1",
     "faster-whisper>=1.2.0",
     "nltk>=3.9.1",
     "numpy>=2.1.0",
@@ -17,10 +17,13 @@ dependencies = [
     "pandas>=2.2.3",
     "pyannote-audio>=4.0.0",
     "huggingface-hub<1.0.0",
-    "torch~=2.8.0",
-    "torchaudio~=2.8.0",
-    "torchvision~=0.23.0",
-    "torchcodec>=0.6.0,<0.8.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
+    "torch~=2.9.0",
+    "torchaudio~=2.9.0",
+    "torchvision~=0.24.0",
+    "torchcodec>=0.6.0,<0.10.0; ((sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32') and python_version < '3.14'",
+    "torchcodec>=0.9.0; ((sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32') and python_version == '3.14'",
+    # faster-whisper dependency, pinned here for Python 3.14 wheels
+    "onnxruntime>=1.24.1; python_version == '3.14'",
     "transformers>=4.48.0",
     "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'" # only install triton on x86_64 Linux
 ]
@@ -45,7 +48,8 @@ include = ["whisperx*"]
 # torchcodec (transitive dep of pyannote-audio >=4) has no wheels for Linux aarch64
 [tool.uv]
 override-dependencies = [
-    "torchcodec>=0.6.0,<0.8.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
+    "torchcodec>=0.6.0,<0.8.0; ((sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32') and python_version < '3.14'",
+    "torchcodec>0.9.0; ((sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32') and python_version == '3.14'",
 ]
 
 [tool.uv.sources]
