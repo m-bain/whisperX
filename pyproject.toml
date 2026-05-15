@@ -51,13 +51,13 @@ override-dependencies = [
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
-  { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
-  { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin'" },
+  { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and platform_machine != 'AMD64' and sys_platform != 'darwin'" },
+  { index = "pytorch", marker = "(platform_machine == 'x86_64' or platform_machine == 'AMD64') and sys_platform != 'darwin'" },
 ]
 torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
-  { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
-  { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin'" },
+  { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and platform_machine != 'AMD64' and sys_platform != 'darwin'" },
+  { index = "pytorch", marker = "(platform_machine == 'x86_64' or platform_machine == 'AMD64') and sys_platform != 'darwin'" },
 ]
 triton = [
   { index = "pytorch", marker = "sys_platform == 'linux'" },
