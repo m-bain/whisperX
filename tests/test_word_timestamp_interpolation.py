@@ -61,7 +61,7 @@ class TestAlignWithWildcards:
     }
     METADATA = {"language": "en", "dictionary": DICTIONARY, "type": "torchaudio"}
 
-    def _run_align(self, text, duration=5.0, num_frames=100):
+    def _run_align(self, text, duration=5.0, num_frames=100, interpolate_method="nearest"):
         """Run align() with a mock model on a single segment."""
         torch.manual_seed(0)
         emission = _make_emission(num_frames, self.DICTIONARY, list(text), blank_id=0)
@@ -78,6 +78,7 @@ class TestAlignWithWildcards:
             align_model_metadata=self.METADATA,
             audio=audio,
             device="cpu",
+            interpolate_method=interpolate_method,
         )
         return result
 
@@ -147,3 +148,10 @@ class TestAlignWithWildcards:
         assert "start" in words["4,9"], "'4,9' missing start"
         assert "end" in words["4,9"], "'4,9' missing end"
         assert "score" in words["4,9"], "'4,9' missing score"
+
+    def test_interpolate_method_ignore(self):
+        """Test that using 'ignore' interpolation method does not raise ValueError and yields timestamps."""
+        result = self._run_align("the 99 cats", interpolate_method="ignore")
+        for word in result["word_segments"]:
+            assert "start" in word, f"'{word['word']}' missing start with ignore method"
+            assert "end" in word, f"'{word['word']}' missing end with ignore method"
