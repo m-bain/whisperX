@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from pyannote.audio import Pipeline
@@ -104,7 +105,7 @@ class DiarizationPipeline:
 
     def __call__(
         self,
-        audio: Union[str, np.ndarray],
+        audio: Union[str, os.PathLike, np.ndarray],
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
@@ -128,7 +129,7 @@ class DiarizationPipeline:
             Otherwise:
                 Just the diarization dataframe
         """
-        if isinstance(audio, str):
+        if isinstance(audio, (str, os.PathLike)):
             audio = load_audio(audio)
         audio_data = {
             'waveform': torch.from_numpy(audio[None, :]),

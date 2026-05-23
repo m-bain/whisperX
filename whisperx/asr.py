@@ -196,7 +196,7 @@ class FasterWhisperPipeline(Pipeline):
 
     def transcribe(
         self,
-        audio: Union[str, np.ndarray],
+        audio: Union[str, os.PathLike, np.ndarray],
         batch_size: Optional[int] = None,
         num_workers=0,
         language: Optional[str] = None,
@@ -207,7 +207,7 @@ class FasterWhisperPipeline(Pipeline):
         verbose=False,
         progress_callback: ProgressCallback = None,
     ) -> TranscriptionResult:
-        if isinstance(audio, str):
+        if isinstance(audio, (str, os.PathLike)):
             audio = load_audio(audio)
 
         def data(audio, segments):

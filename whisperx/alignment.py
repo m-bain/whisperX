@@ -2,6 +2,7 @@
 Forced Alignment with Whisper
 C. Max Bain
 """
+import os
 from dataclasses import dataclass
 from typing import Iterable, Optional, Union, List
 
@@ -118,7 +119,7 @@ def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
     align_model_metadata: dict,
-    audio: Union[str, np.ndarray, torch.Tensor],
+    audio: Union[str, os.PathLike, np.ndarray, torch.Tensor],
     device: str,
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
@@ -131,7 +132,7 @@ def align(
     """
 
     if not torch.is_tensor(audio):
-        if isinstance(audio, str):
+        if isinstance(audio, (str, os.PathLike)):
             audio = load_audio(audio)
         audio = torch.from_numpy(audio)
     if len(audio.shape) == 1:

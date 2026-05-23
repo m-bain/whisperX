@@ -3,7 +3,7 @@ import os
 import re
 import sys
 import zlib
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional, TextIO, Union
 
 LANGUAGES = {
     "en": "english",
@@ -215,10 +215,11 @@ def format_timestamp(
 class ResultWriter:
     extension: str
 
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
+    def __init__(self, output_dir: Union[str, os.PathLike]):
+        self.output_dir = os.fspath(output_dir)
 
-    def __call__(self, result: dict, audio_path: str, options: dict):
+    def __call__(self, result: dict, audio_path: Union[str, os.PathLike], options: dict):
+        audio_path = os.fspath(audio_path)
         audio_basename = os.path.basename(audio_path)
         audio_basename = os.path.splitext(audio_basename)[0]
         output_path = os.path.join(

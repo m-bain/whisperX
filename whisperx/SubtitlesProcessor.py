@@ -1,4 +1,6 @@
 import math
+import os
+from typing import Union
 from whisperx.conjunctions import get_conjunctions, get_comma
 
 def normal_round(n):
@@ -202,8 +204,8 @@ class SubtitlesProcessor:
     
 
 
-    def save(self, filename="subtitles.srt", advanced_splitting=True):
-        
+    def save(self, filename: Union[str, os.PathLike] = "subtitles.srt", advanced_splitting=True):
+        filename = os.fspath(filename)
         subtitles = self.process_segments(advanced_splitting)
 
         def write_subtitle(file, idx, start_time, end_time, text):
