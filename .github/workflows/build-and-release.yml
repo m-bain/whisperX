@@ -31,9 +31,10 @@ jobs:
         run: uv build
 
       - name: Release to Github
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-        with:
-          files: dist/*.whl
+        run: gh release upload "$RELEASE_TAG" dist/*.whl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
 
       - name: Publish package to PyPi
         run: uv publish
