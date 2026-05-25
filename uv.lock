@@ -3112,7 +3112,7 @@ wheels = [
 
 [[package]]
 name = "whisperx"
-version = "3.8.5"
+version = "3.8.6"
 source = { editable = "." }
 dependencies = [
     { name = "ctranslate2" },
