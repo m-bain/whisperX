@@ -1,9 +1,12 @@
 """Test that align() produces word-level timestamps for unalignable characters."""
 
+import numpy as np
+import pandas as pd
 import torch
 from unittest.mock import MagicMock
 
 from whisperx.alignment import align
+from whisperx.utils import interpolate_nans
 
 
 def _make_mock_model(emission, dictionary):
@@ -61,7 +64,7 @@ class TestAlignWithWildcards:
     }
     METADATA = {"language": "en", "dictionary": DICTIONARY, "type": "torchaudio"}
 
-    def _run_align(self, text, duration=5.0, num_frames=100):
+    def _run_align(self, text, duration=5.0, num_frames=100, interpolate_method="nearest"):
         """Run align() with a mock model on a single segment."""
         torch.manual_seed(0)
         emission = _make_emission(num_frames, self.DICTIONARY, list(text), blank_id=0)
@@ -78,6 +81,7 @@ class TestAlignWithWildcards:
             align_model_metadata=self.METADATA,
             audio=audio,
             device="cpu",
+            interpolate_method=interpolate_method,
         )
         return result
 
@@ -147,3 +151,81 @@ class TestAlignWithWildcards:
         assert "start" in words["4,9"], "'4,9' missing start"
         assert "end" in words["4,9"], "'4,9' missing end"
         assert "score" in words["4,9"], "'4,9' missing score"
+
+    def test_ignore_does_not_crash(self):
+        """interpolate_method='ignore' must not crash (issue #1368)."""
+        result = self._run_align("the 99 cats", interpolate_method="ignore")
+        words = {w["word"]: w for w in result["word_segments"]}
+        assert len(words) == 3
+        for known in ("the", "cats"):
+            assert "start" in words[known], f"'{known}' missing start"
+            assert "end" in words[known], f"'{known}' missing end"
+
+    def test_ignore_segments_have_valid_timestamps(self):
+        """Segments always have valid float start/end even with interpolate_method='ignore'."""
+        result = self._run_align("the 99 cats", interpolate_method="ignore")
+        for seg in result["segments"]:
+            assert isinstance(seg["start"], float), f"segment start not float: {seg['start']}"
+            assert isinstance(seg["end"], float), f"segment end not float: {seg['end']}"
+            assert not np.isnan(seg["start"]), "segment start is NaN"
+            assert not np.isnan(seg["end"]), "segment end is NaN"
+
+
+class TestInterpolateNans:
+    """Unit tests for interpolate_nans()."""
+
+    def test_ignore_preserves_nans(self):
+        x = pd.Series([1.0, np.nan, 3.0, np.nan, 5.0])
+        result = interpolate_nans(x, method="ignore")
+        assert result is x
+        assert result.isna().sum() == 2
+
+    def test_nearest_fills_nans(self):
+        x = pd.Series([1.0, np.nan, 3.0, np.nan, 5.0])
+        result = interpolate_nans(x, method="nearest")
+        assert result.notna().all()
+
+    def test_ignore_word_assignment_integration(self):
+        """Simulate the word-timestamp assignment logic from alignment.py:365-376.
+
+        With wildcard CTC, this path is rarely reached in practice, but it's
+        the code that "ignore" is designed to affect. This test proves the
+        pieces fit together: interpolate_nans preserves NaN, and the pd.notna
+        guard prevents timestamp assignment to unaligned words.
+        """
+        sentence_words = [
+            {"word": "the", "start": 0.1, "end": 0.3},
+            {"word": "99"},  # simulates a word with no CTC timestamps
+            {"word": "cats", "start": 0.6, "end": 0.9},
+        ]
+        _starts = pd.Series([0.1, np.nan, 0.6])
+        _ends = pd.Series([0.3, np.nan, 0.9])
+
+        # With "ignore": NaNs preserved, unaligned word stays without timestamps
+        _starts_ign = interpolate_nans(_starts, method="ignore")
+        _ends_ign = interpolate_nans(_ends, method="ignore")
+        for i, w in enumerate(sentence_words):
+            if "start" not in w and pd.notna(_starts_ign.iloc[i]):
+                w["start"] = _starts_ign.iloc[i]
+            if "end" not in w and pd.notna(_ends_ign.iloc[i]):
+                w["end"] = _ends_ign.iloc[i]
+
+        assert "start" not in sentence_words[1], "'99' should not get start with ignore"
+        assert "end" not in sentence_words[1], "'99' should not get end with ignore"
+
+        # With "nearest": NaNs filled, unaligned word gets interpolated timestamps
+        sentence_words_nearest = [
+            {"word": "the", "start": 0.1, "end": 0.3},
+            {"word": "99"},
+            {"word": "cats", "start": 0.6, "end": 0.9},
+        ]
+        _starts_nr = interpolate_nans(_starts.copy(), method="nearest")
+        _ends_nr = interpolate_nans(_ends.copy(), method="nearest")
+        for i, w in enumerate(sentence_words_nearest):
+            if "start" not in w and pd.notna(_starts_nr.iloc[i]):
+                w["start"] = _starts_nr.iloc[i]
+            if "end" not in w and pd.notna(_ends_nr.iloc[i]):
+                w["end"] = _ends_nr.iloc[i]
+
+        assert "start" in sentence_words_nearest[1], "'99' should get start with nearest"
+        assert "end" in sentence_words_nearest[1], "'99' should get end with nearest"
