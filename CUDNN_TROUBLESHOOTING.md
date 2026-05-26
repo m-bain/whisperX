@@ -31,8 +31,8 @@ os.environ['LD_LIBRARY_PATH'] = original + ":" + cudnn_path
 If Solution 1 didn't work and you still get the "unable to load" error, symlink the libraries to a directory that's already in your `LD_LIBRARY_PATH`:
 
 1. Check what's in your LD_LIBRARY_PATH: `echo "$LD_LIBRARY_PATH"`
-2. Assuming that there is only one path set.  
-   Symlink the downloaded libcudnn files to that path:  
+2. Assuming that there is only one path set.
+   Symlink the downloaded libcudnn files to that path:
    `ln -s /usr/local/lib/python3.12/dist-packages/nvidia/cudnn/lib/libcudnn* "$LD_LIBRARY_PATH"/`
 
    **Note:** If `LD_LIBRARY_PATH` contains multiple paths (separated by `:`), pick one directory and use it instead of `"$LD_LIBRARY_PATH"`. For example: `/usr/lib/x86_64-linux-gnu/`

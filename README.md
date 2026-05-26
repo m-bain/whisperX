@@ -24,7 +24,7 @@ If you’re looking for a transcription API for meetings, consider checking out 
   </a>
   <a href="https://twitter.com/intent/tweet?text=&url=https%3A%2F%2Fgithub.com%2Fm-bain%2FwhisperX">
   <img src="https://img.shields.io/twitter/url/https/github.com/m-bain/whisperX.svg?style=social" alt="Twitter">
-  </a>      
+  </a>
 </p>
 
 <img width="1216" align="center" alt="whisperx-arch" src="https://raw.githubusercontent.com/m-bain/whisperX/refs/heads/main/figures/pipeline.png">
@@ -41,7 +41,7 @@ This repository provides fast automatic speech recognition (70x realtime with la
 - 👯‍♂️ Multispeaker ASR using speaker diarization from [pyannote-audio](https://github.com/pyannote/pyannote-audio) (speaker ID labels)
 - 🗣️ VAD preprocessing, reduces hallucination & batching with no WER degradation
 
-**Whisper** is an ASR model [developed by OpenAI](https://github.com/openai/whisper), trained on a large dataset of diverse audio. Whilst it does produces highly accurate transcriptions, the corresponding timestamps are at the utterance-level, not per word, and can be inaccurate by several seconds. OpenAI's whisper does not natively support batching.
+**Whisper** is an ASR model [developed by OpenAI](https://github.com/openai/whisper), trained on a large dataset of diverse audio. Whilst it does produce highly accurate transcriptions, the corresponding timestamps are at the utterance-level, not per word, and can be inaccurate by several seconds. OpenAI's whisper does not natively support batching.
 
 **Phoneme-Based ASR** A suite of models finetuned to recognise the smallest unit of speech distinguishing one word from another, e.g. the element p in "tap". A popular example model is [wav2vec2.0](https://huggingface.co/facebook/wav2vec2-large-960h-lv60-self).
 
@@ -55,10 +55,10 @@ This repository provides fast automatic speech recognition (70x realtime with la
 
 - 1st place at [Ego4d transcription challenge](https://eval.ai/web/challenges/challenge-page/1637/leaderboard/3931/WER) 🏆
 - _WhisperX_ accepted at INTERSPEECH 2023
-- v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitlting & better diarization
+- v3 transcript segment-per-sentence: using nltk sent_tokenize for better subtitling & better diarization
 - v3 released, 70x speed-up open-sourced. Using batched whisper with [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend!
 - v2 released, code cleanup, imports whisper library VAD filtering is now turned on by default, as in the paper.
-- Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with \*60-70x REAL TIME speed.
+- Paper drop🎓👨‍🏫! Please see our [arXiv preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with \*60-70x REAL TIME speed.
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 
@@ -73,7 +73,7 @@ To use WhisperX with GPU acceleration, install the CUDA toolkit 12.8 before Whis
 
 ### 1. Simple Installation (Recommended)
 
-The easiest way to install WhisperX is through PyPi:
+The easiest way to install WhisperX is through PyPI:
 
 ```bash
 pip install whisperx
@@ -109,7 +109,7 @@ uv sync --all-extras --dev
 
 > **Note**: The development version may contain experimental features and bugs. Use the stable PyPI release for production environments.
 
-You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
+You may also need to install ffmpeg, rust etc. Follow OpenAI instructions here https://github.com/openai/whisper#setup.
 
 ### Speaker Diarization
 
@@ -127,7 +127,7 @@ Result using _WhisperX_ with forced alignment to wav2vec2.0 large:
 
 https://user-images.githubusercontent.com/36994049/208253969-7e35fe2a-7541-434a-ae91-8e919540555d.mp4
 
-Compare this to original whisper out the box, where many transcriptions are out of sync:
+Compare this to original whisper out of the box, where many transcriptions are out of sync:
 
 https://user-images.githubusercontent.com/36994049/207743923-b4f0d537-29ae-4be2-b404-bb941db73652.mov
 
@@ -145,10 +145,10 @@ To run on CPU instead of GPU (and for running on Mac OS X):
 
 ### Other languages
 
-The phoneme ASR alignment model is _language-specific_, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/f2da2f858e99e4211fe4f64b5f2938b007827e17/whisperx/alignment.py#L24-L58).
+The phoneme ASR alignment model is _language-specific_, for tested languages these models are [automatically picked from torchaudio pipelines or Hugging Face](https://github.com/m-bain/whisperX/blob/f2da2f858e99e4211fe4f64b5f2938b007827e17/whisperx/alignment.py#L24-L58).
 Just pass in the `--language` code, and use the whisper `--model large`.
 
-Currently default models provided for `{en, fr, de, es, it}` via torchaudio pipelines and many other languages via Hugging Face. Please find the list of currently supported languages under `DEFAULT_ALIGN_MODELS_HF` on [alignment.py](https://github.com/m-bain/whisperX/blob/main/whisperx/alignment.py). If the detected language is not in this list, you need to find a phoneme-based ASR model from [huggingface model hub](https://huggingface.co/models) and test it on your data.
+Currently default models provided for `{en, fr, de, es, it}` via torchaudio pipelines and many other languages via Hugging Face. Please find the list of currently supported languages under `DEFAULT_ALIGN_MODELS_HF` on [alignment.py](https://github.com/m-bain/whisperX/blob/main/whisperx/alignment.py). If the detected language is not in this list, you need to find a phoneme-based ASR model from [Hugging Face model hub](https://huggingface.co/models) and test it on your data.
 
 #### E.g. German
 
@@ -223,10 +223,10 @@ To reduce GPU memory requirements, try any of the following (2. & 3. can affect 
 2.  use a smaller ASR model `--model base`
 3.  Use lighter compute type `--compute_type int8`
 
-Transcription differences from openai's whisper:
+Transcription differences from OpenAI's whisper:
 
 1. Transcription without timestamps. To enable single pass batching, whisper inference is performed `--without_timestamps True`, this ensures 1 forward pass per sample in the batch. However, this can cause discrepancies the default whisper output.
-2. VAD-based segment transcription, unlike the buffered transcription of openai's. In the WhisperX paper we show this reduces WER, and enables accurate batched inference
+2. VAD-based segment transcription, unlike the buffered transcription of OpenAI's. In the WhisperX paper we show this reduces WER, and enables accurate batched inference
 3. `--condition_on_prev_text` is set to `False` by default (reduces hallucination)
 
 <h2 align="left" id="limitations">Limitations ⚠️</h2>
@@ -238,7 +238,7 @@ Transcription differences from openai's whisper:
 
 <h2 align="left" id="contribute">Contribute 🧑‍🏫</h2>
 
-If you are multilingual, a major way you can contribute to this project is to find phoneme models on huggingface (or train your own) and test them on speech for the target language. If the results look good send a pull request and some examples showing its success.
+If you are multilingual, a major way you can contribute to this project is to find phoneme models on Hugging Face (or train your own) and test them on speech for the target language. If the results look good send a pull request and some examples showing its success.
 
 Bug finding and pull requests are also highly appreciated to keep this project going, since it's already diverging from the original research scope.
 
@@ -256,7 +256,7 @@ Bug finding and pull requests are also highly appreciated to keep this project g
 
 - [x] Faster-whisper backend
 
-- [x] Add max-line etc. see (openai's whisper utils.py)
+- [x] Add max-line etc. see (OpenAI's whisper utils.py)
 
 - [x] Sentence-level segments (nltk toolbox)
 
@@ -280,9 +280,9 @@ Contact maxhbain@gmail.com for queries.
 
 <h2 align="left" id="acks">Acknowledgements 🙏</h2>
 
-This work, and my PhD, is supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
+This work, and my PhD, are supported by the [VGG (Visual Geometry Group)](https://www.robots.ox.ac.uk/~vgg/) and the University of Oxford.
 
-Of course, this is builds on [openAI's whisper](https://github.com/openai/whisper).
+Of course, this project builds on [OpenAI's whisper](https://github.com/openai/whisper).
 Borrows important alignment code from [PyTorch tutorial on forced alignment](https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html)
 And uses the wonderful pyannote VAD / Diarization https://github.com/pyannote/pyannote-audio
 

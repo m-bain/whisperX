@@ -42,7 +42,7 @@ def setup_logging(
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
         except (OSError) as e:
-            logger.warning(f"Failed to create log file '{log_file}': {e}")
+            logger.warning("Failed to create log file '%s': %s", log_file, e)
             logger.warning("Continuing with console logging only")
 
     # Don't propagate to root logger to avoid duplicate messages

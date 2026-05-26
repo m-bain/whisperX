@@ -85,9 +85,12 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         elif language_code in DEFAULT_ALIGN_MODELS_HF:
             model_name = DEFAULT_ALIGN_MODELS_HF[language_code]
         else:
-            logger.error(f"No default alignment model for language: {language_code}. "
-                         f"Please find a wav2vec2.0 model finetuned on this language at https://huggingface.co/models, "
-                         f"then pass the model name via --align_model [MODEL_NAME]")
+            logger.error(
+                "No default alignment model for language: %s. "
+                "Please find a wav2vec2.0 model finetuned on this language at https://huggingface.co/models, "
+                "then pass the model name via --align_model [MODEL_NAME]",
+                language_code,
+            )
             raise ValueError(f"No default align-model for language: {language_code}")
 
     if model_name in torchaudio.pipelines.__all__:
@@ -102,7 +105,7 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
             align_model = Wav2Vec2ForCTC.from_pretrained(model_name, cache_dir=model_dir, local_files_only=model_cache_only)
         except Exception as e:
             print(e)
-            print(f"Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models")
+            print("Error loading model from huggingface, check https://huggingface.co/models for finetuned wav2vec2.0 models")
             raise ValueError(f'The chosen align_model "{model_name}" could not be found in huggingface (https://huggingface.co/models) or torchaudio (https://pytorch.org/audio/stable/pipelines.html#id14)')
         pipeline_type = "huggingface"
         align_model = align_model.to(device)
@@ -176,7 +179,7 @@ def align(
                 pass
             elif cdx > len(text) - num_trailing - 1:
                 pass
-            elif char_ in model_dictionary.keys():
+            elif char_ in model_dictionary:
                 clean_char.append(char_)
                 clean_cdx.append(cdx)
             elif char_ not in (" ", "|"):
@@ -228,12 +231,18 @@ def align(
 
         # check we can align
         if len(segment_data[sdx]["clean_char"]) == 0:
-            logger.warning(f'Failed to align segment ("{segment["text"]}"): no characters in this segment found in model dictionary, resorting to original')
+            logger.warning(
+                'Failed to align segment ("%s"): no characters in this segment found in model dictionary, resorting to original',
+                segment["text"],
+            )
             aligned_segments.append(aligned_seg)
             continue
 
         if t1 >= MAX_DURATION:
-            logger.warning(f'Failed to align segment ("{segment["text"]}"): original start time longer than audio duration, skipping')
+            logger.warning(
+                'Failed to align segment ("%s"): original start time longer than audio duration, skipping',
+                segment["text"],
+            )
             aligned_segments.append(aligned_seg)
             continue
 
@@ -286,7 +295,10 @@ def align(
         path = backtrack(trellis, emission, tokens, blank_id)
 
         if path is None:
-            logger.warning(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original')
+            logger.warning(
+                'Failed to align segment ("%s"): backtrack failed, resorting to original',
+                segment["text"],
+            )
             aligned_segments.append(aligned_seg)
             continue
 
