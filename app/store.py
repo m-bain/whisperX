@@ -1,0 +1,169 @@
+"""Durable session storage: SQLite metadata + per-session files on disk.
+
+A *session* is one uploaded audio file plus its transcription result (segments
+and words with timestamps + speakers). Metadata lives in SQLite for fast
+listing; the audio, the full result JSON, and the srt/vtt/txt artifacts live
+under sessions/<id>/ so they survive restarts.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sqlite3
+import threading
+from datetime import datetime, timezone
+from typing import Optional
+
+# Artifact files share a fixed basename so their paths are reconstructable
+# from the session id alone (no absolute paths stored in the DB).
+ARTIFACT_BASENAME = "transcript"
+RESULT_FILE = f"{ARTIFACT_BASENAME}.json"
+
+_COLUMNS = (
+    "id", "filename", "audio_filename", "status", "error", "options",
+    "language", "diarized", "model", "num_segments", "duration",
+    "created_at", "updated_at",
+)
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id            TEXT PRIMARY KEY,
+    filename      TEXT,
+    audio_filename TEXT,
+    status        TEXT NOT NULL,
+    error         TEXT,
+    options       TEXT,
+    language      TEXT,
+    diarized      INTEGER,
+    model         TEXT,
+    num_segments  INTEGER,
+    duration      REAL,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+"""
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+class SessionStore:
+    def __init__(self, data_dir: str):
+        self.data_dir = os.path.abspath(data_dir)
+        self.sessions_root = os.path.join(self.data_dir, "sessions")
+        os.makedirs(self.sessions_root, exist_ok=True)
+        self._lock = threading.Lock()
+        self._db = sqlite3.connect(
+            os.path.join(self.data_dir, "sessions.db"), check_same_thread=False
+        )
+        self._db.row_factory = sqlite3.Row
+        with self._db:
+            self._db.execute("PRAGMA journal_mode=WAL")
+            self._db.execute(_SCHEMA)
+
+    # --- path helpers ---------------------------------------------------
+    def session_dir(self, session_id: str) -> str:
+        return os.path.join(self.sessions_root, session_id)
+
+    def audio_path(self, session_id: str) -> Optional[str]:
+        row = self.get(session_id)
+        if not row or not row.get("audio_filename"):
+            return None
+        return os.path.join(self.session_dir(session_id), row["audio_filename"])
+
+    def artifact_path(self, session_id: str, fmt: str) -> str:
+        return os.path.join(self.session_dir(session_id), f"{ARTIFACT_BASENAME}.{fmt}")
+
+    def result_path(self, session_id: str) -> str:
+        return os.path.join(self.session_dir(session_id), RESULT_FILE)
+
+    def load_result(self, session_id: str) -> Optional[dict]:
+        path = self.result_path(session_id)
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    # --- writes ---------------------------------------------------------
+    def create(self, session_id: str, filename: str, audio_filename: str, options: dict) -> None:
+        ts = _now()
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT INTO sessions (id, filename, audio_filename, status, options, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                (session_id, filename, audio_filename, "queued",
+                 json.dumps(options), ts, ts),
+            )
+
+    def mark_running(self, session_id: str) -> None:
+        self._update(session_id, status="running")
+
+    def mark_done(self, session_id: str, *, language: Optional[str], diarized: bool,
+                  model: str, num_segments: int, duration: float) -> None:
+        self._update(
+            session_id, status="done", error=None, language=language,
+            diarized=1 if diarized else 0, model=model,
+            num_segments=num_segments, duration=duration,
+        )
+
+    def mark_error(self, session_id: str, message: str) -> None:
+        self._update(session_id, status="error", error=message)
+
+    def _update(self, session_id: str, **fields) -> None:
+        fields["updated_at"] = _now()
+        cols = ", ".join(f"{k}=?" for k in fields)
+        with self._lock, self._db:
+            self._db.execute(
+                f"UPDATE sessions SET {cols} WHERE id=?",
+                (*fields.values(), session_id),
+            )
+
+    def delete(self, session_id: str) -> bool:
+        with self._lock, self._db:
+            cur = self._db.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+            existed = cur.rowcount > 0
+        shutil.rmtree(self.session_dir(session_id), ignore_errors=True)
+        return existed
+
+    # --- reads ----------------------------------------------------------
+    def get(self, session_id: str) -> Optional[dict]:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT * FROM sessions WHERE id=?", (session_id,)
+            ).fetchone()
+        return _row_to_dict(row)
+
+    def list(self) -> list[dict]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT * FROM sessions ORDER BY created_at DESC, id DESC"
+            ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    # --- lifecycle ------------------------------------------------------
+    def reconcile_startup(self) -> int:
+        """Fail sessions left mid-flight by a crash/restart (executor is gone)."""
+        with self._lock, self._db:
+            cur = self._db.execute(
+                "UPDATE sessions SET status='error', error='interrupted by restart', "
+                "updated_at=? WHERE status IN ('queued','running')",
+                (_now(),),
+            )
+            return cur.rowcount
+
+
+def _row_to_dict(row: Optional[sqlite3.Row]) -> Optional[dict]:
+    if row is None:
+        return None
+    d = {k: row[k] for k in row.keys()}
+    if d.get("options"):
+        try:
+            d["options"] = json.loads(d["options"])
+        except (ValueError, TypeError):
+            d["options"] = {}
+    if d.get("diarized") is not None:
+        d["diarized"] = bool(d["diarized"])
+    return d

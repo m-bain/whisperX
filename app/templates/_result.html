@@ -1,0 +1,15 @@
+{# Final result fragment. Replaces the polling element; no further requests. #}
+<div class="result">
+  <p>
+    ✓ Done — language <strong>{{ language }}</strong>,
+    {% if diarized %}speakers labelled{% else %}no diarization{% endif %}.
+  </p>
+  <p class="downloads">Download:
+    {% for fmt in formats %}
+      <a href="/sessions/{{ job_id }}/download/{{ fmt }}">{{ fmt }}</a>
+    {% endfor %}
+  </p>
+  <div class="transcript">
+    {{ transcript|safe }}
+  </div>
+</div>

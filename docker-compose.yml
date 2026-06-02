@@ -1,0 +1,20 @@
+services:
+  whisperx-web:
+    build: .
+    image: whisperx-web
+    ports:
+      - "5000:5000"
+    # HF_TOKEN (enables diarization) and optional WHISPERX_* overrides are read
+    # from app/.env (gitignored). See app/.env.example.
+    env_file:
+      - app/.env
+    volumes:
+      # Persist downloaded Whisper / wav2vec2 / pyannote models across runs.
+      - whisperx-cache:/cache
+      # Persist sessions (uploaded audio + transcription results).
+      - whisperx-data:/data
+    restart: unless-stopped
+
+volumes:
+  whisperx-cache:
+  whisperx-data:
