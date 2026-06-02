@@ -133,29 +133,27 @@ def _summary(rows: list[dict]) -> dict:
         "pct": pct,
     }
 
-# --- Model bundle: loaded once, in a background thread so the server can boot. ---
-_bundle = None
-_bundle_lock = threading.Lock()
-_bundle_error: str | None = None
-
-
-def _warm_models() -> None:
-    global _bundle, _bundle_error
-    try:
-        b = pipeline.load_bundle()
-        with _bundle_lock:
-            _bundle = b
-        logger.info("Models ready (diarization %s).", "ON" if b.diarize else "OFF")
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Model load failed")
-        with _bundle_lock:
-            _bundle_error = str(exc)
-
-
+# --- Models: a manager caches multiple Whisper checkpoints; the active one is
+#     warmed in a background thread so the server can boot before it is ready. ---
 _sessions = SessionStore(DATA_DIR)
 _interrupted = _sessions.reconcile_startup()
 if _interrupted:
     logger.warning("Marked %d interrupted session(s) as error on startup", _interrupted)
+
+# Seed the active model from the persisted setting (a switch survives restart);
+# falls back to the WHISPERX_MODEL default if the stored value is no longer valid.
+_manager = pipeline.ModelManager(active=_sessions.get_setting("active_model", pipeline.DEFAULT_MODEL))
+
+
+def _warm_models() -> None:
+    """Warm the active Whisper model + the shared diarizer in the background."""
+    try:
+        _manager.load_asr(_manager.active)
+        diarize = _manager.ensure_diarize()
+        logger.info("Models ready (active=%s, diarization %s).",
+                    _manager.active, "ON" if diarize else "OFF")
+    except Exception:  # noqa: BLE001 - the error is recorded in manager.status()
+        logger.exception("Active model load failed")
 
 
 def run_session(session_id: str) -> None:
@@ -164,9 +162,10 @@ def run_session(session_id: str) -> None:
     if row is None:
         raise RuntimeError(f"session {session_id} disappeared")
     opts = row.get("options") or {}
+    model = row.get("model") or _manager.active  # the model chosen at upload time
     audio_path = _sessions.audio_path(session_id)
     result = pipeline.run_job(
-        _bundle,
+        _manager.bundle_for(model),  # loads on demand + caches; shares diarizer/align
         audio_path,
         _sessions.session_dir(session_id),
         artifact_basename="transcript",
@@ -178,7 +177,7 @@ def run_session(session_id: str) -> None:
         session_id,
         language=result.get("language"),
         diarized=bool(result.get("diarized")),
-        model=pipeline.MODEL_NAME,
+        model=model,
         num_segments=result.get("num_segments", len(result.get("segments", []))),
         duration=result.get("duration", 0.0),
     )
@@ -188,14 +187,17 @@ _queue = JobQueue(_sessions, run_session)
 
 
 def models_ready() -> bool:
-    with _bundle_lock:
-        return _bundle is not None
+    return _manager.is_loaded(_manager.active)
 
 
 @app.route("/")
 def index():
     rows = _sessions.list()  # newest first
     cards = [_card(r) for r in rows]
+    status = _manager.status()
+    active_error = next(
+        (m["error"] for m in status["models"] if m["name"] == status["active"]), None
+    )
     return render_template(
         "index.html",
         featured=cards[0] if cards else None,
@@ -203,8 +205,9 @@ def index():
         summary=_summary(rows),
         default_language=_sessions.get_setting("default_language", ""),
         models_ready=models_ready(),
-        bundle_error=_bundle_error,
-        diarize_enabled=bool(_bundle and _bundle.diarize),
+        bundle_error=active_error,
+        diarize_enabled=status["diarize"],
+        models=status,
     )
 
 
@@ -214,6 +217,7 @@ def settings():
         "settings.html",
         active="settings",
         default_language=_sessions.get_setting("default_language", ""),
+        models=_manager.status(),
     )
 
 
@@ -255,6 +259,16 @@ def create_session():
         v = request.form.get(name, "").strip()
         return int(v) if v.isdigit() else None
 
+    # Per-upload model override; defaults to the active model. Reject unknown names.
+    requested = request.form.get("model", "").strip()
+    if requested:
+        try:
+            model = pipeline.WhisperModel(requested).value
+        except ValueError:
+            abort(400, f"Unknown model: {requested}")
+    else:
+        model = _manager.active
+
     session_id = uuid.uuid4().hex
     safe_name = secure_filename(file.filename) or "audio"
     ext = os.path.splitext(safe_name)[1] or ".bin"
@@ -272,9 +286,31 @@ def create_session():
             "min_speakers": _int("min_speakers"),
             "max_speakers": _int("max_speakers"),
         },
+        model=model,
     )
     _queue.submit(session_id)
     return render_template("_status.html", state="queued", job_id=session_id)
+
+
+@app.get("/models")
+def list_models():
+    """Available models, which are loaded/loading, and the active one."""
+    return jsonify(_manager.status())
+
+
+@app.post("/models/active")
+def switch_model():
+    """Dedicated switch endpoint: set + persist the global active model and warm it."""
+    model = (request.form.get("model") or (request.get_json(silent=True) or {}).get("model") or "").strip()
+    try:
+        model = pipeline.WhisperModel(model).value
+    except ValueError:
+        abort(400, f"Unknown model: {model}")
+    status = _manager.set_active(model)         # in-memory switch + background warm
+    _sessions.set_setting("active_model", model)  # survive restart
+    if request.headers.get("HX-Request"):
+        return render_template("_models.html", models=status)
+    return jsonify(status)
 
 
 @app.get("/sessions/<session_id>/status")

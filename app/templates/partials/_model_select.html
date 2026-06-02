@@ -1,0 +1,13 @@
+{# Shared Whisper-model <sl-select>. Caller passes (via `with context`):
+   - field_name: form field name (default "model")
+   - models:     manager.status() dict — drives options + loaded/loading badges
+   - selected:   currently-selected model value (default: models.active) #}
+{% set field_name = field_name|default('model') %}
+{% set selected = selected|default(models.active) %}
+<sl-select name="{{ field_name }}" value="{{ selected }}" hoist>
+  {% for m in models.models %}
+  <sl-option value="{{ m.name }}">
+    {{ m.name }}{% if m.loaded %} · cached{% elif m.loading %} · loading…{% endif %}
+  </sl-option>
+  {% endfor %}
+</sl-select>

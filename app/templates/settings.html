@@ -38,6 +38,20 @@
           </div>
         </form>
       </section>
+
+      <section class="card">
+        <h2 class="card__h">Active Model</h2>
+        <div class="pref-row">
+          <div>
+            <div class="pref__title">Default Whisper Model</div>
+            <div class="pref__desc">The model new uploads use by default. Switching takes effect
+              immediately (no save needed) and is remembered across restarts.</div>
+          </div>
+          <div class="pref__control">
+            {% include '_models.html' %}
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>

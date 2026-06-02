@@ -1,7 +1,8 @@
-"""Model bundle and per-job pipeline runner (CPU-only).
+"""Model manager and per-job pipeline runner (CPU-only).
 
-Models are loaded once via :func:`load_bundle` and reused across jobs. The
-heavy whisperx imports happen lazily inside ``load_bundle`` so importing this
+:class:`ModelManager` loads and caches multiple Whisper checkpoints (client-
+selectable via :class:`WhisperModel`) while sharing one diarizer + align cache.
+The heavy whisperx imports happen lazily inside the manager so importing this
 module stays cheap.
 """
 
@@ -9,7 +10,9 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -17,11 +20,52 @@ logger = logging.getLogger(__name__)
 # CPU-only for now. compute_type must be float32 on CPU (int8/float16 are CUDA).
 DEVICE = "cpu"
 COMPUTE_TYPE = "float32"
-MODEL_NAME = os.environ.get("WHISPERX_MODEL", "small")
 DIARIZE_MODEL = os.environ.get(
     "WHISPERX_DIARIZE_MODEL", "pyannote/speaker-diarization-community-1"
 )
 BATCH_SIZE = int(os.environ.get("WHISPERX_BATCH_SIZE", "8"))
+
+
+class WhisperModel(str, Enum):
+    """Client-selectable Whisper checkpoints (the only names we will load).
+
+    Subclasses ``str`` so members serialize to plain strings in JSON / SQLite
+    and compare equal to their value. Construction validates: ``WhisperModel(x)``
+    raises ``ValueError`` for anything not listed here, which is how we reject
+    arbitrary HF-download strings coming from the client.
+    """
+
+    TINY = "tiny"
+    TINY_EN = "tiny.en"
+    BASE = "base"
+    BASE_EN = "base.en"
+    SMALL = "small"
+    SMALL_EN = "small.en"
+    MEDIUM = "medium"
+    MEDIUM_EN = "medium.en"
+    LARGE_V2 = "large-v2"
+    LARGE_V3 = "large-v3"
+    DISTIL_LARGE_V3 = "distil-large-v3"
+
+    @classmethod
+    def values(cls) -> list[str]:
+        return [m.value for m in cls]
+
+    @classmethod
+    def coerce(cls, name: str, default: "WhisperModel") -> "WhisperModel":
+        """Return the matching member, or ``default`` if ``name`` is unknown."""
+        try:
+            return cls(name)
+        except ValueError:
+            return default
+
+
+def _default_model() -> WhisperModel:
+    return WhisperModel.coerce(os.environ.get("WHISPERX_MODEL", "small"), WhisperModel.SMALL)
+
+
+# Seeds the initial active model; clients can switch at runtime (persisted by the store).
+DEFAULT_MODEL = _default_model().value
 
 # Formats written to disk for download.
 OUTPUT_FORMATS = ("srt", "vtt", "txt", "json")
@@ -47,34 +91,146 @@ class ModelBundle:
         return self._align_cache[language_code]
 
 
-def load_bundle() -> ModelBundle:
-    """Load ASR + diarization models once. Diarization is disabled if no HF_TOKEN."""
-    import whisperx
-    from whisperx.diarize import DiarizationPipeline
+class ModelManager:
+    """Loads and caches multiple Whisper checkpoints; diarization + alignment shared.
 
-    logger.info("Loading whisper model=%s on %s (%s)", MODEL_NAME, DEVICE, COMPUTE_TYPE)
-    asr = whisperx.load_model(
-        MODEL_NAME,
-        device=DEVICE,
-        compute_type=COMPUTE_TYPE,
-        vad_method="pyannote",
-    )
+    Only the Whisper ASR model is per-selection. The pyannote diarizer and the
+    wav2vec2 align models (keyed by *language*, not Whisper model) are loaded
+    once and shared across every cached Whisper model. Selecting a second model
+    keeps the first in ``_asr`` (no eviction), so switching back is instant.
+    """
 
-    diarize = None
-    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
-    if hf_token:
-        logger.info("Loading diarization model=%s", DIARIZE_MODEL)
-        diarize = DiarizationPipeline(
-            model_name=DIARIZE_MODEL, token=hf_token, device=DEVICE
-        )
-    else:
-        logger.warning(
-            "HF_TOKEN not set: diarization disabled (transcribe + align only). "
-            "Set HF_TOKEN and accept the %s user agreement to enable speakers.",
-            DIARIZE_MODEL,
-        )
+    def __init__(self, active: Optional[str] = None):
+        self._asr: dict[str, object] = {}          # model name -> FasterWhisperPipeline
+        self._align_cache: dict = {}               # shared: lang -> (model, metadata)
+        self._diarize = None                       # shared DiarizationPipeline or None
+        self._diarize_loaded = False
+        self._diarize_error: Optional[str] = None
+        self._loading: set[str] = set()
+        self._errors: dict[str, str] = {}
+        self._active = WhisperModel.coerce(active or DEFAULT_MODEL, _default_model()).value
+        self._lock = threading.Lock()              # guards dicts / _active / status reads
+        self._load_lock = threading.Lock()         # held only during a heavy model load
 
-    return ModelBundle(asr=asr, diarize=diarize)
+    @property
+    def active(self) -> str:
+        with self._lock:
+            return self._active
+
+    def is_loaded(self, name: str) -> bool:
+        with self._lock:
+            return name in self._asr
+
+    # --- diarization (shared, loaded once) ------------------------------
+    def ensure_diarize(self):
+        """Load the pyannote diarizer once iff HF_TOKEN is set. Returns it or None."""
+        if self._diarize_loaded:
+            return self._diarize
+        with self._load_lock:
+            if self._diarize_loaded:
+                return self._diarize
+            hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+            if not hf_token:
+                logger.warning(
+                    "HF_TOKEN not set: diarization disabled (transcribe + align only). "
+                    "Set HF_TOKEN and accept the %s user agreement to enable speakers.",
+                    DIARIZE_MODEL,
+                )
+                self._diarize_loaded = True
+                return None
+            try:
+                from whisperx.diarize import DiarizationPipeline
+
+                logger.info("Loading diarization model=%s", DIARIZE_MODEL)
+                self._diarize = DiarizationPipeline(
+                    model_name=DIARIZE_MODEL, token=hf_token, device=DEVICE
+                )
+            except Exception as exc:  # noqa: BLE001 - surface to status, don't crash boot
+                self._diarize_error = str(exc)
+                logger.exception("Diarization model load failed")
+            finally:
+                self._diarize_loaded = True
+            return self._diarize
+
+    # --- ASR (per-model, cached) ----------------------------------------
+    def load_asr(self, name: str):
+        """Load (or return cached) the Whisper pipeline for ``name``. Blocks while loading."""
+        model = WhisperModel(name)  # raises ValueError on anything not whitelisted
+        key = model.value
+        with self._lock:
+            if key in self._asr:
+                return self._asr[key]
+        with self._load_lock:
+            with self._lock:
+                if key in self._asr:
+                    return self._asr[key]
+                self._loading.add(key)
+            try:
+                import whisperx
+
+                logger.info("Loading whisper model=%s on %s (%s)", key, DEVICE, COMPUTE_TYPE)
+                pipe = whisperx.load_model(
+                    key, device=DEVICE, compute_type=COMPUTE_TYPE, vad_method="pyannote"
+                )
+            except Exception as exc:  # noqa: BLE001
+                with self._lock:
+                    self._loading.discard(key)
+                    self._errors[key] = str(exc)
+                logger.exception("Whisper model=%s load failed", key)
+                raise
+            with self._lock:
+                self._asr[key] = pipe
+                self._loading.discard(key)
+                self._errors.pop(key, None)
+            return pipe
+
+    def warm(self, name: str) -> None:
+        """Load ``name`` in a background daemon thread (non-blocking)."""
+        threading.Thread(
+            target=self._warm, args=(name,), name=f"warm-{name}", daemon=True
+        ).start()
+
+    def _warm(self, name: str) -> None:
+        try:
+            self.load_asr(name)
+        except Exception:  # noqa: BLE001 - already logged + recorded in _errors
+            pass
+
+    def set_active(self, name: str) -> dict:
+        """Validate, set the active model, warm it in the background. Returns status()."""
+        model = WhisperModel(name)
+        with self._lock:
+            self._active = model.value
+        self.warm(model.value)
+        return self.status()
+
+    def bundle_for(self, name: str) -> ModelBundle:
+        """Bundle the requested Whisper model with the shared diarizer + align cache.
+
+        Loads the ASR model synchronously (called from the single job worker, so
+        blocking is fine). The shared ``_align_cache`` dict means align models load
+        once across all bundles; jobs are serialized so there is no race on it.
+        """
+        asr = self.load_asr(name)
+        diarize = self.ensure_diarize()
+        return ModelBundle(asr=asr, diarize=diarize, _align_cache=self._align_cache)
+
+    def status(self) -> dict:
+        with self._lock:
+            return {
+                "active": self._active,
+                "diarize": self._diarize is not None,
+                "diarize_error": self._diarize_error,
+                "models": [
+                    {
+                        "name": v,
+                        "loaded": v in self._asr,
+                        "loading": v in self._loading,
+                        "error": self._errors.get(v),
+                    }
+                    for v in WhisperModel.values()
+                ],
+            }
 
 
 def run_job(

@@ -82,11 +82,17 @@
 
   <form id="upload-form" hx-post="/sessions" hx-encoding="multipart/form-data"
         hx-target="#dialog-status" hx-swap="innerHTML">
-    <div class="field">
-      <label class="field__label">Transcription Language</label>
-      {% with field_name='language', selected=default_language %}
-        {% include 'partials/_language_select.html' %}
-      {% endwith %}
+    <div class="field" style="display:flex;gap:18px">
+      <div style="flex:1">
+        <label class="field__label">Transcription Language</label>
+        {% with field_name='language', selected=default_language %}
+          {% include 'partials/_language_select.html' %}
+        {% endwith %}
+      </div>
+      <div style="flex:1">
+        <label class="field__label">Model</label>
+        {% include 'partials/_model_select.html' %}
+      </div>
     </div>
 
     <div class="field" style="display:flex;gap:18px">

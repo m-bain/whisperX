@@ -92,14 +92,15 @@ class SessionStore:
             return json.load(f)
 
     # --- writes ---------------------------------------------------------
-    def create(self, session_id: str, filename: str, audio_filename: str, options: dict) -> None:
+    def create(self, session_id: str, filename: str, audio_filename: str,
+               options: dict, model: Optional[str] = None) -> None:
         ts = _now()
         with self._lock, self._db:
             self._db.execute(
                 "INSERT INTO sessions (id, filename, audio_filename, status, options, "
-                "created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                "model, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
                 (session_id, filename, audio_filename, "queued",
-                 json.dumps(options), ts, ts),
+                 json.dumps(options), model, ts, ts),
             )
 
     def mark_running(self, session_id: str) -> None:
@@ -131,6 +132,22 @@ class SessionStore:
             existed = cur.rowcount > 0
         shutil.rmtree(self.session_dir(session_id), ignore_errors=True)
         return existed
+
+    # --- settings (durable key/value, e.g. the global active model) -----
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT value FROM settings WHERE key=?", (key,)
+            ).fetchone()
+        return row["value"] if row is not None else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT INTO settings (key, value) VALUES (?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
 
     # --- reads ----------------------------------------------------------
     def get(self, session_id: str) -> Optional[dict]:
