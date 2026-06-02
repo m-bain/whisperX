@@ -84,19 +84,9 @@
         hx-target="#dialog-status" hx-swap="innerHTML">
     <div class="field">
       <label class="field__label">Transcription Language</label>
-      <sl-select name="language" value="" placeholder="Auto-detect" hoist>
-        <sl-option value="">Auto-detect</sl-option>
-        <sl-option value="en">English</sl-option>
-        <sl-option value="es">Spanish</sl-option>
-        <sl-option value="fr">French</sl-option>
-        <sl-option value="de">German</sl-option>
-        <sl-option value="it">Italian</sl-option>
-        <sl-option value="pt">Portuguese</sl-option>
-        <sl-option value="nl">Dutch</sl-option>
-        <sl-option value="ja">Japanese</sl-option>
-        <sl-option value="zh">Chinese</sl-option>
-        <sl-option value="ru">Russian</sl-option>
-      </sl-select>
+      {% with field_name='language', selected=default_language %}
+        {% include 'partials/_language_select.html' %}
+      {% endwith %}
     </div>
 
     <div class="field" style="display:flex;gap:18px">

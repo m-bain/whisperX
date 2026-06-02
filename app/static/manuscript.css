@@ -324,6 +324,46 @@ body, body * { font-kerning: normal; }
 .player__rate { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 13px; color: var(--on-surface-variant); cursor: pointer; min-width: 56px; }
 .player__rate sl-icon { font-size: 17px; }
 
+/* ===== SETTINGS ===== */
+.set { padding: 48px 64px; }
+@media (max-width: 900px) { .set { padding: 36px 32px; } }
+.set__h { font-size: 44px; font-weight: 700; letter-spacing: -0.025em; margin: 0; }
+.set__sub { font-size: 17px; color: var(--on-surface-variant); margin-top: 12px; }
+.set__divider { margin: 28px 0 36px; height: 1px; background: var(--outline-variant); }
+.set__grid { display: grid; grid-template-columns: 240px 1fr; gap: 56px; align-items: start; }
+@media (max-width: 900px) { .set__grid { grid-template-columns: 1fr; gap: 28px; } }
+.set__tabs { display: flex; flex-direction: column; gap: 4px; }
+.set__tab {
+  font-family: var(--mono); font-size: 14px; color: var(--on-surface-variant);
+  padding: 12px 16px; border-radius: var(--radius); cursor: pointer; line-height: 1.4;
+}
+.set__tab--active { background: var(--surface-container-high); color: var(--on-surface); font-weight: 600; }
+.set__panels { display: flex; flex-direction: column; gap: 28px; }
+.card {
+  border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+  background: var(--surface-container-lowest); padding: 36px 40px;
+}
+.card__h { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 30px; }
+.input-group { display: flex; flex-direction: column; gap: 10px; }
+.input-group.full { grid-column: 1 / -1; }
+.input-group label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; color: var(--on-surface-variant); }
+.input {
+  border: 1px solid var(--outline-variant); border-radius: var(--radius); padding: 14px 16px;
+  font-family: var(--serif); font-size: 16px; background: var(--surface); color: var(--on-surface);
+}
+.card__foot { display: flex; align-items: center; gap: 16px; justify-content: flex-end; margin-top: 28px; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--outline-soft); }
+.pref-row:last-child { border-bottom: 0; }
+.pref-row:first-of-type { padding-top: 6px; }
+.pref__title { font-size: 17px; font-weight: 500; }
+.pref__desc { font-family: var(--mono); font-size: 12px; color: var(--on-surface-variant); margin-top: 7px; max-width: 460px; }
+.pref__control { min-width: 220px; }
+.toggle { width: 50px; height: 28px; border-radius: 14px; background: var(--surface-container-highest); position: relative; cursor: pointer; transition: background 0.15s; flex: 0 0 50px; }
+.toggle > i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-container-lowest); transition: left 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.toggle.on { background: var(--primary); }
+.toggle.on > i { left: 25px; }
+
 /* Shoelace dialog tweaks */
 sl-dialog::part(title) { font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
 sl-dialog::part(panel) { border-radius: var(--radius); }

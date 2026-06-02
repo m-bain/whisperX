@@ -1,0 +1,15 @@
+{# Shared transcription-language <sl-select>. Caller passes (via `with context`):
+   - field_name: form field name (default "language")
+   - selected:   currently-selected language code ("" = auto-detect) #}
+{% set field_name = field_name|default('language') %}
+{% set selected = selected|default('') %}
+{% set langs = [
+  ('', 'Auto-detect'), ('en', 'English'), ('es', 'Spanish'), ('fr', 'French'),
+  ('de', 'German'), ('it', 'Italian'), ('pt', 'Portuguese'), ('nl', 'Dutch'),
+  ('ja', 'Japanese'), ('zh', 'Chinese'), ('ru', 'Russian')
+] %}
+<sl-select name="{{ field_name }}" value="{{ selected }}" placeholder="Auto-detect" hoist>
+  {% for code, label in langs %}
+  <sl-option value="{{ code }}">{{ label }}</sl-option>
+  {% endfor %}
+</sl-select>

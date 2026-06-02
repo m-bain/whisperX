@@ -201,9 +201,27 @@ def index():
         featured=cards[0] if cards else None,
         older=cards[1:],
         summary=_summary(rows),
+        default_language=_sessions.get_setting("default_language", ""),
         models_ready=models_ready(),
         bundle_error=_bundle_error,
         diarize_enabled=bool(_bundle and _bundle.diarize),
+    )
+
+
+@app.get("/settings")
+def settings():
+    return render_template(
+        "settings.html",
+        active="settings",
+        default_language=_sessions.get_setting("default_language", ""),
+    )
+
+
+@app.post("/settings")
+def save_settings():
+    _sessions.set_setting("default_language", request.form.get("default_language", "").strip())
+    return (
+        '<span class="frag frag--ok"><sl-icon name="check-circle"></sl-icon> Saved</span>'
     )
 
 

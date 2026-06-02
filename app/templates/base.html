@@ -49,9 +49,13 @@
     </button>
     {% endblock %}
 
+    {% set active = active|default('recordings') %}
     <nav class="sb__nav">
-      <a class="sb__link sb__link--active" href="/">
+      <a class="sb__link{% if active == 'recordings' %} sb__link--active{% endif %}" href="/">
         <sl-icon name="mic"></sl-icon> Recordings
+      </a>
+      <a class="sb__link{% if active == 'settings' %} sb__link--active{% endif %}" href="/settings">
+        <sl-icon name="gear"></sl-icon> Settings
       </a>
     </nav>
 

@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 
@@ -62,7 +66,7 @@ class SessionStore:
         self._db.row_factory = sqlite3.Row
         with self._db:
             self._db.execute("PRAGMA journal_mode=WAL")
-            self._db.execute(_SCHEMA)
+            self._db.executescript(_SCHEMA)
 
     # --- path helpers ---------------------------------------------------
     def session_dir(self, session_id: str) -> str:
@@ -142,6 +146,22 @@ class SessionStore:
                 "SELECT * FROM sessions ORDER BY created_at DESC, id DESC"
             ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+    # --- settings (global key/value) ------------------------------------
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT value FROM settings WHERE key=?", (key,)
+            ).fetchone()
+        return row["value"] if row is not None else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
 
     # --- lifecycle ------------------------------------------------------
     def reconcile_startup(self) -> int:
