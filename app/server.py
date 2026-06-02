@@ -33,10 +33,13 @@ def _load_dotenv() -> None:
 
 _load_dotenv()  # before anything reads os.environ
 
+from datetime import datetime  # noqa: E402
+
 from flask import (  # noqa: E402 - load .env first
     Flask,
     abort,
     jsonify,
+    redirect,
     render_template,
     request,
     send_file,
@@ -56,6 +59,79 @@ DATA_DIR = os.environ.get("WHISPERX_DATA_DIR", str(Path(__file__).with_name("dat
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+
+# --- View formatting (dashboard cards + transcript header) -------------------
+_STATUS_META = {
+    "done": ("Done", "chip--ok", True),
+    "running": ("Processing", "chip--run", False),
+    "queued": ("Queued", "chip--run", False),
+    "error": ("Error", "chip--err", False),
+}
+
+
+def _fmt_duration(sec) -> str:
+    sec = int(sec or 0)
+    h, rem = divmod(sec, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}h {m:02d}m" if h else f"{m}m {s:02d}s"
+
+
+def _fmt_clock(total_sec) -> str:
+    total_sec = int(total_sec or 0)
+    h, rem = divmod(total_sec, 3600)
+    m, _ = divmod(rem, 60)
+    return f"{h}h {m:02d}m" if h else f"{m}m"
+
+
+def _fmt_date(iso: str | None) -> str:
+    if not iso:
+        return ""
+    try:
+        return datetime.fromisoformat(iso).strftime("%b %d, %Y · %H:%M")
+    except ValueError:
+        return iso
+
+
+def _card(row: dict) -> dict:
+    label, chip_class, viewable = _STATUS_META.get(row["status"], ("Unprocessed", "", False))
+    if row["status"] == "done":
+        sub = f"{row.get('num_segments') or 0} segments transcribed"
+        if row.get("language"):
+            sub += f" · language {row['language']}"
+        sub += "."
+    elif row["status"] == "error":
+        sub = f"Failed: {row.get('error') or 'unknown error'}"
+    else:
+        sub = "Awaiting transcription on CPU."
+    return {
+        "id": row["id"],
+        "name": row.get("filename") or "Untitled recording",
+        "chip_label": label,
+        "chip_class": chip_class,
+        "viewable": viewable,
+        "dur": _fmt_duration(row.get("duration")),
+        "date": _fmt_date(row.get("created_at")),
+        "sub": sub,
+        "model": row.get("model"),
+        "language": row.get("language"),
+        "diarized": bool(row.get("diarized")),
+        "num_segments": row.get("num_segments") or 0,
+        "status": row["status"],
+    }
+
+
+def _summary(rows: list[dict]) -> dict:
+    done = [r for r in rows if r["status"] == "done"]
+    total_audio = sum(r.get("duration") or 0 for r in rows)
+    transcribed = sum(r.get("duration") or 0 for r in done)
+    pct = round(len(done) / len(rows) * 100) if rows else 0
+    return {
+        "count": len(rows),
+        "transcribed": _fmt_clock(transcribed),
+        "total_audio": _fmt_clock(total_audio),
+        "pct": pct,
+    }
 
 # --- Model bundle: loaded once, in a background thread so the server can boot. ---
 _bundle = None
@@ -118,11 +194,33 @@ def models_ready() -> bool:
 
 @app.route("/")
 def index():
+    rows = _sessions.list()  # newest first
+    cards = [_card(r) for r in rows]
     return render_template(
         "index.html",
+        featured=cards[0] if cards else None,
+        older=cards[1:],
+        summary=_summary(rows),
         models_ready=models_ready(),
         bundle_error=_bundle_error,
         diarize_enabled=bool(_bundle and _bundle.diarize),
+    )
+
+
+@app.get("/sessions/<session_id>/view")
+def view_session(session_id: str):
+    row = _sessions.get(session_id)
+    if row is None:
+        abort(404)
+    if row["status"] != "done":
+        return redirect("/")
+    result = _sessions.load_result(session_id) or {}
+    return render_template(
+        "transcript.html",
+        session=_card(row),
+        transcript=render_transcript(result),
+        formats=[f for f in pipeline.OUTPUT_FORMATS
+                 if os.path.exists(_sessions.artifact_path(session_id, f))],
     )
 
 
@@ -223,7 +321,8 @@ def download(session_id: str, fmt: str):
 def delete_session(session_id: str):
     if not _sessions.delete(session_id):
         abort(404)
-    return ("", 204)
+    # htmx swaps the row out on a 200 empty body (it skips 204 No Content).
+    return ("", 200)
 
 
 # Kick off model loading at import time (works under both `flask run` and __main__).

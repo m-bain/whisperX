@@ -1,14 +1,14 @@
 {# Self-polling fragment. While running it re-requests /status and swaps itself
    (outerHTML); when the job finishes the status route returns _result.html. #}
 {% if state == "error" %}
-  <p class="error">✗ Job failed: {{ error }}</p>
+  <p class="frag frag--err"><sl-icon name="exclamation-octagon"></sl-icon> Job failed: {{ error }}</p>
 {% elif state == "loading_models" %}
-  <p class="note"><span class="spinner"></span> Models still loading — try again in a moment.</p>
+  <p class="frag"><sl-spinner></sl-spinner> Models still loading — try again in a moment.</p>
 {% else %}
   <div hx-get="/sessions/{{ job_id }}/status"
        hx-trigger="load delay:2s"
        hx-swap="outerHTML">
-    <p><span class="spinner"></span>
+    <p class="frag"><sl-spinner></sl-spinner>
       {% if state == "queued" %}Queued…{% else %}Transcribing on CPU… this can take a while.{% endif %}
     </p>
   </div>

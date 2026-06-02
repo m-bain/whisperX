@@ -1,63 +1,167 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WhisperX</title>
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-    h1 { margin-bottom: .25rem; }
-    .sub { color: #888; margin-top: 0; }
-    form { display: grid; gap: .75rem; border: 1px solid #8884; border-radius: 8px; padding: 1rem; }
-    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .row label { display: flex; flex-direction: column; font-size: .85rem; gap: .25rem; }
-    input, button { padding: .5rem; font: inherit; }
-    button { cursor: pointer; border-radius: 6px; border: 1px solid #8886; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    .note { font-size: .85rem; color: #b58900; }
-    #out { margin-top: 1.5rem; }
-    .turn { border-left: 3px solid #4a90d9; padding: .25rem .75rem; margin: .5rem 0; }
-    .turn .meta { display: flex; gap: .75rem; font-size: .8rem; }
-    .turn .speaker { font-weight: 600; }
-    .turn .ts { color: #888; }
-    .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid #8884; border-top-color: #4a90d9; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -.15em; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .downloads a { margin-right: .5rem; }
-    .error { color: #d33; }
-  </style>
-</head>
-<body>
-  <h1>WhisperX</h1>
-  <p class="sub">CPU transcription with word timestamps + speaker diarization.</p>
+{% extends "base.html" %}
+{% block title %}Recordings — Manuscript{% endblock %}
+
+{% macro card_chip(c) %}
+  <span class="chip {{ c.chip_class }}">{{ c.chip_label }}</span>
+{% endmacro %}
+
+{% block content %}
+<div class="dash">
+  <h1 class="dash__h">Recent Recordings</h1>
+  <p class="dash__sub">Manage and transcribe your captured audio.</p>
 
   {% if bundle_error %}
-    <p class="error">Model load failed: {{ bundle_error }}</p>
+    <p class="frag frag--err" style="margin-top:20px"><sl-icon name="exclamation-octagon"></sl-icon> Model load failed: {{ bundle_error }}</p>
   {% elif not models_ready %}
-    <p class="note">⏳ Loading models… the first upload may wait until they are ready.</p>
+    <p class="frag" style="margin-top:20px"><sl-spinner></sl-spinner> Loading models — your first upload will wait until they are ready.</p>
   {% elif not diarize_enabled %}
-    <p class="note">⚠ Diarization disabled (no HF_TOKEN). Transcription + alignment only.</p>
+    <p class="frag" style="margin-top:20px"><sl-icon name="info-circle"></sl-icon> Diarization disabled (no HF_TOKEN). Transcription + alignment only.</p>
   {% endif %}
 
-  <form hx-post="/sessions" hx-encoding="multipart/form-data" hx-target="#out" hx-swap="innerHTML">
-    <label>Audio file
-      <input type="file" name="audio" accept="audio/*,video/*" required>
-    </label>
-    <div class="row">
-      <label>Language (blank = auto)
-        <input type="text" name="language" placeholder="en" size="6">
-      </label>
-      <label>Min speakers
-        <input type="number" name="min_speakers" min="1" placeholder="auto">
-      </label>
-      <label>Max speakers
-        <input type="number" name="max_speakers" min="1" placeholder="auto">
-      </label>
-    </div>
-    <button type="submit">Transcribe</button>
-  </form>
+  <div class="dash__grid">
+    {% if featured %}
+      <article class="feature" data-name="{{ featured.name|lower }}">
+        <div class="feature__meta">
+          {{ card_chip(featured) }}
+          <span class="feature__dur">{{ featured.dur }}</span>
+        </div>
+        <h2 class="feature__title">{{ featured.name }}</h2>
+        <p class="feature__desc">{{ featured.sub }}</p>
+        <div class="feature__foot">
+          <span class="feature__date">{{ featured.date }}</span>
+          {% if featured.viewable %}
+            <a class="btn-outline" href="/sessions/{{ featured.id }}/view">Open Transcript <sl-icon name="arrow-right"></sl-icon></a>
+          {% else %}
+            <span class="btn-outline" aria-disabled="true">{{ featured.chip_label }} <sl-icon name="hourglass-split"></sl-icon></span>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <article class="feature feature--empty" onclick="document.getElementById('new-recording').show()">
+        <div class="dropzone__icon"><sl-icon name="file-earmark-arrow-up"></sl-icon></div>
+        <h2 class="feature__title" style="margin-top:0">No recordings yet</h2>
+        <p class="feature__desc" style="max-width:420px">Upload an audio file to generate your first manuscript draft.</p>
+        <div style="margin-top:24px"><sl-button variant="primary">New Recording</sl-button></div>
+      </article>
+    {% endif %}
 
-  <div id="out"></div>
-</body>
-</html>
+    <aside class="summary">
+      <div class="summary__h">Library Summary</div>
+      <div class="summary__row"><span>Recordings</span><span>{{ summary.count }}</span></div>
+      <div class="summary__row"><span>Transcribed</span><span>{{ summary.transcribed }}</span></div>
+      <div class="summary__row"><span>Total Audio</span><span>{{ summary.total_audio }}</span></div>
+      <div class="summary__bar"><i style="width: {{ summary.pct }}%"></i></div>
+      <div class="summary__quota">{{ summary.pct }}% transcribed</div>
+    </aside>
+  </div>
+
+  <div class="older">
+    <div class="older__h">Older Recordings</div>
+    {% for c in older %}
+      <div class="older__row" data-name="{{ c.name|lower }}"
+           {% if c.viewable %}onclick="if(!event.target.closest('.older__del'))location.href='/sessions/{{ c.id }}/view'" style="cursor:pointer"{% endif %}>
+        <span class="older__date">{{ c.date }}</span>
+        <span class="older__name">{{ c.name }}{% if not c.viewable %} <span class="chip {{ c.chip_class }}" style="margin-left:8px">{{ c.chip_label }}</span>{% endif %}</span>
+        <span class="older__dur">{{ c.dur }}</span>
+        <button class="older__del" title="Delete"
+                hx-post="/sessions/{{ c.id }}/delete" hx-confirm="Delete this recording?"
+                hx-target="closest .older__row" hx-swap="outerHTML swap:0.2s">
+          <sl-icon name="trash3"></sl-icon>
+        </button>
+      </div>
+    {% else %}
+      <div class="older__empty">No other recordings.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block dialogs %}
+<sl-dialog id="new-recording" label="New Recording Session" style="--width:680px">
+  <div class="modal__sub">Upload an audio file to generate a new manuscript draft.</div>
+
+  <form id="upload-form" hx-post="/sessions" hx-encoding="multipart/form-data"
+        hx-target="#dialog-status" hx-swap="innerHTML">
+    <div class="field">
+      <label class="field__label">Transcription Language</label>
+      <sl-select name="language" value="" placeholder="Auto-detect" hoist>
+        <sl-option value="">Auto-detect</sl-option>
+        <sl-option value="en">English</sl-option>
+        <sl-option value="es">Spanish</sl-option>
+        <sl-option value="fr">French</sl-option>
+        <sl-option value="de">German</sl-option>
+        <sl-option value="it">Italian</sl-option>
+        <sl-option value="pt">Portuguese</sl-option>
+        <sl-option value="nl">Dutch</sl-option>
+        <sl-option value="ja">Japanese</sl-option>
+        <sl-option value="zh">Chinese</sl-option>
+        <sl-option value="ru">Russian</sl-option>
+      </sl-select>
+    </div>
+
+    <div class="field" style="display:flex;gap:18px">
+      <sl-input name="min_speakers" type="number" min="1" label="Min speakers" placeholder="auto" style="flex:1"></sl-input>
+      <sl-input name="max_speakers" type="number" min="1" label="Max speakers" placeholder="auto" style="flex:1"></sl-input>
+    </div>
+
+    <div class="field">
+      <label class="field__label">Audio Source</label>
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone__icon"><sl-icon name="file-earmark-arrow-up"></sl-icon></div>
+        <div class="dropzone__title">Drag &amp; drop audio file here</div>
+        <div class="dropzone__hint">or click to browse local files. Supports MP3, WAV, M4A &amp; video.</div>
+        <div class="dropzone__file" id="dropzone-file" hidden></div>
+        <input id="audio-input" type="file" name="audio" accept="audio/*,video/*" required hidden>
+      </div>
+    </div>
+
+    <div id="dialog-status"></div>
+
+    <div slot="footer" style="display:flex;gap:14px;justify-content:flex-end">
+      <sl-button variant="default" onclick="document.getElementById('new-recording').hide()">Cancel</sl-button>
+      <sl-button variant="primary" id="start-btn">
+        Start Processing <sl-icon slot="suffix" name="arrow-right"></sl-icon>
+      </sl-button>
+    </div>
+  </form>
+</sl-dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Dropzone: click to browse, drag-drop to set the hidden file input.
+  (function () {
+    const dz = document.getElementById('dropzone');
+    const input = document.getElementById('audio-input');
+    const label = document.getElementById('dropzone-file');
+    if (!dz) return;
+    const show = () => {
+      if (input.files.length) { label.hidden = false; label.textContent = '✓ ' + input.files[0].name; }
+    };
+    dz.addEventListener('click', () => input.click());
+    input.addEventListener('change', show);
+    ['dragenter', 'dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('is-over'); }));
+    dz.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; show(); } });
+
+    // The submit <sl-button> isn't a native submit; trigger the htmx form explicitly.
+    document.getElementById('start-btn').addEventListener('click', () => {
+      if (!input.files.length) { alert('Choose an audio file first.'); return; }
+      document.getElementById('start-btn').setAttribute('loading', '');
+      if (window.htmx) htmx.trigger(document.getElementById('upload-form'), 'submit');
+    });
+  })();
+
+  // Live client-side search filter over recording cards/rows.
+  (function () {
+    const box = document.getElementById('search');
+    if (!box) return;
+    box.addEventListener('input', () => {
+      const q = box.value.trim().toLowerCase();
+      document.querySelectorAll('[data-name]').forEach(el => {
+        el.style.display = !q || el.dataset.name.includes(q) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% endblock %}
