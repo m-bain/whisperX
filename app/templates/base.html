@@ -14,6 +14,22 @@
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
+
+  <script>
+    // htmx collects form values its own way and skips form-associated custom
+    // elements (Shoelace sl-select/sl-input/etc.). Native FormData *does*
+    // include them, so merge it into every form-triggered request. This makes
+    // any named Shoelace control "just work" — no hidden-input mirrors needed.
+    document.addEventListener('htmx:configRequest', mergeShoelace);
+    function mergeShoelace(evt) {
+      const elt = evt.detail.elt;
+      const form = elt.matches?.('form') ? elt : elt.closest?.('form');
+      if (!form) return;
+      for (const [k, v] of new FormData(form).entries()) {
+        if (!(v instanceof File)) evt.detail.parameters[k] = v;  // files already handled by htmx
+      }
+    }
+  </script>
   {% block head %}{% endblock %}
 </head>
 <body>
