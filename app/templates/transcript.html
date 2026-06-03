@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ session.name }} — Manuscript{% endblock %}
+
+{% block topbar_mid %}<div style="flex:1"></div>{% endblock %}
+
+{% block content %}
+<div class="tr">
+  <div class="tr__scroll">
+    <a class="tr__back" href="/"><sl-icon name="arrow-left"></sl-icon> ALL RECORDINGS</a>
+    <div class="tr__hero-meta">
+      <span class="chip">{{ "Diarized" if session.diarized else "Transcript" }}</span>
+      <span class="tr__hero-date">{{ session.date }} · {{ session.dur }}</span>
+    </div>
+    <h1 class="tr__title">{{ session.name }}</h1>
+    <p class="tr__standfirst">
+      {{ session.num_segments }} segments · model <span class="mono">{{ session.model }}</span>
+      {% if session.language %} · language <span class="mono">{{ session.language }}</span>{% endif %}
+      {% if not session.diarized %} · no speaker labels{% endif %}.
+    </p>
+    <div class="tr__hr"></div>
+
+    <div class="tr__body" id="tr-body">
+      {{ transcript|safe }}
+    </div>
+  </div>
+
+  <div class="player">
+    <audio id="audio" src="/sessions/{{ session.id }}/audio" preload="metadata"></audio>
+    <div class="player__controls">
+      <button class="pbtn" id="back10" title="Back 10s"><sl-icon name="arrow-counterclockwise"></sl-icon></button>
+      <button class="pbtn pbtn--main" id="playpause" title="Play / pause"><sl-icon name="play-fill" id="pp-icon"></sl-icon></button>
+      <button class="pbtn" id="fwd10" title="Forward 10s"><sl-icon name="arrow-clockwise"></sl-icon></button>
+    </div>
+    <span class="player__time" id="cur">0:00</span>
+    <div class="player__track" id="track">
+      <div class="player__rail"></div>
+      <div class="player__fill" id="fill"></div>
+      <div class="player__knob" id="knob"></div>
+    </div>
+    <span class="player__total" id="total">{{ session.dur }}</span>
+    <div class="player__sep"></div>
+    <div class="player__rate" id="rate" title="Playback speed"><sl-icon name="speedometer2"></sl-icon> <span id="rate-label">1.0x</span></div>
+    <span class="icon-btn"><sl-icon name="volume-up"></sl-icon></span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const audio = document.getElementById('audio');
+  const ppIcon = document.getElementById('pp-icon');
+  const fill = document.getElementById('fill');
+  const knob = document.getElementById('knob');
+  const cur = document.getElementById('cur');
+  const total = document.getElementById('total');
+  const track = document.getElementById('track');
+  const rateBtn = document.getElementById('rate');
+  const rateLabel = document.getElementById('rate-label');
+
+  // Words with timestamps, sorted by start — drives synced highlighting.
+  const segs = [...document.querySelectorAll('#tr-body .seg[data-start]')]
+    .map(el => ({ el, start: parseFloat(el.dataset.start), end: parseFloat(el.dataset.end) }))
+    .sort((a, b) => a.start - b.start);
+
+  const fmt = (s) => {
+    s = Math.max(0, Math.floor(s || 0));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const mm = h ? String(m).padStart(2, '0') : String(m);
+    return (h ? h + ':' : '') + mm + ':' + String(sec).padStart(2, '0');
+  };
+
+  let activeIdx = -1;
+  function highlight(t) {
+    // binary search for last seg whose start <= t
+    let lo = 0, hi = segs.length - 1, idx = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (segs[mid].start <= t) { idx = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (idx === activeIdx) {
+      // still update played/future classes only when crossing word end
+      if (idx >= 0 && t > segs[idx].end + 0.0) {}
+      else return;
+    }
+    activeIdx = idx;
+    for (let i = 0; i < segs.length; i++) {
+      const e = segs[i].el;
+      e.classList.remove('is-active', 'is-played', 'is-future');
+      if (i === idx) e.classList.add('is-active');
+      else if (i < idx) e.classList.add('is-played');
+      else e.classList.add('is-future');
+    }
+    const act = segs[idx] && segs[idx].el;
+    if (act) {
+      const r = act.getBoundingClientRect(), sc = document.querySelector('.tr__scroll').getBoundingClientRect();
+      if (r.top < sc.top + 80 || r.bottom > sc.bottom - 40) act.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+
+  function render() {
+    const d = audio.duration || 0;
+    const t = audio.currentTime || 0;
+    const pct = d ? (t / d) * 100 : 0;
+    fill.style.width = pct + '%';
+    knob.style.left = pct + '%';
+    cur.textContent = fmt(t);
+    highlight(t);
+  }
+
+  let raf = 0;
+  const loop = () => { render(); raf = requestAnimationFrame(loop); };
+
+  function play() { audio.play(); }
+  function pause() { audio.pause(); }
+  document.getElementById('playpause').addEventListener('click', () => audio.paused ? play() : pause());
+  audio.addEventListener('play', () => { ppIcon.name = 'pause-fill'; cancelAnimationFrame(raf); loop(); });
+  audio.addEventListener('pause', () => { ppIcon.name = 'play-fill'; cancelAnimationFrame(raf); render(); });
+  audio.addEventListener('ended', () => { ppIcon.name = 'play-fill'; });
+  audio.addEventListener('loadedmetadata', () => { total.textContent = fmt(audio.duration); render(); });
+  audio.addEventListener('timeupdate', () => { if (audio.paused) render(); });
+
+  document.getElementById('back10').addEventListener('click', () => { audio.currentTime = Math.max(0, audio.currentTime - 10); render(); });
+  document.getElementById('fwd10').addEventListener('click', () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10); render(); });
+
+  // Scrub: click + drag the track.
+  let dragging = false;
+  const seek = (clientX) => {
+    const r = track.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    if (audio.duration) { audio.currentTime = ratio * audio.duration; render(); }
+  };
+  track.addEventListener('pointerdown', (e) => { dragging = true; track.setPointerCapture(e.pointerId); seek(e.clientX); });
+  track.addEventListener('pointermove', (e) => { if (dragging) seek(e.clientX); });
+  track.addEventListener('pointerup', () => { dragging = false; });
+
+  // Click a word to jump there.
+  document.getElementById('tr-body').addEventListener('click', (e) => {
+    const span = e.target.closest('.seg[data-start]');
+    if (span) { audio.currentTime = parseFloat(span.dataset.start) + 0.001; render(); }
+  });
+
+  // Playback speed cycle.
+  const rates = [1, 1.25, 1.5, 2, 0.75];
+  let ri = 0;
+  rateBtn.addEventListener('click', () => {
+    ri = (ri + 1) % rates.length;
+    audio.playbackRate = rates[ri];
+    rateLabel.textContent = (rates[ri] % 1 === 0 ? rates[ri].toFixed(1) : rates[ri]) + 'x';
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

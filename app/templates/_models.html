@@ -1,0 +1,22 @@
+{# Global active-model switcher. Posts to /models/active on change and swaps
+   itself with the route's re-rendered fragment (which reflects the new active
+   model + freshly-warmed cache state). The <form> wrapper lets the base.html
+   htmx:configRequest merge forward the Shoelace <sl-select> value. #}
+<div id="model-switcher" class="model-switcher">
+  <form>
+    <sl-select name="model" value="{{ models.active }}"
+               hx-post="/models/active" hx-trigger="sl-change"
+               hx-target="#model-switcher" hx-swap="outerHTML" hoist>
+      {% for m in models.models %}
+      <sl-option value="{{ m.name }}">
+        {{ m.name }}{% if m.loaded %} · cached{% elif m.loading %} · loading…{% endif %}{% if m.error %} · failed{% endif %}
+      </sl-option>
+      {% endfor %}
+    </sl-select>
+  </form>
+  <div class="pref__desc" style="margin-top:8px">
+    Active model: <strong>{{ models.active }}</strong>. Switching loads the model and keeps
+    previously-used ones cached, so switching back is instant. New uploads default to the active
+    model (overridable per upload). Diarization {{ 'enabled' if models.diarize else 'disabled' }}.
+  </div>
+</div>

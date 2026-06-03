@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Settings — Manuscript{% endblock %}
+
+{# Settings has no per-recording upload context; drop the search + sidebar CTA. #}
+{% block sidebar_new %}{% endblock %}
+{% block topbar_mid %}<div style="flex:1"></div>{% endblock %}
+{% block topbar_action %}<sl-button size="small" variant="default" href="/">Recordings</sl-button>{% endblock %}
+
+{% block content %}
+<div class="set">
+  <h1 class="set__h">Settings</h1>
+  <p class="set__sub">Manage your application preferences.</p>
+  <div class="set__divider"></div>
+
+  <div class="set__grid">
+    <nav class="set__tabs">
+      <div class="set__tab set__tab--active">Transcription</div>
+    </nav>
+
+    <div class="set__panels">
+      <section class="card">
+        <h2 class="card__h">Transcription</h2>
+        <form id="settings-form" hx-post="/settings" hx-target="#settings-status" hx-swap="innerHTML">
+          <div class="pref-row">
+            <div>
+              <div class="pref__title">Default Language</div>
+              <div class="pref__desc">Pre-selected in the New Recording dialog. Auto-detect lets WhisperX infer the language per file (slightly slower).</div>
+            </div>
+            <div class="pref__control">
+              {% with field_name='default_language', selected=default_language %}
+                {% include 'partials/_language_select.html' %}
+              {% endwith %}
+            </div>
+          </div>
+          <div class="card__foot">
+            <span id="settings-status"></span>
+            <sl-button variant="primary" id="save-btn">Save Changes</sl-button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2 class="card__h">Compute Device</h2>
+        <div class="pref-row">
+          <div>
+            <div class="pref__title">Inference Device</div>
+            <div class="pref__desc">Run transcription on CPU or GPU. Switching takes effect
+              immediately (no save needed), reloads all models on the chosen device, and is
+              remembered across restarts. Blocked while a transcription is in progress.</div>
+          </div>
+          <div class="pref__control">
+            {% include '_device.html' %}
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__h">Active Model</h2>
+        <div class="pref-row">
+          <div>
+            <div class="pref__title">Default Whisper Model</div>
+            <div class="pref__desc">The model new uploads use by default. Switching takes effect
+              immediately (no save needed) and is remembered across restarts.</div>
+          </div>
+          <div class="pref__control">
+            {% include '_models.html' %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // sl-button isn't a native submit; trigger the htmx form explicitly.
+  document.getElementById('save-btn').addEventListener('click', () => {
+    document.getElementById('save-btn').setAttribute('loading', '');
+    if (window.htmx) htmx.trigger(document.getElementById('settings-form'), 'submit');
+  });
+  // Clear the loading state after htmx swaps in the confirmation.
+  document.getElementById('settings-form').addEventListener('htmx:afterRequest', () => {
+    document.getElementById('save-btn').removeAttribute('loading');
+  });
+</script>
+{% endblock %}

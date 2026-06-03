@@ -1,0 +1,17 @@
+.git
+.github
+**/__pycache__
+*.pyc
+.venv
+.venv-web
+.pytest_cache
+figures
+uv.lock
+tests
+*.md
+!README.md
+app/_smoke_test.py
+app/data
+.venv-web
+# Never bake the secret into image layers; compose injects it at runtime (env_file).
+app/.env

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Manuscript — WhisperX{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/themes/light.css">
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
+
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
+
+  <script>
+    // htmx collects form values its own way and skips form-associated custom
+    // elements (Shoelace sl-select/sl-input/etc.). Native FormData *does*
+    // include them, so merge it into every form-triggered request. This makes
+    // any named Shoelace control "just work" — no hidden-input mirrors needed.
+    document.addEventListener('htmx:configRequest', mergeShoelace);
+    function mergeShoelace(evt) {
+      const elt = evt.detail.elt;
+      const form = elt.matches?.('form') ? elt : elt.closest?.('form');
+      if (!form) return;
+      for (const [k, v] of new FormData(form).entries()) {
+        if (!(v instanceof File)) evt.detail.parameters[k] = v;  // files already handled by htmx
+      }
+    }
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="screen">
+  <aside class="sb">
+    <a class="sb__brand" href="/">
+      <div class="sb__logo"><sl-icon name="soundwave"></sl-icon></div>
+      <div>
+        <div class="sb__name">Manuscript</div>
+        <div class="sb__tag">WHISPERX · LOCAL</div>
+      </div>
+    </a>
+
+    {% block sidebar_new %}
+    <button class="sb__new" onclick="document.getElementById('new-recording')?.show()">
+      <sl-icon name="plus-lg"></sl-icon> New Recording
+    </button>
+    {% endblock %}
+
+    {% set active = active|default('recordings') %}
+    <nav class="sb__nav">
+      <a class="sb__link{% if active == 'recordings' %} sb__link--active{% endif %}" href="/">
+        <sl-icon name="mic"></sl-icon> Recordings
+      </a>
+      <a class="sb__link{% if active == 'settings' %} sb__link--active{% endif %}" href="/settings">
+        <sl-icon name="gear"></sl-icon> Settings
+      </a>
+    </nav>
+
+    <div class="sb__spacer"></div>
+    <div class="sb__user">
+      <div class="avatar avatar--round">WX</div>
+      <div>
+        <div style="font-weight:600;font-size:15px">WhisperX</div>
+        <div class="mono-meta">{% block plan %}CPU · LOCAL{% endblock %}</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar__tabs">
+        <span class="topbar__tab topbar__tab--active">Dashboard</span>
+        <span class="topbar__tab">Archive</span>
+      </div>
+      {% block topbar_mid %}
+      <div class="topbar__search">
+        <sl-icon name="search"></sl-icon>
+        <input id="search" type="text" placeholder="Search transcripts..." autocomplete="off">
+      </div>
+      {% endblock %}
+      <div class="topbar__right">
+        {% block topbar_action %}
+        <sl-button size="small" variant="default" onclick="document.getElementById('new-recording')?.show()">Upload</sl-button>
+        {% endblock %}
+        <a class="icon-btn" href="https://github.com/m-bain/whisperX" target="_blank" rel="noopener"><sl-icon name="question-circle"></sl-icon></a>
+      </div>
+    </header>
+
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% block dialogs %}{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

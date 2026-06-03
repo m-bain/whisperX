@@ -1,0 +1,3 @@
+# Frontend deps. whisperx itself must already be installed in the same env
+# (e.g. `uv pip install -e .` from the repo root). htmx is loaded from a CDN.
+Flask>=3.0

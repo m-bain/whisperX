@@ -28,6 +28,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# Apple Silicon GPU (MLX) ASR backend. mlx has no Linux/Windows wheels, so the
+# marker keeps it off every other platform; the code lazy-imports it.
+mlx = ["mlx-whisper>=0.4.0; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"
@@ -44,13 +47,9 @@ include = ["whisperx*"]
 
 # torchcodec (transitive dep of pyannote-audio >=4) has no wheels for Linux aarch64
 [tool.uv]
-exclude-newer = "1 week"
 override-dependencies = [
     "torchcodec>=0.6.0,<0.8.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
 ]
-
-[tool.uv.pip]
-exclude-newer = "1 week"
 
 [tool.uv.sources]
 torch = [

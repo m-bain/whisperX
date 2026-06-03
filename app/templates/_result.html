@@ -1,0 +1,18 @@
+{# Final result fragment. Replaces the polling element; no further requests. #}
+<div class="result-panel">
+  <p class="frag frag--ok">
+    <sl-icon name="check-circle"></sl-icon>
+    Done — language <strong style="color:var(--on-surface)">{{ language or "?" }}</strong>,
+    {% if diarized %}speakers labelled{% else %}no diarization{% endif %}.
+  </p>
+  <div class="downloads">
+    <a class="dl" href="/sessions/{{ job_id }}/view"><sl-icon name="journal-text"></sl-icon> Open Transcript</a>
+    {% for fmt in formats %}
+      <a class="dl" href="/sessions/{{ job_id }}/download/{{ fmt }}">{{ fmt }}</a>
+    {% endfor %}
+  </div>
+  <div style="margin-top:18px">
+    <sl-button size="small" variant="primary" href="/sessions/{{ job_id }}/view">View transcript</sl-button>
+    <sl-button size="small" variant="default" onclick="location.reload()">Back to recordings</sl-button>
+  </div>
+</div>
