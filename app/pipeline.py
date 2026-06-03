@@ -13,8 +13,11 @@ the device at construction.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
+import platform
+import sys
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
@@ -23,9 +26,11 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Default device; overridable per-instance and switchable at runtime. compute_type
-# is derived from the device (float32 on CPU, float16 on CUDA) — see _compute_for.
+# is derived from the device (float32 on CPU, float16 on CUDA; ignored for mlx) —
+# see _compute_for. "mlx" runs ASR on the Apple Silicon GPU via mlx-whisper and the
+# torch stages (VAD/align/diarize) on mps — see _torch_device.
 DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE", "cpu")
-DEVICES = ("cpu", "cuda")
+DEVICES = ("cpu", "cuda", "mlx")
 DIARIZE_MODEL = os.environ.get(
     "WHISPERX_DIARIZE_MODEL", "pyannote/speaker-diarization-community-1"
 )
@@ -84,9 +89,38 @@ def cuda_available() -> bool:
         return False
 
 
+def mlx_available() -> bool:
+    """Whether the MLX (Apple Silicon GPU) ASR backend can run here."""
+    return (
+        sys.platform == "darwin"
+        and platform.machine() == "arm64"
+        and importlib.util.find_spec("mlx_whisper") is not None
+    )
+
+
 def _compute_for(device: str) -> str:
-    """Pick the compute type for a device: float16 on CUDA, float32 on CPU."""
+    """Pick the compute type for a device: float16 on CUDA, float32 otherwise.
+
+    Ignored on the mlx path (mlx-whisper picks its own precision)."""
     return "float16" if device == "cuda" else "float32"
+
+
+def _torch_device(device: str) -> str:
+    """Torch device for the non-ASR stages (VAD/align/diarize).
+
+    For "mlx" the ASR runs on the Apple GPU but the torch stages run on mps
+    (fallback cpu); cpu/cuda pass through unchanged.
+    """
+    if device != "mlx":
+        return device
+    try:
+        import torch
+
+        if torch.backends.mps.is_available():
+            return "mps"
+    except Exception:  # noqa: BLE001 - older torch / non-Apple build
+        pass
+    return "cpu"
 
 # Formats written to disk for download.
 OUTPUT_FORMATS = ("srt", "vtt", "txt", "json")
@@ -108,7 +142,7 @@ class ModelBundle:
         if language_code not in self._align_cache:
             logger.info("Loading align model for language=%s", language_code)
             self._align_cache[language_code] = whisperx.load_align_model(
-                language_code=language_code, device=self.device
+                language_code=language_code, device=_torch_device(self.device)
             )
         return self._align_cache[language_code]
 
@@ -144,6 +178,10 @@ class ModelManager:
             return "cpu"
         if device == "cuda" and not cuda_available():
             logger.warning("device=cuda requested but no CUDA GPU available; using cpu")
+            return "cpu"
+        if device == "mlx" and not mlx_available():
+            logger.warning("device=mlx requested but MLX is unavailable (needs Apple "
+                           "Silicon + the 'mlx' extra); using cpu")
             return "cpu"
         return device
 
@@ -181,9 +219,10 @@ class ModelManager:
             try:
                 from whisperx.diarize import DiarizationPipeline
 
-                logger.info("Loading diarization model=%s on %s", DIARIZE_MODEL, self._device)
+                diarize_device = _torch_device(self._device)
+                logger.info("Loading diarization model=%s on %s", DIARIZE_MODEL, diarize_device)
                 self._diarize = DiarizationPipeline(
-                    model_name=DIARIZE_MODEL, token=hf_token, device=self._device
+                    model_name=DIARIZE_MODEL, token=hf_token, device=diarize_device
                 )
             except Exception as exc:  # noqa: BLE001 - surface to status, don't crash boot
                 self._diarize_error = str(exc)
@@ -271,6 +310,8 @@ class ModelManager:
             raise ValueError(f"Unknown device: {name}")
         if name == "cuda" and not cuda_available():
             raise ValueError("No CUDA GPU available")
+        if name == "mlx" and not mlx_available():
+            raise ValueError("MLX unavailable (needs Apple Silicon + the 'mlx' extra)")
         with self._lock:
             if name == self._device:
                 return self._status_locked()
@@ -304,6 +345,7 @@ class ModelManager:
             "active": self._active,
             "device": self._device,
             "cuda_available": cuda_available(),
+            "mlx_available": mlx_available(),
             "diarize": self._diarize is not None,
             "diarize_error": self._diarize_error,
             "models": [
@@ -350,7 +392,7 @@ def run_job(
     align_model, align_meta = bundle.align_model(lang)
     logger.info("Aligning (language=%s)", lang)
     result = whisperx.align(
-        result["segments"], align_model, align_meta, audio, bundle.device
+        result["segments"], align_model, align_meta, audio, _torch_device(bundle.device)
     )
 
     if bundle.diarize is not None:

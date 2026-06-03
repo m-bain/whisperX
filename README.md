@@ -139,9 +139,26 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
-To run on CPU instead of GPU (and for running on Mac OS X):
+To run on CPU instead of GPU:
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
+
+### Apple Silicon (MLX) 🍎
+
+On Apple Silicon (M-series) Macs you can run transcription on the GPU via Apple's
+[MLX](https://github.com/ml-explore/mlx) backend ([`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper)).
+The faster-whisper/CTranslate2 backend has no Metal support, so without this an
+M-series Mac runs CPU-only.
+
+Install the optional `mlx` extra (Apple Silicon only; the dependency is skipped
+on every other platform), then pass `--device mlx`:
+
+    pip install "whisperx[mlx]"      # or: uv sync --extra mlx
+    whisperx path/to/audio.wav --model large-v3 --device mlx
+
+`--device mlx` runs ASR on the Apple GPU; the alignment and diarization stages run
+on `mps`. Note the MLX path transcribes VAD segments serially (no batching), and
+pulls its weights from the separate `mlx-community/whisper-*-mlx` model repos.
 
 ### Other languages
 
@@ -292,6 +309,11 @@ Valuable VAD & Diarization Models from:
 - [silero-vad](https://github.com/snakers4/silero-vad)
 
 Great backend from [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
+
+Apple Silicon (MLX) support was inspired by the [KalebJS/whispermlx](https://github.com/KalebJS/whispermlx)
+fork; the `MLXWhisperPipeline` in `whisperx/asr_mlx.py` is adapted from that
+project's `mlx-whisper` integration. Built on Apple's [MLX](https://github.com/ml-explore/mlx)
+and [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper).
 
 Those who have [supported this work financially](https://www.buymeacoffee.com/maxhbain) 🙏
 

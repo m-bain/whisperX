@@ -28,6 +28,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# Apple Silicon GPU (MLX) ASR backend. mlx has no Linux/Windows wheels, so the
+# marker keeps it off every other platform; the code lazy-imports it.
+mlx = ["mlx-whisper>=0.4.0; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"

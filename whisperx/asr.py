@@ -312,6 +312,16 @@ class FasterWhisperPipeline(Pipeline):
         return language
 
 
+def _mlx_torch_device() -> str:
+    """Torch device for the non-ASR stages on the MLX path: mps if usable, else cpu."""
+    try:
+        if torch.backends.mps.is_available():
+            return "mps"
+    except Exception:  # noqa: BLE001 - older torch / non-Apple build
+        pass
+    return "cpu"
+
+
 def load_model(
     whisper_arch: str,
     device: str,
@@ -346,6 +356,23 @@ def load_model(
     Returns:
         A Whisper pipeline.
     """
+
+    if device == "mlx":
+        # Apple Silicon GPU backend. ASR runs on MLX; the VAD torch model runs on
+        # mps (fallback cpu). Returns the same transcribe() contract, so the
+        # downstream align/diarize stages are unchanged.
+        from whisperx.asr_mlx import load_mlx_model
+
+        return load_mlx_model(
+            whisper_arch,
+            torch_device=_mlx_torch_device(),
+            asr_options=asr_options,
+            language=language,
+            vad_model=vad_model,
+            vad_method=vad_method,
+            vad_options=vad_options,
+            task=task,
+        )
 
     if compute_type == "default":
         compute_type = "float16" if device == "cuda" else "float32"
