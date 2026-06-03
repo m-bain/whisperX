@@ -180,6 +180,14 @@ class SessionStore:
                 (key, value),
             )
 
+    def has_active_jobs(self) -> bool:
+        """Whether any session is queued or running (used to gate device switches)."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT 1 FROM sessions WHERE status IN ('queued','running') LIMIT 1"
+            ).fetchone()
+        return row is not None
+
     # --- lifecycle ------------------------------------------------------
     def reconcile_startup(self) -> int:
         """Fail sessions left mid-flight by a crash/restart (executor is gone)."""

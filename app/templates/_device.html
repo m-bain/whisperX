@@ -1,0 +1,29 @@
+{# Compute-device switcher. Posts to /device on change and swaps itself with the
+   route's re-rendered fragment. Switching flushes every cached model and reloads
+   on the new device, so it is blocked while a job is queued/running (the route
+   re-renders this fragment with busy=True on a 409). The <form> wrapper lets the
+   base.html htmx:configRequest merge forward the Shoelace <sl-select> value. #}
+<div id="device-switcher" class="model-switcher">
+  <form>
+    <sl-select name="device" value="{{ models.device }}"
+               hx-post="/device" hx-trigger="sl-change"
+               hx-target="#device-switcher" hx-swap="outerHTML" hoist>
+      <sl-option value="cpu">CPU</sl-option>
+      <sl-option value="cuda" {% if not models.cuda_available %}disabled{% endif %}>
+        GPU (CUDA){% if not models.cuda_available %} · unavailable{% endif %}
+      </sl-option>
+    </sl-select>
+  </form>
+  {% if busy %}
+  <div class="pref__desc frag--err" style="margin-top:8px">
+    Can't switch device while a transcription is queued or running. Wait until the
+    queue is idle and try again.
+  </div>
+  {% endif %}
+  <div class="pref__desc" style="margin-top:8px">
+    Current device: <strong>{{ 'GPU (CUDA)' if models.device == 'cuda' else 'CPU' }}</strong>.
+    Switching reloads every model on the new device (compute precision follows
+    automatically: float32 on CPU, float16 on GPU){% if not models.cuda_available %};
+    no CUDA GPU was detected on this host{% endif %}.
+  </div>
+</div>

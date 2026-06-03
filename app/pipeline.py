@@ -1,9 +1,14 @@
-"""Model manager and per-job pipeline runner (CPU-only).
+"""Model manager and per-job pipeline runner.
 
 :class:`ModelManager` loads and caches multiple Whisper checkpoints (client-
 selectable via :class:`WhisperModel`) while sharing one diarizer + align cache.
 The heavy whisperx imports happen lazily inside the manager so importing this
 module stays cheap.
+
+The compute device (CPU or CUDA) is per-manager instance state, switchable at
+runtime via :meth:`ModelManager.set_device` — which flushes every cached model
+(ASR, align, diarizer) and reloads on the new device, since faster-whisper binds
+the device at construction.
 """
 
 from __future__ import annotations
@@ -17,9 +22,10 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# CPU-only for now. compute_type must be float32 on CPU (int8/float16 are CUDA).
-DEVICE = "cpu"
-COMPUTE_TYPE = "float32"
+# Default device; overridable per-instance and switchable at runtime. compute_type
+# is derived from the device (float32 on CPU, float16 on CUDA) — see _compute_for.
+DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE", "cpu")
+DEVICES = ("cpu", "cuda")
 DIARIZE_MODEL = os.environ.get(
     "WHISPERX_DIARIZE_MODEL", "pyannote/speaker-diarization-community-1"
 )
@@ -67,6 +73,21 @@ def _default_model() -> WhisperModel:
 # Seeds the initial active model; clients can switch at runtime (persisted by the store).
 DEFAULT_MODEL = _default_model().value
 
+
+def cuda_available() -> bool:
+    """Whether a CUDA GPU is usable. torch import kept lazy (it is heavy)."""
+    try:
+        import torch
+
+        return torch.cuda.is_available()
+    except Exception:  # noqa: BLE001 - any import/runtime failure means "no GPU"
+        return False
+
+
+def _compute_for(device: str) -> str:
+    """Pick the compute type for a device: float16 on CUDA, float32 on CPU."""
+    return "float16" if device == "cuda" else "float32"
+
 # Formats written to disk for download.
 OUTPUT_FORMATS = ("srt", "vtt", "txt", "json")
 # get_writer reads these keys directly (whisperx/utils.py).
@@ -76,6 +97,7 @@ WRITER_OPTIONS = {"max_line_width": None, "max_line_count": None, "highlight_wor
 @dataclass
 class ModelBundle:
     asr: object  # FasterWhisperPipeline
+    device: str = DEFAULT_DEVICE  # device every model in this bundle lives on
     diarize: Optional[object] = None  # DiarizationPipeline or None when no HF token
     _align_cache: dict = field(default_factory=dict)  # lang -> (model, metadata)
 
@@ -86,7 +108,7 @@ class ModelBundle:
         if language_code not in self._align_cache:
             logger.info("Loading align model for language=%s", language_code)
             self._align_cache[language_code] = whisperx.load_align_model(
-                language_code=language_code, device=DEVICE
+                language_code=language_code, device=self.device
             )
         return self._align_cache[language_code]
 
@@ -100,7 +122,7 @@ class ModelManager:
     keeps the first in ``_asr`` (no eviction), so switching back is instant.
     """
 
-    def __init__(self, active: Optional[str] = None):
+    def __init__(self, active: Optional[str] = None, device: Optional[str] = None):
         self._asr: dict[str, object] = {}          # model name -> FasterWhisperPipeline
         self._align_cache: dict = {}               # shared: lang -> (model, metadata)
         self._diarize = None                       # shared DiarizationPipeline or None
@@ -109,13 +131,31 @@ class ModelManager:
         self._loading: set[str] = set()
         self._errors: dict[str, str] = {}
         self._active = WhisperModel.coerce(active or DEFAULT_MODEL, _default_model()).value
-        self._lock = threading.Lock()              # guards dicts / _active / status reads
+        self._device = self._resolve_device(device or DEFAULT_DEVICE)
+        self._compute_type = _compute_for(self._device)
+        self._lock = threading.Lock()              # guards dicts / _active / _device / status
         self._load_lock = threading.Lock()         # held only during a heavy model load
+
+    @staticmethod
+    def _resolve_device(device: str) -> str:
+        """Validate a device, falling back to cpu when cuda is unavailable."""
+        if device not in DEVICES:
+            logger.warning("Unknown device %r, falling back to cpu", device)
+            return "cpu"
+        if device == "cuda" and not cuda_available():
+            logger.warning("device=cuda requested but no CUDA GPU available; using cpu")
+            return "cpu"
+        return device
 
     @property
     def active(self) -> str:
         with self._lock:
             return self._active
+
+    @property
+    def device(self) -> str:
+        with self._lock:
+            return self._device
 
     def is_loaded(self, name: str) -> bool:
         with self._lock:
@@ -141,9 +181,9 @@ class ModelManager:
             try:
                 from whisperx.diarize import DiarizationPipeline
 
-                logger.info("Loading diarization model=%s", DIARIZE_MODEL)
+                logger.info("Loading diarization model=%s on %s", DIARIZE_MODEL, self._device)
                 self._diarize = DiarizationPipeline(
-                    model_name=DIARIZE_MODEL, token=hf_token, device=DEVICE
+                    model_name=DIARIZE_MODEL, token=hf_token, device=self._device
                 )
             except Exception as exc:  # noqa: BLE001 - surface to status, don't crash boot
                 self._diarize_error = str(exc)
@@ -168,9 +208,9 @@ class ModelManager:
             try:
                 import whisperx
 
-                logger.info("Loading whisper model=%s on %s (%s)", key, DEVICE, COMPUTE_TYPE)
+                logger.info("Loading whisper model=%s on %s (%s)", key, self._device, self._compute_type)
                 pipe = whisperx.load_model(
-                    key, device=DEVICE, compute_type=COMPUTE_TYPE, vad_method="pyannote"
+                    key, device=self._device, compute_type=self._compute_type, vad_method="pyannote"
                 )
             except Exception as exc:  # noqa: BLE001
                 with self._lock:
@@ -213,24 +253,69 @@ class ModelManager:
         """
         asr = self.load_asr(name)
         diarize = self.ensure_diarize()
-        return ModelBundle(asr=asr, diarize=diarize, _align_cache=self._align_cache)
+        with self._lock:
+            device, align_cache = self._device, self._align_cache
+        return ModelBundle(asr=asr, device=device, diarize=diarize, _align_cache=align_cache)
+
+    def set_device(self, name: str) -> dict:
+        """Switch the compute device: flush every cached model and reload on it.
+
+        faster-whisper binds the device at construction, so changing it means
+        discarding the ASR cache, the shared align cache, and the diarizer, then
+        re-warming the active model on the new device. Callers must ensure no job
+        is in flight (the server gates this on an idle queue); already-running
+        jobs hold their own bundle refs, so the flush never pulls a model out
+        from under them.
+        """
+        if name not in DEVICES:
+            raise ValueError(f"Unknown device: {name}")
+        if name == "cuda" and not cuda_available():
+            raise ValueError("No CUDA GPU available")
+        with self._lock:
+            if name == self._device:
+                return self._status_locked()
+            leaving_cuda = self._device == "cuda"
+            self._asr.clear()
+            self._align_cache = {}
+            self._diarize = None
+            self._diarize_loaded = False
+            self._diarize_error = None
+            self._loading.clear()
+            self._errors.clear()
+            self._device = name
+            self._compute_type = _compute_for(name)
+        if leaving_cuda:
+            try:
+                import torch
+
+                torch.cuda.empty_cache()
+            except Exception:  # noqa: BLE001 - best-effort GPU memory release
+                pass
+        logger.info("Device switched to %s (%s); reloading models", name, _compute_for(name))
+        self.warm(self._active)
+        return self.status()
 
     def status(self) -> dict:
         with self._lock:
-            return {
-                "active": self._active,
-                "diarize": self._diarize is not None,
-                "diarize_error": self._diarize_error,
-                "models": [
-                    {
-                        "name": v,
-                        "loaded": v in self._asr,
-                        "loading": v in self._loading,
-                        "error": self._errors.get(v),
-                    }
-                    for v in WhisperModel.values()
-                ],
-            }
+            return self._status_locked()
+
+    def _status_locked(self) -> dict:
+        return {
+            "active": self._active,
+            "device": self._device,
+            "cuda_available": cuda_available(),
+            "diarize": self._diarize is not None,
+            "diarize_error": self._diarize_error,
+            "models": [
+                {
+                    "name": v,
+                    "loaded": v in self._asr,
+                    "loading": v in self._loading,
+                    "error": self._errors.get(v),
+                }
+                for v in WhisperModel.values()
+            ],
+        }
 
 
 def run_job(
@@ -265,7 +350,7 @@ def run_job(
     align_model, align_meta = bundle.align_model(lang)
     logger.info("Aligning (language=%s)", lang)
     result = whisperx.align(
-        result["segments"], align_model, align_meta, audio, DEVICE
+        result["segments"], align_model, align_meta, audio, bundle.device
     )
 
     if bundle.diarize is not None:

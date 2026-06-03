@@ -140,9 +140,13 @@ _interrupted = _sessions.reconcile_startup()
 if _interrupted:
     logger.warning("Marked %d interrupted session(s) as error on startup", _interrupted)
 
-# Seed the active model from the persisted setting (a switch survives restart);
-# falls back to the WHISPERX_MODEL default if the stored value is no longer valid.
-_manager = pipeline.ModelManager(active=_sessions.get_setting("active_model", pipeline.DEFAULT_MODEL))
+# Seed the active model + compute device from persisted settings (switches survive
+# restart); fall back to the WHISPERX_* defaults if a stored value is no longer valid
+# (an unavailable cuda device is downgraded to cpu inside ModelManager).
+_manager = pipeline.ModelManager(
+    active=_sessions.get_setting("active_model", pipeline.DEFAULT_MODEL),
+    device=_sessions.get_setting("device", pipeline.DEFAULT_DEVICE),
+)
 
 
 def _warm_models() -> None:
@@ -310,6 +314,30 @@ def switch_model():
     _sessions.set_setting("active_model", model)  # survive restart
     if request.headers.get("HX-Request"):
         return render_template("_models.html", models=status)
+    return jsonify(status)
+
+
+@app.post("/device")
+def switch_device():
+    """Switch the compute device (cpu/cuda): flush + reload all models, persist it.
+
+    Blocked while any job is queued/running so a switch never reloads models out
+    from under an in-flight pipeline; the user retries once the queue is idle.
+    """
+    device = (request.form.get("device") or (request.get_json(silent=True) or {}).get("device") or "").strip()
+    if device not in pipeline.DEVICES:
+        abort(400, f"Unknown device: {device}")
+    if _sessions.has_active_jobs():
+        if request.headers.get("HX-Request"):
+            return render_template("_device.html", models=_manager.status(), busy=True), 409
+        return jsonify({"error": "busy", **_manager.status()}), 409
+    try:
+        status = _manager.set_device(device)       # flush caches + reload on new device
+    except ValueError as exc:
+        abort(400, str(exc))
+    _sessions.set_setting("device", device)        # survive restart
+    if request.headers.get("HX-Request"):
+        return render_template("_device.html", models=status)
     return jsonify(status)
 
 

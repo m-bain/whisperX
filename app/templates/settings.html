@@ -40,6 +40,21 @@
       </section>
 
       <section class="card">
+        <h2 class="card__h">Compute Device</h2>
+        <div class="pref-row">
+          <div>
+            <div class="pref__title">Inference Device</div>
+            <div class="pref__desc">Run transcription on CPU or GPU. Switching takes effect
+              immediately (no save needed), reloads all models on the chosen device, and is
+              remembered across restarts. Blocked while a transcription is in progress.</div>
+          </div>
+          <div class="pref__control">
+            {% include '_device.html' %}
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
         <h2 class="card__h">Active Model</h2>
         <div class="pref-row">
           <div>
