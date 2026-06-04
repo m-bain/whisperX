@@ -256,6 +256,18 @@ def view_session(session_id: str):
     )
 
 
+@app.post("/sessions/<session_id>/rename")
+def rename_session(session_id: str):
+    """Rename a recording's display title (metadata only). Returns the new name."""
+    if _sessions.get(session_id) is None:
+        abort(404)
+    name = request.form.get("name", "").strip()
+    if not name:
+        abort(400, "Name cannot be empty.")
+    _sessions.rename(session_id, name)
+    return name
+
+
 @app.post("/sessions/<session_id>/speakers")
 def rename_speaker(session_id: str):
     """Assign/clear a display name for a diarized speaker (non-destructive).

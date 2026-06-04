@@ -289,6 +289,11 @@ body, body * { font-kerning: normal; }
 .tr__hero-date { font-family: var(--mono); font-size: 13px; color: var(--on-surface-variant); }
 .tr__back { font-family: var(--mono); font-size: 12px; color: var(--on-surface-variant); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 22px; }
 .tr__title { font-size: 46px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; margin: 20px 0 0; word-break: break-word; }
+/* Rename pencil: hidden until its title's container is hovered. */
+.rec-edit { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin-left: 8px; padding: 3px; border: 0; background: none; color: var(--on-surface-faint); cursor: pointer; border-radius: 6px; opacity: 0; transition: opacity 0.12s, color 0.12s, background 0.12s; }
+.feature:hover .rec-edit, .older__row:hover .rec-edit, .tr__title:hover .rec-edit { opacity: 1; }
+.rec-edit:hover { color: var(--on-surface); background: var(--surface-container-high); }
+.rec-edit:focus-visible { opacity: 1; outline: 2px solid var(--primary); outline-offset: 1px; }
 .tr__standfirst { font-size: 20px; line-height: 1.5; color: var(--on-surface-variant); margin-top: 22px; max-width: 880px; }
 .tr__hr { margin: 30px 0 8px; height: 1px; background: var(--primary); opacity: 0.85; }
 .tr__body { margin-top: 26px; }

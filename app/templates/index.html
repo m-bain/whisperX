@@ -5,6 +5,13 @@
   <span class="chip {{ c.chip_class }}">{{ c.chip_label }}</span>
 {% endmacro %}
 
+{% macro rec_edit(c) %}
+  <button class="rec-edit" type="button" data-id="{{ c.id }}" data-name="{{ c.name }}"
+          title="Rename recording" aria-label="Rename recording">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+  </button>
+{% endmacro %}
+
 {% block content %}
 <div class="dash">
   <h1 class="dash__h">Recent Recordings</h1>
@@ -25,7 +32,7 @@
           {{ card_chip(featured) }}
           <span class="feature__dur">{{ featured.dur }}</span>
         </div>
-        <h2 class="feature__title">{{ featured.name }}</h2>
+        <h2 class="feature__title"><span class="rec-name" data-id="{{ featured.id }}">{{ featured.name }}</span>{{ rec_edit(featured) }}</h2>
         <p class="feature__desc">{{ featured.sub }}</p>
         <div class="feature__foot">
           <span class="feature__date">{{ featured.date }}</span>
@@ -59,9 +66,9 @@
     <div class="older__h">Older Recordings</div>
     {% for c in older %}
       <div class="older__row" data-name="{{ c.name|lower }}"
-           {% if c.viewable %}onclick="if(!event.target.closest('.older__del'))location.href='/sessions/{{ c.id }}/view'" style="cursor:pointer"{% endif %}>
+           {% if c.viewable %}onclick="if(!event.target.closest('.older__del,.rec-edit'))location.href='/sessions/{{ c.id }}/view'" style="cursor:pointer"{% endif %}>
         <span class="older__date">{{ c.date }}</span>
-        <span class="older__name">{{ c.name }}{% if not c.viewable %} <span class="chip {{ c.chip_class }}" style="margin-left:8px">{{ c.chip_label }}</span>{% endif %}</span>
+        <span class="older__name"><span class="rec-name" data-id="{{ c.id }}">{{ c.name }}</span>{{ rec_edit(c) }}{% if not c.viewable %} <span class="chip {{ c.chip_class }}" style="margin-left:8px">{{ c.chip_label }}</span>{% endif %}</span>
         <span class="older__dur">{{ c.dur }}</span>
         <button class="older__del" title="Delete"
                 hx-post="/sessions/{{ c.id }}/delete" hx-confirm="Delete this recording?"
@@ -77,6 +84,7 @@
 {% endblock %}
 
 {% block dialogs %}
+{% include 'partials/_rename_modal.html' %}
 <sl-dialog id="new-recording" label="New Recording Session" style="--width:680px">
   <div class="modal__sub">Upload an audio file to generate a new manuscript draft.</div>
 
@@ -147,6 +155,12 @@
       if (window.htmx) htmx.trigger(document.getElementById('upload-form'), 'submit');
     });
   })();
+
+  // Arriving from another page's New Recording button (/?new=1): open the dialog.
+  if (new URLSearchParams(location.search).has('new')) {
+    document.getElementById('new-recording')?.show();
+    history.replaceState(null, '', '/');
+  }
 
   // Live client-side search filter over recording cards/rows.
   (function () {

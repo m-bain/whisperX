@@ -1,0 +1,61 @@
+<sl-dialog id="rename-modal" label="Rename recording" style="--width:440px">
+  <sl-input name="name" id="rename-name" label="Recording name"
+            placeholder="e.g. Board meeting" autocomplete="off" required></sl-input>
+  <div slot="footer" style="display:flex;gap:14px;justify-content:flex-end">
+    <sl-button variant="default" onclick="document.getElementById('rename-modal').hide()">Cancel</sl-button>
+    <sl-button variant="primary" id="rename-save">Save</sl-button>
+  </div>
+</sl-dialog>
+
+<script>
+// Rename recording: hover-revealed pencil -> modal -> persist + live label update.
+// Generic + delegated, so it works on any page that includes this partial.
+// Uses fetch directly: the post URL is per-recording, so a single shared modal
+// can't rely on a fixed htmx hx-post (htmx binds attributes at process time).
+(function () {
+  const modal = document.getElementById('rename-modal');
+  const nameInput = document.getElementById('rename-name');
+  const saveBtn = document.getElementById('rename-save');
+  let editingId = null;
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.rec-edit');
+    if (!btn) return;
+    editingId = btn.dataset.id;
+    nameInput.value = btn.dataset.name || '';
+    modal.show();
+    modal.updateComplete?.then(() => nameInput.focus());
+  });
+
+  async function save() {
+    const name = nameInput.value.trim();
+    if (!name || !editingId) { nameInput.focus(); return; }
+    saveBtn.setAttribute('loading', '');
+    try {
+      const res = await fetch('/sessions/' + editingId + '/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ name }),
+      });
+      if (!res.ok) return;
+      const newName = await res.text();
+      const id = editingId;
+      document.querySelectorAll(`.rec-name[data-id="${CSS.escape(id)}"]`).forEach(el => {
+        el.textContent = newName;
+        const card = el.closest('[data-name]');
+        if (card) card.dataset.name = newName.toLowerCase();
+      });
+      document.querySelectorAll(`.rec-edit[data-id="${CSS.escape(id)}"]`).forEach(el => {
+        el.dataset.name = newName;
+      });
+      if (document.querySelector('.tr__title')) document.title = newName + ' — Manuscript';
+      modal.hide();
+    } finally {
+      saveBtn.removeAttribute('loading');
+    }
+  }
+
+  saveBtn.addEventListener('click', save);
+  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+})();
+</script>

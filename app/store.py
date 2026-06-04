@@ -123,6 +123,10 @@ class SessionStore:
     def mark_error(self, session_id: str, message: str) -> None:
         self._update(session_id, status="error", error=message)
 
+    def rename(self, session_id: str, name: str) -> None:
+        """Change a recording's display title (metadata only; audio untouched)."""
+        self._update(session_id, filename=name)
+
     def _update(self, session_id: str, **fields) -> None:
         fields["updated_at"] = _now()
         cols = ", ".join(f"{k}=?" for k in fields)

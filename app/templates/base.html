@@ -32,6 +32,15 @@
         if (!(v instanceof File)) evt.detail.parameters[k] = v;  // files already handled by htmx
       }
     }
+
+    // The New Recording dialog only lives on the index page. From other pages
+    // (settings, transcript) there's nothing to open, so send the user home
+    // with ?new=1 and let index auto-open it.
+    function newRecording() {
+      const d = document.getElementById('new-recording');
+      if (d) d.show();
+      else location.href = '/?new=1';
+    }
   </script>
   {% block head %}{% endblock %}
 </head>
@@ -47,7 +56,7 @@
     </a>
 
     {% block sidebar_new %}
-    <button class="sb__new" onclick="document.getElementById('new-recording')?.show()">
+    <button class="sb__new" onclick="newRecording()">
       <sl-icon name="plus-lg"></sl-icon> New Recording
     </button>
     {% endblock %}

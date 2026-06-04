@@ -11,7 +11,13 @@
       <span class="chip">{{ "Diarized" if session.diarized else "Transcript" }}</span>
       <span class="tr__hero-date">{{ session.date }} · {{ session.dur }}</span>
     </div>
-    <h1 class="tr__title">{{ session.name }}</h1>
+    <h1 class="tr__title">
+      <span class="rec-name" data-id="{{ session.id }}">{{ session.name }}</span>
+      <button class="rec-edit" type="button" data-id="{{ session.id }}" data-name="{{ session.name }}"
+              title="Rename recording" aria-label="Rename recording">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+      </button>
+    </h1>
     <p class="tr__standfirst">
       {{ session.num_segments }} segments · model <span class="mono">{{ session.model }}</span>
       {% if session.language %} · language <span class="mono">{{ session.language }}</span>{% endif %}
@@ -46,6 +52,7 @@
 {% endblock %}
 
 {% block dialogs %}
+{% include 'partials/_rename_modal.html' %}
 <sl-dialog id="speaker-modal" label="Speaker name" style="--width:440px">
   <form id="speaker-form" hx-post="/sessions/{{ session.id }}/speakers" hx-swap="none">
     <input type="hidden" name="speaker" id="speaker-key">

@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Settings — Manuscript{% endblock %}
 
-{# Settings has no per-recording upload context; drop the search + sidebar CTA. #}
-{% block sidebar_new %}{% endblock %}
+{# New Recording button (base default) routes home with ?new=1 from here. #}
 {% block topbar_mid %}<div style="flex:1"></div>{% endblock %}
 {% block topbar_action %}<sl-button size="small" variant="default" href="/">Recordings</sl-button>{% endblock %}
 
