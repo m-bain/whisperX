@@ -27,6 +27,15 @@ cp app/.env.example app/.env   # then edit HF_TOKEN
 
 ## Run (local)
 
+One command (any platform — bundles the frontend, syncs deps, picks the best ASR
+backend: Apple GPU/MLX on Apple Silicon, CUDA on a GPU Linux host, else CPU):
+
+```bash
+./app/start.sh                              # serves on http://localhost:5000
+```
+
+Or do the steps manually:
+
 ```bash
 pip install -r app/requirements.txt        # in the whisperx env
 (cd app && bun install && bun run build)   # bundle frontend deps -> app/static/vendor/
