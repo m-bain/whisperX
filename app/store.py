@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS speaker_names (
+    session_id  TEXT NOT NULL,
+    speaker_key TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    PRIMARY KEY (session_id, speaker_key)
+);
 """
 
 
@@ -130,8 +136,38 @@ class SessionStore:
         with self._lock, self._db:
             cur = self._db.execute("DELETE FROM sessions WHERE id=?", (session_id,))
             existed = cur.rowcount > 0
+            self._db.execute(
+                "DELETE FROM speaker_names WHERE session_id=?", (session_id,)
+            )
         shutil.rmtree(self.session_dir(session_id), ignore_errors=True)
         return existed
+
+    # --- speaker name overrides (non-destructive; applied at render time) ----
+    def get_speaker_names(self, session_id: str) -> dict[str, str]:
+        """Map of raw speaker key (e.g. SPEAKER_00) -> user-assigned name."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT speaker_key, name FROM speaker_names WHERE session_id=?",
+                (session_id,),
+            ).fetchall()
+        return {r["speaker_key"]: r["name"] for r in rows}
+
+    def set_speaker_name(self, session_id: str, speaker_key: str, name: str) -> None:
+        """Upsert a speaker name; a blank name clears the override (revert to default)."""
+        name = (name or "").strip()
+        with self._lock, self._db:
+            if not name:
+                self._db.execute(
+                    "DELETE FROM speaker_names WHERE session_id=? AND speaker_key=?",
+                    (session_id, speaker_key),
+                )
+                return
+            self._db.execute(
+                "INSERT INTO speaker_names (session_id, speaker_key, name) "
+                "VALUES (?, ?, ?) "
+                "ON CONFLICT(session_id, speaker_key) DO UPDATE SET name=excluded.name",
+                (session_id, speaker_key, name),
+            )
 
     # --- settings (durable key/value, e.g. the global active model) -----
     def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:

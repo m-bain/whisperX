@@ -30,6 +30,24 @@ def _speaker_label(raw: Optional[str]) -> str:
     return f"Speaker {int(m.group(1)) + 1}" if m else str(raw)
 
 
+def resolve_label(raw: Optional[str], names: Optional[dict] = None) -> str:
+    """User-assigned name for a speaker key if set, else the default label."""
+    if names and raw and names.get(raw):
+        return names[raw]
+    return _speaker_label(raw)
+
+
+# lucide "pencil" icon (https://lucide.dev/icons/pencil), inlined to avoid a dep.
+_PENCIL_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
+    'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83'
+    'l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>'
+    '<path d="m15 5 4 4"/></svg>'
+)
+
+
 def _word_spans(seg: dict) -> str:
     """Render a segment's words as timed spans; fall back to the raw text."""
     words = seg.get("words") or []
@@ -57,29 +75,51 @@ def _word_spans(seg: dict) -> str:
     return "".join(out)
 
 
-def render_transcript(result: dict) -> str:
-    """Group consecutive segments by speaker into turn blocks of timed words."""
+def render_transcript(result: dict, names: Optional[dict] = None) -> str:
+    """Group consecutive segments by speaker into turn blocks of timed words.
+
+    ``names`` maps a raw speaker key (e.g. ``SPEAKER_00``) to a user-assigned
+    display name; overrides are applied here only, never written to the result.
+    """
     segments = result.get("segments", [])
     if not segments:
         return '<p class="tr__empty">No speech detected.</p>'
 
     turns: list[dict] = []
     for seg in segments:
-        speaker = seg.get("speaker") or "Speaker"
+        raw = seg.get("speaker")
+        speaker = raw or "Speaker"
         spans = _word_spans(seg)
         if not spans:
             continue
         if turns and turns[-1]["speaker"] == speaker:
             turns[-1]["html"] += spans
         else:
-            turns.append({"speaker": speaker, "html": spans, "start": seg.get("start")})
+            turns.append({"speaker": speaker, "raw": raw, "html": spans,
+                          "start": seg.get("start")})
 
     rows = []
     for t in turns:
+        raw = t["raw"]
+        label = resolve_label(raw, names)
+        # Only diarized turns (a real speaker key) get the rename affordance.
+        if raw:
+            key = escape(str(raw), quote=True)
+            speaker_attr = f' data-speaker="{key}"'
+            edit = (
+                f'<button class="turn__edit" type="button" data-speaker="{key}" '
+                f'data-name="{escape(label, quote=True)}" '
+                'title="Edit speaker name" aria-label="Edit speaker name">'
+                f'{_PENCIL_SVG}</button>'
+            )
+        else:
+            speaker_attr = ""
+            edit = ""
         rows.append(
             '<div class="turn">'
             '<div class="turn__who">'
-            f'<div class="turn__speaker">{escape(_speaker_label(t["speaker"]))}</div>'
+            f'<div class="turn__speaker"{speaker_attr}>{escape(label)}</div>'
+            f'{edit}'
             f'<div class="turn__time">{_fmt_ts(t["start"])}</div>'
             "</div>"
             f'<div class="turn__text">{t["html"]}</div>'

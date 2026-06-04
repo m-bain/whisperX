@@ -48,7 +48,7 @@ from werkzeug.utils import secure_filename  # noqa: E402
 
 from app import pipeline  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
-from app.render import render_transcript  # noqa: E402
+from app.render import render_transcript, resolve_label  # noqa: E402
 from app.store import SessionStore  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -250,10 +250,27 @@ def view_session(session_id: str):
     return render_template(
         "transcript.html",
         session=_card(row),
-        transcript=render_transcript(result),
+        transcript=render_transcript(result, _sessions.get_speaker_names(session_id)),
         formats=[f for f in pipeline.OUTPUT_FORMATS
                  if os.path.exists(_sessions.artifact_path(session_id, f))],
     )
+
+
+@app.post("/sessions/<session_id>/speakers")
+def rename_speaker(session_id: str):
+    """Assign/clear a display name for a diarized speaker (non-destructive).
+
+    Returns the resolved label as plain text so the client can update every
+    matching chip in place without re-rendering the transcript.
+    """
+    if _sessions.get(session_id) is None:
+        abort(404)
+    speaker = request.form.get("speaker", "").strip()
+    if not speaker:
+        abort(400, "Missing speaker key.")
+    name = request.form.get("name", "").strip()
+    _sessions.set_speaker_name(session_id, speaker, name)
+    return resolve_label(speaker, {speaker: name} if name else None)
 
 
 @app.post("/sessions")
@@ -364,7 +381,7 @@ def session_status(session_id: str):
     return render_template(
         "_result.html",
         job_id=session_id,
-        transcript=render_transcript(result),
+        transcript=render_transcript(result, _sessions.get_speaker_names(session_id)),
         diarized=bool(row.get("diarized")),
         language=row.get("language"),
         formats=[f for f in pipeline.OUTPUT_FORMATS

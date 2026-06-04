@@ -45,6 +45,21 @@
 </div>
 {% endblock %}
 
+{% block dialogs %}
+<sl-dialog id="speaker-modal" label="Speaker name" style="--width:440px">
+  <form id="speaker-form" hx-post="/sessions/{{ session.id }}/speakers" hx-swap="none">
+    <input type="hidden" name="speaker" id="speaker-key">
+    <sl-input name="name" id="speaker-name" label="Display name"
+              placeholder="e.g. Alice" autocomplete="off"
+              help-text="Leave empty to revert to the default label."></sl-input>
+  </form>
+  <div slot="footer" style="display:flex;gap:14px;justify-content:flex-end">
+    <sl-button variant="default" onclick="document.getElementById('speaker-modal').hide()">Cancel</sl-button>
+    <sl-button variant="primary" id="speaker-save">Save</sl-button>
+  </div>
+</sl-dialog>
+{% endblock %}
+
 {% block scripts %}
 <script>
 (function () {
@@ -150,6 +165,40 @@
   });
 
   render();
+})();
+</script>
+
+<script>
+// Speaker rename: hover-revealed pencil -> modal -> persist + live chip update.
+(function () {
+  const modal = document.getElementById('speaker-modal');
+  const form = document.getElementById('speaker-form');
+  const keyInput = document.getElementById('speaker-key');
+  const nameInput = document.getElementById('speaker-name');
+  let editingKey = null;
+
+  document.getElementById('tr-body').addEventListener('click', (e) => {
+    const btn = e.target.closest('.turn__edit');
+    if (!btn) return;
+    editingKey = btn.dataset.speaker;
+    keyInput.value = editingKey;
+    nameInput.value = btn.dataset.name || '';
+    modal.show();
+    modal.updateComplete?.then(() => nameInput.focus());
+  });
+
+  document.getElementById('speaker-save').addEventListener('click', () => form.requestSubmit());
+
+  form.addEventListener('htmx:afterRequest', (evt) => {
+    if (!evt.detail.successful) return;
+    const label = evt.detail.xhr.responseText;
+    const key = editingKey;
+    document.querySelectorAll(`.turn__speaker[data-speaker="${CSS.escape(key)}"]`)
+      .forEach(el => { el.textContent = label; });
+    document.querySelectorAll(`.turn__edit[data-speaker="${CSS.escape(key)}"]`)
+      .forEach(el => { el.dataset.name = label; });
+    modal.hide();
+  });
 })();
 </script>
 {% endblock %}
