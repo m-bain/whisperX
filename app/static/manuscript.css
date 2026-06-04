@@ -131,7 +131,8 @@ body, body * { font-kerning: normal; }
 
 .sb__spacer { flex: 1; }
 .sb__user {
-  margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--outline-soft);
+  margin: 22px -28px -26px; padding: 0 28px;
+  height: 96px; border-top: 1px solid var(--outline-soft);
   display: flex; align-items: center; gap: 12px;
 }
 .sb__user .mono-meta { font-family: var(--mono); font-size: 11px; color: var(--on-surface-faint); }

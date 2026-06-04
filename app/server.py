@@ -149,6 +149,12 @@ _manager = pipeline.ModelManager(
 )
 
 
+@app.context_processor
+def _inject_device() -> dict:
+    """Expose the live compute-device label to every template (sidebar chip)."""
+    return {"device_label": pipeline.DEVICE_LABELS.get(_manager.device, _manager.device)}
+
+
 def _warm_models() -> None:
     """Warm the active Whisper model + the shared diarizer in the background."""
     try:
