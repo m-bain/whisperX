@@ -196,6 +196,34 @@ def test_switching_turns_does_not_clobber_destination(app_url):
         assert _history_len(data_dir) == 0, "merely switching turns created edits"
 
 
+def test_adding_a_word_keeps_word_level_spans(app_url):
+    """Appending one word to a turn must NOT collapse it to a single untimed span:
+    the surviving words keep their timed `.seg` spans (so highlight/seek still work)."""
+    base, _ = app_url
+    with sync_playwright() as p:
+        page = p.chromium.launch().new_page()
+        page.goto(f"{base}/sessions/{SID}/view", wait_until="networkidle")
+
+        def timed_spans(turn):
+            return page.eval_on_selector_all(
+                f'#tr-body .turn[data-turn="{turn}"] .turn__text .seg[data-start]',
+                "els => els.length")
+
+        assert timed_spans(0) == 5  # Hello there. How are you?
+
+        page.locator('#tr-body .turn[data-turn="0"] .turn__text').dblclick()
+        page.keyboard.press("Control+A")
+        page.keyboard.type("Hello there. How are you today?")
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "() => document.body.innerText.includes('today')")
+        page.wait_for_timeout(200)
+
+        # The four unchanged leading words keep their timestamps (>= 4 timed spans);
+        # pre-fix this was 0 timed spans (one collapsed segment span aside).
+        assert timed_spans(0) >= 4, "adding a word wiped the turn's word-level timing"
+
+
 def test_escape_cancels_without_saving(app_url):
     """Escape must restore the original text and NOT POST (pre-fix it saved)."""
     base, data_dir = app_url

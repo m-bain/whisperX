@@ -13,7 +13,13 @@ import copy
 
 import pytest
 
-from app.edits import HISTORY_LIMIT, apply_turn_edit, group_turns, undo_last
+from app.edits import (
+    HISTORY_LIMIT,
+    apply_turn_edit,
+    group_turns,
+    realign_words,
+    undo_last,
+)
 from app.render import render_transcript
 from app.store import SessionStore
 
@@ -99,22 +105,92 @@ def test_group_preserves_none_timestamps():
 # --- apply_turn_edit: collapse ----------------------------------------------
 
 def test_edit_collapses_multi_segment_turn(diarized):
-    new_segments, _ = apply_turn_edit(diarized, 0, "Hi, how are you?")
+    # A full rewrite (no surviving words) collapses the turn's segment range into one
+    # segment and falls back to segment-level timing (words == []).
+    new_segments, _ = apply_turn_edit(diarized, 0, "Brand new sentence.")
     # turn 0 spanned segments [0,1] -> now one segment; total count drops by one.
     assert len(new_segments) == len(diarized) - 1
     edited = new_segments[0]
-    assert edited["text"] == "Hi, how are you?"
-    assert edited["words"] == []                       # per-word timing dropped
+    assert edited["text"] == "Brand new sentence."
+    assert edited["words"] == []                       # nothing survived -> fallback
     assert (edited["start"], edited["end"]) == (0.0, 2.0)  # spans first..last
     assert edited["speaker"] == "SPEAKER_00"           # speaker key preserved
 
 
-def test_edit_single_segment_turn_clears_words(diarized):
+def test_edit_full_rewrite_single_segment_falls_back_to_empty_words(diarized):
     new_segments, _ = apply_turn_edit(diarized, 1, "Not fine.")  # turn 1 == seg [2]
     assert len(new_segments) == len(diarized)          # 1 -> 1, no count change
     assert new_segments[2]["text"] == "Not fine."
-    assert new_segments[2]["words"] == []
+    assert new_segments[2]["words"] == []              # no token survived
     assert new_segments[2]["speaker"] == "SPEAKER_01"
+
+
+# --- apply_turn_edit: word-timing preservation (token diff) ------------------
+
+def test_edit_appending_word_keeps_other_word_timing(diarized):
+    # turn 0 words: Hello(0,.5) there.(.5,1) How(1,1.4) are(1.4,1.7) you?(1.7,2)
+    new_segments, _ = apply_turn_edit(diarized, 0, "Hello there. How are you? Right.")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["Hello", "there.", "How", "are", "you?", "Right."]
+    # every original word keeps its exact timestamps...
+    assert (w[0]["start"], w[0]["end"]) == (0.0, 0.5)
+    assert (w[4]["start"], w[4]["end"]) == (1.7, 2.0)
+    # ...and the typed word is interpolated to the turn end (no room after "you?").
+    assert (w[5]["start"], w[5]["end"]) == (2.0, 2.0)
+    assert (new_segments[0]["start"], new_segments[0]["end"]) == (0.0, 2.0)
+
+
+def test_edit_inserting_word_midway_keeps_neighbours(diarized):
+    new_segments, _ = apply_turn_edit(diarized, 0, "Hello there. How are really you?")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["Hello", "there.", "How", "are", "really", "you?"]
+    # "really" interpolated into the (zero-width) gap between are(.,1.7) and you?(1.7,.)
+    assert (w[4]["start"], w[4]["end"]) == (1.7, 1.7)
+    assert (w[5]["start"], w[5]["end"]) == (1.7, 2.0)   # "you?" keeps its slot
+
+
+def test_edit_deleting_words_keeps_survivors_timing(diarized):
+    new_segments, _ = apply_turn_edit(diarized, 0, "Hello there. you?")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["Hello", "there.", "you?"]
+    assert (w[2]["start"], w[2]["end"]) == (1.7, 2.0)   # survivor keeps timestamp
+
+
+def test_edit_interpolates_inserted_word_across_a_gap():
+    # A real gap between A(0..1) and B(2..3): the inserted word splits it evenly.
+    segs = [_seg(0.0, 3.0, "A B", "SPEAKER_00",
+                 [_word("A", 0.0, 1.0), _word("B", 2.0, 3.0)])]
+    new_segments, _ = apply_turn_edit(segs, 0, "A new B")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["A", "new", "B"]
+    assert (w[1]["start"], w[1]["end"]) == (1.0, 2.0)   # interpolated across the gap
+
+
+def test_edit_interpolates_two_inserted_words_evenly():
+    segs = [_seg(0.0, 4.0, "A B", "SPEAKER_00",
+                 [_word("A", 0.0, 1.0), _word("B", 3.0, 4.0)])]
+    new_segments, _ = apply_turn_edit(segs, 0, "A one two B")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["A", "one", "two", "B"]
+    # gap 1.0..3.0 split across the two typed words -> 1.0-2.0, 2.0-3.0
+    assert (w[1]["start"], w[1]["end"]) == (1.0, 2.0)
+    assert (w[2]["start"], w[2]["end"]) == (2.0, 3.0)
+
+
+def test_edit_interpolates_leading_and_trailing_words_from_turn_bounds():
+    # Turn spans 0..3 but its one word sits at 1..2, leaving room either side.
+    segs = [_seg(0.0, 3.0, "core", "SPEAKER_00", [_word("core", 1.0, 2.0)])]
+    new_segments, _ = apply_turn_edit(segs, 0, "pre core post")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["pre", "core", "post"]
+    assert (w[0]["start"], w[0]["end"]) == (0.0, 1.0)   # leading: turn start -> core
+    assert (w[2]["start"], w[2]["end"]) == (2.0, 3.0)   # trailing: core -> turn end
+
+
+def test_realign_words_returns_empty_without_old_timing():
+    # A turn that never had word timing can't preserve any -> fall back to [].
+    assert realign_words([], "some new text") == []
+    assert realign_words([{"word": "x"}], "x y") == []
 
 
 def test_edit_undiarized_turn_emits_no_speaker_key():
@@ -289,6 +365,17 @@ def test_render_edited_turn_is_single_seg_span(diarized):
     # The edited turn renders as ONE timed span carrying the segment bounds.
     assert html.count('data-start="0.000"') == 1
     assert 'data-start="0.000" data-end="2.000">Collapsed line.</span>' in html
+
+
+def test_render_appended_word_keeps_timed_spans(diarized):
+    # Adding a word must NOT collapse the turn to one untimed span: the surviving
+    # words keep their data-start spans and only the new word is plain.
+    segs, _ = apply_turn_edit(diarized, 0, "Hello there. How are you? Right.")
+    html = render_transcript({"segments": [segs[0]]})  # just the edited turn
+    # All six words are timed: five originals + the interpolated typed word.
+    assert html.count("data-start=") == 6
+    assert 'data-start="0.000"' in html and 'data-start="1.700"' in html
+    assert ">Right.</span>" in html
 
 
 def test_render_speaker_override_survives_edit(diarized):

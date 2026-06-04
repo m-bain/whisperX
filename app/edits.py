@@ -15,6 +15,7 @@ records exactly what a single edit replaced so :func:`undo_last` can reverse it.
 from __future__ import annotations
 
 import copy
+import difflib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -72,6 +73,73 @@ def group_turns(segments: list[dict]) -> list[Turn]:
     return turns
 
 
+def _interpolate_gaps(words: list[dict], start: Optional[float],
+                      end: Optional[float]) -> None:
+    """Give newly typed words a (rough) timestamp by spreading each run of untimed
+    words evenly across the gap between its timed neighbours.
+
+    Anchors: the previous timed word's ``end`` (or the turn ``start`` for a leading
+    run) and the next timed word's ``start`` (or the turn ``end`` for a trailing run).
+    A run with no usable anchor, or a backwards gap, is left untimed. Mutates in place.
+    """
+    n = len(words)
+    i = 0
+    while i < n:
+        if "start" in words[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and "start" not in words[j]:
+            j += 1
+        left = words[i - 1]["end"] if i > 0 and "end" in words[i - 1] else start
+        right = words[j]["start"] if j < n and "start" in words[j] else end
+        if left is not None and right is not None and right >= left:
+            step = (right - left) / (j - i)
+            for k in range(j - i):
+                words[i + k]["start"] = left + k * step
+                words[i + k]["end"] = left + (k + 1) * step
+        i = j
+
+
+def realign_words(old_words: list[dict], new_text: str,
+                  start: Optional[float] = None, end: Optional[float] = None) -> list[dict]:
+    """Map edited text back onto a turn's words, keeping timestamps for tokens that
+    survive the edit and interpolating timing for the ones the user typed.
+
+    A token-level diff (whitespace tokens) between the turn's existing words and the
+    new text: unchanged tokens keep their original ``start``/``end``; deleted tokens
+    drop out; inserted tokens are given an interpolated span between their timed
+    neighbours (see :func:`_interpolate_gaps`) so they stay lightly seekable. ``start``
+    / ``end`` are the turn bounds, used as anchors for leading/trailing new words.
+
+    Returns ``[]`` when no token keeps a real timestamp (e.g. a full rewrite, or the
+    turn had no word timing to begin with) so the caller falls back to a single
+    segment-timed span rather than a row of words timed from nothing.
+    """
+    new_tokens = new_text.split()
+    old_tokens = [(w.get("word") or "").strip() for w in old_words]
+    out: list[dict] = []
+    kept_timing = False
+    sm = difflib.SequenceMatcher(a=old_tokens, b=new_tokens, autojunk=False)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal":
+            for oi, nj in zip(range(i1, i2), range(j1, j2)):
+                ow = old_words[oi]
+                w = {"word": new_tokens[nj]}
+                wstart, wend = ow.get("start"), ow.get("end")
+                if wstart is not None and wend is not None:
+                    w["start"], w["end"] = wstart, wend
+                    kept_timing = True
+                out.append(w)
+        elif tag in ("replace", "insert"):
+            out.extend({"word": new_tokens[nj]} for nj in range(j1, j2))
+        # "delete": the old token (and its timing) is gone — skip it.
+    if not kept_timing:
+        return []
+    _interpolate_gaps(out, start, end)
+    return out
+
+
 def apply_turn_edit(segments: list[dict], turn_index: int, new_text: str):
     """Replace turn ``turn_index``'s text, collapsing its segment range.
 
@@ -87,7 +155,12 @@ def apply_turn_edit(segments: list[dict], turn_index: int, new_text: str):
 
     text = (new_text or "").strip()
     if text:
-        new_seg: dict = {"start": turn.start, "end": turn.end, "text": text, "words": []}
+        old_words: list[dict] = []
+        for k in turn.seg_indices:
+            old_words.extend(segments[k].get("words") or [])
+        # Keep timing for unchanged words; interpolate it for typed ones.
+        words = realign_words(old_words, text, start=turn.start, end=turn.end)
+        new_seg: dict = {"start": turn.start, "end": turn.end, "text": text, "words": words}
         if turn.speaker is not None:
             new_seg["speaker"] = turn.speaker
         replacement = [new_seg]

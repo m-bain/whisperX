@@ -4,11 +4,11 @@
    'JetBrains Mono' so manuscript.css needs no changes. Bun inlines the woff2
    files referenced here as data URIs, so vendor.css is fully self-contained.
    The UI chrome is English, but transcript content can be any language, so
-   Literata (the serif used for turn text) also pulls cyrillic subsets. Each
-   subset file carries its own unicode-range, so the cyrillic woff2 is only
-   fetched when Cyrillic text is on the page — no cost for English-only pages.
-   German (ä ö ü ß) is in the latin subset already. JetBrains Mono stays
-   latin-only: it's only used for English UI chrome/metadata. */
+   Literata (the serif used for turn text) also pulls cyrillic subsets (see the
+   explicit @font-face block below). The unicode-range on each cyrillic face
+   means its woff2 is only fetched when Cyrillic text is on the page — no cost
+   for English-only pages. German (ä ö ü ß) is in the latin subset already.
+   JetBrains Mono stays latin-only: it's only used for English UI chrome. */
 @import "@shoelace-style/shoelace/dist/themes/light.css";
 
 @import "@fontsource/literata/latin-400.css";
@@ -17,18 +17,64 @@
 @import "@fontsource/literata/latin-700.css";
 @import "@fontsource/literata/latin-400-italic.css";
 
-@import "@fontsource/literata/cyrillic-400.css";
-@import "@fontsource/literata/cyrillic-500.css";
-@import "@fontsource/literata/cyrillic-600.css";
-@import "@fontsource/literata/cyrillic-700.css";
-@import "@fontsource/literata/cyrillic-400-italic.css";
-@import "@fontsource/literata/cyrillic-ext-400.css";
-@import "@fontsource/literata/cyrillic-ext-500.css";
-@import "@fontsource/literata/cyrillic-ext-600.css";
-@import "@fontsource/literata/cyrillic-ext-700.css";
-@import "@fontsource/literata/cyrillic-ext-400-italic.css";
-
 @import "@fontsource/jetbrains-mono/latin-400.css";
 @import "@fontsource/jetbrains-mono/latin-500.css";
 @import "@fontsource/jetbrains-mono/latin-600.css";
 @import "@fontsource/jetbrains-mono/latin-700.css";
+
+/* Cyrillic faces are declared explicitly (not via the per-subset @import) so
+   they carry a unicode-range: fontsource's single-subset CSS files ship WITHOUT
+   one, so importing latin+cyrillic for the same weight would just have the last
+   import win for every codepoint. With ranges, the rangeless latin face stays
+   the catch-all and these only claim Cyrillic. @font-face must follow all
+   @import rules (CSS ordering). Ranges match Google Fonts. */
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 400;
+  src: url("@fontsource/literata/files/literata-cyrillic-400-normal.woff2") format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 500;
+  src: url("@fontsource/literata/files/literata-cyrillic-500-normal.woff2") format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 600;
+  src: url("@fontsource/literata/files/literata-cyrillic-600-normal.woff2") format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 700;
+  src: url("@fontsource/literata/files/literata-cyrillic-700-normal.woff2") format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Literata'; font-style: italic; font-display: swap; font-weight: 400;
+  src: url("@fontsource/literata/files/literata-cyrillic-400-italic.woff2") format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 400;
+  src: url("@fontsource/literata/files/literata-cyrillic-ext-400-normal.woff2") format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 500;
+  src: url("@fontsource/literata/files/literata-cyrillic-ext-500-normal.woff2") format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 600;
+  src: url("@fontsource/literata/files/literata-cyrillic-ext-600-normal.woff2") format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 700;
+  src: url("@fontsource/literata/files/literata-cyrillic-ext-700-normal.woff2") format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Literata'; font-style: italic; font-display: swap; font-weight: 400;
+  src: url("@fontsource/literata/files/literata-cyrillic-ext-400-italic.woff2") format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
