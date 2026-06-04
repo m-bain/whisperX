@@ -9,7 +9,7 @@
        hx-trigger="load delay:2s"
        hx-swap="outerHTML">
     <p class="frag"><sl-spinner></sl-spinner>
-      {% if state == "queued" %}Queued…{% else %}Transcribing on CPU… this can take a while.{% endif %}
+      {% if state == "queued" %}Queued…{% else %}Transcribing on {{ device_label }}…{% if device_label == "CPU" %} this can take a while.{% endif %}{% endif %}
     </p>
   </div>
 {% endif %}

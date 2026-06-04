@@ -348,7 +348,9 @@ def session_status(session_id: str):
         abort(404)
     status = row["status"]
     if status in ("queued", "running"):
-        return render_template("_status.html", state=status, job_id=session_id)
+        device_label = pipeline.DEVICE_LABELS.get(_manager.device, _manager.device)
+        return render_template("_status.html", state=status, job_id=session_id,
+                               device_label=device_label)
     if status == "error":
         return render_template("_status.html", state="error", job_id=session_id, error=row["error"])
     # done

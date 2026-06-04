@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 # torch stages (VAD/align/diarize) on mps — see _torch_device.
 DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE", "cpu")
 DEVICES = ("cpu", "cuda", "mlx")
+# Human-readable device names for the UI (status fragment, switcher).
+DEVICE_LABELS = {"cpu": "CPU", "cuda": "GPU (CUDA)", "mlx": "Apple GPU (MLX)"}
 DIARIZE_MODEL = os.environ.get(
     "WHISPERX_DIARIZE_MODEL", "pyannote/speaker-diarization-community-1"
 )
