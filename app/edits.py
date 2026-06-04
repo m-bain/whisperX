@@ -24,6 +24,16 @@ from typing import Optional
 # materialized, so they simply become non-undoable).
 HISTORY_LIMIT = 100
 
+# Target width (seconds) for a typed word with no audio timing of its own. When the
+# gap between its timed neighbours is smaller than this, the word borrows the shortfall
+# from those neighbours (which shrink, but never below this same floor).
+MIN_WORD_WIDTH = 0.1
+
+# A segment shorter than this is coalesced into a same-speaker neighbour (see
+# coalesce_segments). Sub-second utterances/false-starts the recognizer split off get
+# folded back into their turn so the stored transcript isn't littered with slivers.
+SEGMENT_MIN_DURATION = 0.2
+
 
 @dataclass
 class Turn:
@@ -80,7 +90,11 @@ def _interpolate_gaps(words: list[dict], start: Optional[float],
 
     Anchors: the previous timed word's ``end`` (or the turn ``start`` for a leading
     run) and the next timed word's ``start`` (or the turn ``end`` for a trailing run).
-    A run with no usable anchor, or a backwards gap, is left untimed. Mutates in place.
+    When that gap is too narrow to give each typed word ``MIN_WORD_WIDTH``, the run
+    *borrows* the shortfall from its neighbour words — split between the two sides —
+    so a word inserted between tightly-packed words still gets a dwellable span. A
+    lending neighbour never shrinks below ``MIN_WORD_WIDTH``. Mutates in place; a run
+    with no usable anchor (or a backwards gap) is left untimed.
     """
     n = len(words)
     i = 0
@@ -91,13 +105,36 @@ def _interpolate_gaps(words: list[dict], start: Optional[float],
         j = i
         while j < n and "start" not in words[j]:
             j += 1
-        left = words[i - 1]["end"] if i > 0 and "end" in words[i - 1] else start
-        right = words[j]["start"] if j < n and "start" in words[j] else end
-        if left is not None and right is not None and right >= left:
-            step = (right - left) / (j - i)
-            for k in range(j - i):
-                words[i + k]["start"] = left + k * step
-                words[i + k]["end"] = left + (k + 1) * step
+        run = j - i
+        left_word = words[i - 1] if i > 0 and "end" in words[i - 1] else None
+        right_word = words[j] if j < n and "start" in words[j] else None
+        left = left_word["end"] if left_word else start
+        right = right_word["start"] if right_word else end
+        if left is None or right is None or right < left:
+            i = j
+            continue
+
+        deficit = run * MIN_WORD_WIDTH - (right - left)
+        if deficit > 0:
+            # Each neighbour can lend down to MIN_WORD_WIDTH; aim for an even split,
+            # then let either side cover whatever the other can't.
+            cap_l = max(0.0, (left_word["end"] - left_word["start"]) - MIN_WORD_WIDTH) if left_word else 0.0
+            cap_r = max(0.0, (right_word["end"] - right_word["start"]) - MIN_WORD_WIDTH) if right_word else 0.0
+            take_l = min(deficit / 2, cap_l)
+            take_r = min(deficit / 2, cap_r)
+            take_l += min(cap_l - take_l, deficit - take_l - take_r)
+            take_r += min(cap_r - take_r, deficit - take_l - take_r)
+            if left_word:
+                left_word["end"] -= take_l
+            if right_word:
+                right_word["start"] += take_r
+            left -= take_l
+            right += take_r
+
+        step = (right - left) / run
+        for k in range(run):
+            words[i + k]["start"] = left + k * step
+            words[i + k]["end"] = left + (k + 1) * step
         i = j
 
 
@@ -137,6 +174,67 @@ def realign_words(old_words: list[dict], new_text: str,
     if not kept_timing:
         return []
     _interpolate_gaps(out, start, end)
+    return out
+
+
+def _seg_dur(seg: dict) -> float:
+    start, end = seg.get("start"), seg.get("end")
+    return (end - start) if start is not None and end is not None else 0.0
+
+
+def _merge_segments(a: dict, b: dict) -> dict:
+    """Fuse ``b`` onto ``a`` (a precedes b, same speaker): span both, concatenate text
+    and words. Builds a fresh dict so inputs are never mutated."""
+    merged = {
+        "start": a.get("start") if a.get("start") is not None else b.get("start"),
+        "end": b.get("end") if b.get("end") is not None else a.get("end"),
+        "text": " ".join(t for t in ((a.get("text") or "").strip(),
+                                      (b.get("text") or "").strip()) if t),
+        "words": list(a.get("words") or []) + list(b.get("words") or []),
+    }
+    if a.get("speaker") is not None:
+        merged["speaker"] = a["speaker"]
+    return merged
+
+
+def _coalesce_run(run: list[dict], threshold: float) -> list[dict]:
+    """Coalesce one same-speaker run so every output segment clears ``threshold`` —
+    unless the whole run is shorter, in which case a single sub-threshold segment
+    remains (nothing same-speaker to merge it with)."""
+    out: list[dict] = []
+    cur: Optional[dict] = None
+    for seg in run:
+        cur = dict(seg) if cur is None else _merge_segments(cur, seg)
+        if _seg_dur(cur) >= threshold:
+            out.append(cur)
+            cur = None
+    if cur is not None:
+        if out:
+            out[-1] = _merge_segments(out[-1], cur)  # trailing sliver joins previous
+        else:
+            out.append(cur)                          # whole run < threshold: unavoidable
+    return out
+
+
+def coalesce_segments(segments: list[dict],
+                      threshold: float = SEGMENT_MIN_DURATION) -> list[dict]:
+    """Merge consecutive same-speaker segments shorter than ``threshold`` until each
+    clears it (a lone short segment bordered by other speakers is left as-is).
+
+    Same-speaker only, so the speaker-grouped turns and their order are unchanged — a
+    turn that was N segments may become fewer (or one). Pure; returns a new list and
+    never mutates the input. Idempotent: ``coalesce(coalesce(x)) == coalesce(x)``.
+    """
+    out: list[dict] = []
+    n = len(segments)
+    i = 0
+    while i < n:
+        key = segments[i].get("speaker") or None
+        j = i
+        while j < n and (segments[j].get("speaker") or None) == key:
+            j += 1
+        out.extend(_coalesce_run(segments[i:j], threshold))
+        i = j
     return out
 
 

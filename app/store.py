@@ -120,11 +120,16 @@ class SessionStore:
             return json.load(f)
 
     def current_segments(self, session_id: str, original_segments: list) -> list:
-        """The edited segment list if an overlay exists, else the original."""
+        """The edited segment list if an overlay exists, else the coalesced original.
+
+        With no overlay the original is run through the small-segment coalescer so the
+        baseline already satisfies the threshold; the original file is never mutated.
+        """
         edits = self.load_edits(session_id)
         if edits and edits.get("segments") is not None:
             return edits["segments"]
-        return original_segments
+        from app.edits import coalesce_segments
+        return coalesce_segments(original_segments)
 
     def edit_history_len(self, session_id: str) -> int:
         edits = self.load_edits(session_id)
@@ -132,6 +137,13 @@ class SessionStore:
 
     def _original_segments(self, session_id: str) -> list:
         return (self.load_result(session_id) or {}).get("segments", [])
+
+    def _baseline_segments(self, session_id: str) -> list:
+        """Pristine current state with no overlay: the original, coalesced. Edits build
+        on this, so the 'all segments >= threshold' invariant holds from the start and
+        is preserved by every collapse (an edited turn is one full-span segment)."""
+        from app.edits import coalesce_segments
+        return coalesce_segments(self._original_segments(session_id))
 
     def _write_edits(self, session_id: str, segments: list, history: list) -> None:
         """Atomically write the overlay (tmp + os.replace) so readers never see a
@@ -149,7 +161,7 @@ class SessionStore:
         from app.edits import HISTORY_LIMIT, apply_turn_edit
         with self._lock:
             edits = self.load_edits(session_id)
-            segments = edits["segments"] if edits else self._original_segments(session_id)
+            segments = edits["segments"] if edits else self._baseline_segments(session_id)
             history = list(edits["history"]) if edits else []
             new_segments, delta = apply_turn_edit(segments, turn_index, new_text)
             history.append(delta)
@@ -165,18 +177,18 @@ class SessionStore:
         from app.edits import undo_last
         with self._lock:
             edits = self.load_edits(session_id)
-            original = self._original_segments(session_id)
+            baseline = self._baseline_segments(session_id)
             if not edits or not edits.get("history"):
                 # Nothing left to undo. Return the live state — which, once the
                 # oldest deltas have rolled off the 100-cap, may differ from the
-                # pristine original (those edits are no longer reversible).
-                return edits["segments"] if edits else original
+                # pristine baseline (those edits are no longer reversible).
+                return edits["segments"] if edits else baseline
             new_segments, new_history = undo_last(edits["segments"], edits["history"])
-            if not new_history and new_segments == original:
+            if not new_history and new_segments == baseline:
                 path = self.edits_path(session_id)
                 if os.path.exists(path):
                     os.remove(path)
-                return original
+                return baseline
             self._write_edits(session_id, new_segments, new_history)
             return new_segments
 

@@ -12,10 +12,14 @@ from __future__ import annotations
 import copy
 
 import pytest
+from pytest import approx
 
 from app.edits import (
     HISTORY_LIMIT,
+    MIN_WORD_WIDTH,
+    SEGMENT_MIN_DURATION,
     apply_turn_edit,
+    coalesce_segments,
     group_turns,
     realign_words,
     undo_last,
@@ -132,21 +136,23 @@ def test_edit_appending_word_keeps_other_word_timing(diarized):
     new_segments, _ = apply_turn_edit(diarized, 0, "Hello there. How are you? Right.")
     w = new_segments[0]["words"]
     assert [x["word"] for x in w] == ["Hello", "there.", "How", "are", "you?", "Right."]
-    # every original word keeps its exact timestamps...
+    # non-adjacent originals keep their exact timestamps...
     assert (w[0]["start"], w[0]["end"]) == (0.0, 0.5)
-    assert (w[4]["start"], w[4]["end"]) == (1.7, 2.0)
-    # ...and the typed word is interpolated to the turn end (no room after "you?").
-    assert (w[5]["start"], w[5]["end"]) == (2.0, 2.0)
+    assert (w[3]["start"], w[3]["end"]) == (1.4, 1.7)   # "are" untouched
+    # ...and the trailing typed word borrows width from "you?" (no room at the end).
+    assert w[4]["start"] == 1.7 and w[4]["end"] == approx(1.9)
+    assert (w[5]["start"], w[5]["end"]) == (approx(1.9), approx(2.0))
     assert (new_segments[0]["start"], new_segments[0]["end"]) == (0.0, 2.0)
 
 
-def test_edit_inserting_word_midway_keeps_neighbours(diarized):
+def test_edit_inserting_word_midway_borrows_from_both_neighbours(diarized):
     new_segments, _ = apply_turn_edit(diarized, 0, "Hello there. How are really you?")
     w = new_segments[0]["words"]
     assert [x["word"] for x in w] == ["Hello", "there.", "How", "are", "really", "you?"]
-    # "really" interpolated into the (zero-width) gap between are(.,1.7) and you?(1.7,.)
-    assert (w[4]["start"], w[4]["end"]) == (1.7, 1.7)
-    assert (w[5]["start"], w[5]["end"]) == (1.7, 2.0)   # "you?" keeps its slot
+    # zero gap between are(.,1.7) and you?(1.7,.) -> each lends 0.05 to "really".
+    assert (w[3]["start"], w[3]["end"]) == (1.4, approx(1.65))   # "are" lent a slice
+    assert (w[4]["start"], w[4]["end"]) == (approx(1.65), approx(1.75))  # "really"
+    assert (w[5]["start"], w[5]["end"]) == (approx(1.75), 2.0)   # "you?" lent a slice
 
 
 def test_edit_deleting_words_keeps_survivors_timing(diarized):
@@ -185,6 +191,31 @@ def test_edit_interpolates_leading_and_trailing_words_from_turn_bounds():
     assert [x["word"] for x in w] == ["pre", "core", "post"]
     assert (w[0]["start"], w[0]["end"]) == (0.0, 1.0)   # leading: turn start -> core
     assert (w[2]["start"], w[2]["end"]) == (2.0, 3.0)   # trailing: core -> turn end
+
+
+def test_edit_borrows_width_for_word_in_zero_gap():
+    # Adjacent words (A ends where B starts). The inserted word makes each lend a
+    # sliver so it gets a real, dwellable span instead of zero width.
+    segs = [_seg(0.0, 1.0, "A B", "SPEAKER_00",
+                 [_word("A", 0.0, 0.5), _word("B", 0.5, 1.0)])]
+    new_segments, _ = apply_turn_edit(segs, 0, "A mid B")
+    w = new_segments[0]["words"]
+    assert [x["word"] for x in w] == ["A", "mid", "B"]
+    assert (w[0]["start"], w[0]["end"]) == (0.0, approx(0.45))   # A lent half
+    assert (w[1]["start"], w[1]["end"]) == (approx(0.45), approx(0.55))
+    assert w[1]["end"] - w[1]["start"] == approx(MIN_WORD_WIDTH)  # full dwellable width
+    assert (w[2]["start"], w[2]["end"]) == (approx(0.55), 1.0)   # B lent half
+
+
+def test_edit_borrow_respects_neighbour_floor():
+    # B is only MIN_WORD_WIDTH wide already, so it can't lend; A covers the deficit.
+    segs = [_seg(0.0, 0.6, "A B", "SPEAKER_00",
+                 [_word("A", 0.0, 0.5), _word("B", 0.5, 0.6)])]
+    new_segments, _ = apply_turn_edit(segs, 0, "A mid B")
+    w = new_segments[0]["words"]
+    assert w[2]["start"] == 0.5                       # B unchanged (at the floor)
+    assert w[0]["end"] == approx(0.4)                 # A lent the full 0.1
+    assert (w[1]["start"], w[1]["end"]) == (approx(0.4), approx(0.5))
 
 
 def test_realign_words_returns_empty_without_old_timing():
@@ -286,6 +317,74 @@ def test_delta_old_segments_is_independent_deepcopy(diarized):
     # mutating the source afterwards must not bleed into the captured delta.
     diarized[0]["text"] = "MUTATED"
     assert delta["old_segments"][0]["text"] == "Hello there."
+
+
+# --- coalesce_segments (small-segment second pass) --------------------------
+
+def test_coalesce_merges_two_short_same_speaker_segments():
+    segs = [_seg(0.0, 0.1, "uh", "SPEAKER_00", [_word("uh", 0.0, 0.1)]),
+            _seg(0.1, 0.5, "hello there", "SPEAKER_00",
+                 [_word("hello", 0.1, 0.3), _word("there", 0.3, 0.5)])]
+    out = coalesce_segments(segs, threshold=0.2)
+    assert len(out) == 1
+    assert (out[0]["start"], out[0]["end"]) == (0.0, 0.5)
+    assert out[0]["text"] == "uh hello there"
+    assert [w["word"] for w in out[0]["words"]] == ["uh", "hello", "there"]
+    assert out[0]["speaker"] == "SPEAKER_00"
+
+
+def test_coalesce_until_threshold_then_stops():
+    # 0.1 + 0.1 -> 0.2 (clears), the next 0.3 stands alone.
+    segs = [_seg(0.0, 0.1, "a", "S", []), _seg(0.1, 0.2, "b", "S", []),
+            _seg(0.2, 0.5, "c", "S", [])]
+    out = coalesce_segments(segs, threshold=0.2)
+    assert [s["text"] for s in out] == ["a b", "c"]
+    assert all(s["end"] - s["start"] >= 0.2 for s in out)
+
+
+def test_coalesce_does_not_cross_speakers():
+    # A lone short segment bordered by other speakers can't merge -> stays short.
+    segs = [_seg(0.0, 1.0, "long one", "SPEAKER_00", []),
+            _seg(1.0, 1.1, "hi", "SPEAKER_01", []),
+            _seg(1.1, 2.1, "long two", "SPEAKER_00", [])]
+    out = coalesce_segments(segs, threshold=0.2)
+    assert [s["speaker"] for s in out] == ["SPEAKER_00", "SPEAKER_01", "SPEAKER_00"]
+    assert out[1]["text"] == "hi"                       # untouched (isolated)
+
+
+def test_coalesce_trailing_sliver_joins_previous():
+    segs = [_seg(0.0, 0.3, "big", "S", []), _seg(0.3, 0.35, "x", "S", [])]
+    out = coalesce_segments(segs, threshold=0.2)
+    assert len(out) == 1 and out[0]["text"] == "big x"  # sliver folded back
+    assert (out[0]["start"], out[0]["end"]) == (0.0, 0.35)
+
+
+def test_coalesce_whole_run_under_threshold_stays_one():
+    segs = [_seg(0.0, 0.05, "a", "S", []), _seg(0.05, 0.1, "b", "S", [])]
+    out = coalesce_segments(segs, threshold=0.2)
+    assert len(out) == 1                                # can't reach threshold, but one
+    assert out[0]["text"] == "a b"
+
+
+def test_coalesce_leaves_large_segments_untouched_and_is_idempotent():
+    segs = [_seg(0.0, 1.0, "a", "S", []), _seg(1.0, 2.0, "b", "S", [])]
+    once = coalesce_segments(segs, threshold=0.2)
+    assert [s["text"] for s in once] == ["a", "b"]
+    assert coalesce_segments(once, threshold=0.2) == once   # idempotent
+
+
+def test_coalesce_default_threshold_is_segment_min_duration():
+    segs = [_seg(0.0, 0.1, "a", "S", []), _seg(0.1, 0.9, "b", "S", [])]
+    assert SEGMENT_MIN_DURATION == 0.2
+    assert len(coalesce_segments(segs)) == 1            # uses the module default
+
+
+def test_coalesce_does_not_mutate_input():
+    segs = [_seg(0.0, 0.1, "a", "S", [_word("a", 0.0, 0.1)]),
+            _seg(0.1, 0.5, "b", "S", [_word("b", 0.1, 0.5)])]
+    snapshot = copy.deepcopy(segs)
+    coalesce_segments(segs, threshold=0.2)
+    assert segs == snapshot
 
 
 # --- undo --------------------------------------------------------------------
@@ -472,6 +571,34 @@ def test_store_history_capped_but_state_reflects_all_edits(tmp_path):
     edits = store.load_edits(sid)
     assert len(edits["history"]) == HISTORY_LIMIT       # oldest rolled off
     assert edits["segments"][0]["text"] == f"edit {HISTORY_LIMIT}"   # latest wins
+
+
+def test_store_baseline_is_coalesced(tmp_path):
+    # Two tiny same-speaker segments in the stored result -> current_segments merges
+    # them, but the original transcript.json is left untouched.
+    segs = [_seg(0.0, 0.1, "uh", "SPEAKER_00", [_word("uh", 0.0, 0.1)]),
+            _seg(0.1, 0.6, "hello world", "SPEAKER_00",
+                 [_word("hello", 0.1, 0.3), _word("world", 0.3, 0.6)])]
+    store, sid = _make_store(tmp_path, segs)
+    cur = store.current_segments(sid, segs)
+    assert len(cur) == 1 and cur[0]["text"] == "uh hello world"
+    assert store.load_result(sid)["segments"] == segs   # original intact
+
+
+def test_store_edit_and_undo_roundtrip_with_coalescing(tmp_path):
+    segs = [_seg(0.0, 0.1, "uh", "SPEAKER_00", [_word("uh", 0.0, 0.1)]),
+            _seg(0.1, 0.6, "hello world", "SPEAKER_00",
+                 [_word("hello", 0.1, 0.3), _word("world", 0.3, 0.6)]),
+            _seg(0.6, 1.6, "fine thanks", "SPEAKER_01",
+                 [_word("fine", 0.6, 1.0), _word("thanks", 1.0, 1.6)])]
+    store, sid = _make_store(tmp_path, segs)
+    baseline = store.current_segments(sid, segs)         # coalesced: 2 segments
+    assert len(baseline) == 2
+    store.save_turn_edit(sid, 0, "Hey hello world")      # edit the merged turn 0
+    assert store.current_segments(sid, segs)[0]["text"] == "Hey hello world"
+    store.undo_turn_edit(sid)
+    assert store.current_segments(sid, segs) == baseline  # back to the coalesced base
+    assert store.load_edits(sid) is None                  # overlay dropped
 
 
 def test_store_unknown_turn_raises(tmp_path, diarized):

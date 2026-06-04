@@ -52,7 +52,12 @@
     <span class="player__total" id="total">{{ session.dur }}</span>
     <div class="player__sep"></div>
     <div class="player__rate" id="rate" title="Playback speed"><sl-icon name="speedometer2"></sl-icon> <span id="rate-label">1.0x</span></div>
-    <span class="icon-btn"><sl-icon name="volume-up"></sl-icon></span>
+    <div class="player__volume" id="volume">
+      <span class="icon-btn" id="vol-btn" title="Mute / unmute"><sl-icon name="volume-up" id="vol-icon"></sl-icon></span>
+      <div class="player__volpanel">
+        <sl-range id="vol-range" min="0" max="100" value="100" tooltip="none"></sl-range>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -85,6 +90,9 @@
   const track = document.getElementById('track');
   const rateBtn = document.getElementById('rate');
   const rateLabel = document.getElementById('rate-label');
+  const volBtn = document.getElementById('vol-btn');
+  const volIcon = document.getElementById('vol-icon');
+  const volRange = document.getElementById('vol-range');
 
   // Words with timestamps, sorted by start — drives synced highlighting.
   // Rebuilt (not const) so it survives a transcript body swap after an edit/undo.
@@ -183,6 +191,32 @@
     audio.playbackRate = rates[ri];
     rateLabel.textContent = (rates[ri] % 1 === 0 ? rates[ri].toFixed(1) : rates[ri]) + 'x';
   });
+
+  // Volume: button toggles mute, hover panel slider sets level.
+  let lastVol = 1;  // volume to restore on unmute
+  function syncVolIcon() {
+    const v = audio.muted ? 0 : audio.volume;
+    volIcon.name = v === 0 ? 'volume-mute' : (v < 0.5 ? 'volume-down' : 'volume-up');
+  }
+  volBtn.addEventListener('click', () => {
+    if (audio.muted || audio.volume === 0) {
+      audio.muted = false;
+      audio.volume = lastVol > 0 ? lastVol : 1;
+    } else {
+      lastVol = audio.volume;
+      audio.muted = true;
+    }
+    volRange.value = audio.muted ? 0 : Math.round(audio.volume * 100);
+    syncVolIcon();
+  });
+  volRange.addEventListener('sl-input', () => {
+    const v = volRange.value / 100;
+    audio.volume = v;
+    audio.muted = v === 0;
+    if (v > 0) lastVol = v;
+    syncVolIcon();
+  });
+  syncVolIcon();
 
   rebuildSegs();
 })();

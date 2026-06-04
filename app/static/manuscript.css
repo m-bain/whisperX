@@ -334,6 +334,21 @@ body, body * { font-kerning: normal; }
 .player__sep { width: 1px; height: 32px; background: var(--outline-variant); }
 .player__rate { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 13px; color: var(--on-surface-variant); cursor: pointer; min-width: 56px; }
 .player__rate sl-icon { font-size: 17px; }
+.player__volume { position: relative; display: flex; align-items: center; }
+.player__volpanel {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  margin-bottom: 8px; width: 44px; height: 132px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--outline-variant);
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  opacity: 0; visibility: hidden; transition: opacity .12s ease, visibility .12s ease;
+}
+.player__volume:hover .player__volpanel { opacity: 1; visibility: visible; }
+.player__volpanel sl-range {
+  --track-height: 4px; --thumb-size: 14px;
+  width: 104px;  /* becomes the vertical length once rotated */
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg); transform-origin: center;
+}
 
 /* ===== SETTINGS ===== */
 .set { padding: 48px 64px; }

@@ -525,7 +525,11 @@ def get_session(session_id: str):
     if row is None:
         abort(404)
     row.pop("audio_filename", None)
-    row["result"] = _sessions.load_result(session_id)  # segments/words w/ timestamps
+    result = _sessions.load_result(session_id)  # segments/words w/ timestamps
+    if result is not None:
+        # Reflect edits + small-segment coalescing in the exposed data.
+        result["segments"] = _sessions.current_segments(session_id, result.get("segments", []))
+    row["result"] = result
     return jsonify(row)
 
 
