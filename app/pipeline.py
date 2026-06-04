@@ -81,6 +81,13 @@ def _default_model() -> WhisperModel:
 DEFAULT_MODEL = _default_model().value
 
 
+def _resolve_hf_token() -> Optional[str]:
+    """The HF token in effect (env override, else OS keyring). Kept lazy/cheap."""
+    from app import secret_store
+
+    return secret_store.resolve_hf_token()
+
+
 def cuda_available() -> bool:
     """Whether a CUDA GPU is usable. torch import kept lazy (it is heavy)."""
     try:
@@ -229,7 +236,9 @@ class ModelManager:
         with self._load_lock:
             if self._diarize_loaded:
                 return self._diarize
-            hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+            from app import secret_store
+
+            hf_token = secret_store.resolve_hf_token()
             if not hf_token:
                 logger.warning(
                     "HF_TOKEN not set: diarization disabled (transcribe + align only). "
@@ -252,6 +261,18 @@ class ModelManager:
             finally:
                 self._diarize_loaded = True
             return self._diarize
+
+    def reset_diarize(self) -> None:
+        """Drop the cached diarizer so the next job re-resolves the HF token.
+
+        Called after the token changes at runtime (onboarding / Settings) so a
+        token added or cleared post-boot takes effect without a restart. The
+        diarizer reloads lazily on the next ``ensure_diarize`` / job.
+        """
+        with self._lock:
+            self._diarize = None
+            self._diarize_loaded = False
+            self._diarize_error = None
 
     # --- ASR (per-model, cached) ----------------------------------------
     def load_asr(self, name: str):
@@ -374,9 +395,7 @@ class ModelManager:
             # object is None until the background warm finishes, but that does
             # NOT mean diarization is unavailable. Drive the "no HF_TOKEN" toast
             # off this, not off `diarize`.
-            "diarize_token": bool(
-                os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
-            ),
+            "diarize_token": bool(_resolve_hf_token()),
             "models": [
                 {
                     "name": v,

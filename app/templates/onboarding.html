@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up Manuscript — WhisperX</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23ffffff'/%3E%3Cg transform='translate(3 3) scale(0.625)' fill='%231a1a18'%3E%3Cpath fill-rule='evenodd' d='M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vendor.css') }}">
+  <script type="module" src="{{ url_for('static', filename='vendor/shoelace.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
+</head>
+<body>
+<form id="ob-form" class="ob" method="post" action="/onboarding">
+  {# --- Cover panel (dark colophon): brand, progress, step list --- #}
+  <div class="ob__cover">
+    <div class="ob__brand">
+      <div class="ob__logo"><sl-icon name="soundwave"></sl-icon></div>
+      <div>
+        <div class="ob__wordmark">Manuscript</div>
+        <div class="ob__coverTag">FIRST-RUN SETUP</div>
+      </div>
+    </div>
+    <div class="ob__prog"><i id="ob-prog" style="width:33.33%"></i></div>
+
+    <div class="ob__steps" id="ob-steps">
+      <div class="ob__step ob__step--active" data-step="0">
+        <div class="ob__stepNum">01</div>
+        <div class="ob__stepBody"><div class="t">Welcome</div><div class="d">What Manuscript does</div></div>
+        <div class="ob__stepDone"><sl-icon name="check-lg"></sl-icon></div>
+      </div>
+      <div class="ob__step" data-step="1">
+        <div class="ob__stepNum">02</div>
+        <div class="ob__stepBody"><div class="t">Access</div><div class="d">Hugging Face token</div></div>
+        <div class="ob__stepDone"><sl-icon name="check-lg"></sl-icon></div>
+      </div>
+      <div class="ob__step" data-step="2">
+        <div class="ob__stepNum">03</div>
+        <div class="ob__stepBody"><div class="t">Engine</div><div class="d">Model &amp; backend</div></div>
+        <div class="ob__stepDone"><sl-icon name="check-lg"></sl-icon></div>
+      </div>
+    </div>
+    <div class="ob__colophon">WhisperX engine · local-first<br>Your audio never leaves this device.</div>
+  </div>
+
+  {# --- Content pane: one panel per step --- #}
+  <div class="ob__pane">
+    {# STEP 0 — Welcome #}
+    <section class="ob__step-panel is-active" data-panel="0">
+      <div class="ob__kicker">STEP 01 / 03 · WELCOME</div>
+      <h1 class="ob__title">A quieter way to<br>turn talk into text.</h1>
+      <p class="ob__lede">Manuscript transcribes, separates speakers, and lets you annotate long-form audio — built for researchers, journalists, and anyone who reads closely. Three quick steps and you're set.</p>
+      <div class="ob__content">
+        <div class="ob__feats">
+          <div class="ob__feat"><div class="ob__featNum">01</div><div class="ob__featName">Transcribe</div><div class="ob__featDesc">Word-level timestamps from hours of audio, aligned for precise scrubbing.</div></div>
+          <div class="ob__feat"><div class="ob__featNum">02</div><div class="ob__featName">Diarize</div><div class="ob__featDesc">Automatic speaker separation attributes every line to who said it.</div></div>
+          <div class="ob__feat"><div class="ob__featNum">03</div><div class="ob__featName">Annotate</div><div class="ob__featDesc">Read, highlight, and edit the transcript in sync with playback.</div></div>
+        </div>
+      </div>
+      <div class="ob__foot">
+        <div class="spacer"></div>
+        <button type="button" class="btn-primary lg" data-go="1">Begin setup <sl-icon name="arrow-right"></sl-icon></button>
+      </div>
+    </section>
+
+    {# STEP 1 — Hugging Face token (required + live-verified) #}
+    <section class="ob__step-panel" data-panel="1">
+      <div class="ob__kicker">STEP 02 / 03 · ACCESS</div>
+      <h1 class="ob__title">Connect Hugging Face.</h1>
+      <p class="ob__lede">Speaker diarization runs on pyannote models hosted by Hugging Face. Paste a free access token so Manuscript can download them. We'll verify it before continuing.</p>
+      <div class="ob__content">
+        <label class="ob__label" for="ob-token">Access Token</label>
+        <div class="ob__tokenField">
+          <sl-input id="ob-token" name="token" type="password" password-toggle
+                    placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="{{ token }}" autocomplete="off">
+            <sl-icon slot="prefix" name="key"></sl-icon>
+            <span slot="suffix" class="ob__inputTag">read access</span>
+          </sl-input>
+        </div>
+        <div class="ob__hint">Stored in your operating system's secure keyring — never written to disk in plaintext, never uploaded.</div>
+        <div class="ob__verify" id="ob-verify"></div>
+
+        <div class="ob__help">
+          <div class="ob__helpH"><sl-icon name="question-circle"></sl-icon> How to get your token</div>
+          <ol class="ob__ol">
+            <li>Open <a class="ob__link" href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens <sl-icon name="box-arrow-up-right"></sl-icon></a> and sign in (or create a free account).</li>
+            <li>Click <span class="ob__code">New token</span>, give it a name, and choose the <span class="ob__code">Read</span> role.</li>
+            <li>Accept the user conditions on <a class="ob__link" href="https://huggingface.co/{{ diarize_model }}" target="_blank" rel="noopener"><span class="ob__code">{{ diarize_model }}</span></a>.</li>
+            <li>Copy the token (starts with <span class="ob__code">hf_</span>) and paste it above.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="ob__foot">
+        <button type="button" class="btn-text lg" data-go="0">Back</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn-primary lg" id="ob-verify-btn">Verify &amp; continue <sl-icon name="arrow-right"></sl-icon></button>
+      </div>
+    </section>
+
+    {# STEP 2 — Model size + backend #}
+    <section class="ob__step-panel" data-panel="2">
+      <div class="ob__kicker">STEP 03 / 03 · ENGINE</div>
+      <h1 class="ob__title">Pick your engine.</h1>
+      <p class="ob__lede">Choose a model size and the backend that matches your hardware. You can change both later in Settings.</p>
+      <div class="ob__content">
+        <div class="ob__group">
+          <div class="ob__groupH"><span class="h">Model Size</span><span class="meta">accuracy ↑ · speed ↓</span></div>
+          <div class="ob__sizes">
+            {% for s in sizes %}
+            <div class="ob__size{% if s.id == selected_size %} ob__size--on{% endif %}"
+                 data-size="{{ s.id }}" data-note="{{ s.note }}">
+              <div class="ob__sizeName">{{ s.name }}</div>
+              <div class="ob__sizeMeta">{{ s.meta }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="ob__sizeNote" id="ob-size-note"></div>
+        </div>
+
+        <div class="ob__group">
+          <div class="ob__groupH"><span class="h">Backend</span><span class="meta">compute device</span></div>
+          <div class="ob__backends">
+            {% set be = [
+              ('cpu', 'CPU', 'Runs on any machine — no GPU required. Slowest for long files.', 'Universal · int8', true),
+              ('cuda', 'CUDA', 'NVIDIA GPUs. Highest throughput using float16 compute.', 'NVIDIA · float16', models.cuda_available),
+              ('mlx', 'MLX', 'Apple Silicon (M-series). Native on-device acceleration for macOS.', 'Apple Silicon', models.mlx_available),
+            ] %}
+            {% for id, name, desc, tag, avail in be %}
+            <div class="ob__backend{% if id == models.device %} ob__backend--on{% endif %}{% if not avail %} ob__backend--off{% endif %}"
+                 data-backend="{{ id }}" {% if not avail %}data-unavailable="1"{% endif %}>
+              <div class="ob__beTop"><span class="ob__beName">{{ name }}</span><span class="ob__radio"></span></div>
+              <div class="ob__beDesc">{{ desc }}{% if not avail %} <em>Not available on this host.</em>{% endif %}</div>
+              <div class="ob__beTag">{{ tag }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="ob__foot">
+        <button type="button" class="btn-text lg" data-go="1">Back</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn-primary lg" data-go="3">Finish setup <sl-icon name="check-lg"></sl-icon></button>
+      </div>
+    </section>
+
+    {# STEP 3 — Done summary #}
+    <section class="ob__step-panel" data-panel="3">
+      <div class="ob__done">
+        <div class="ob__check"><sl-icon name="check-lg"></sl-icon></div>
+        <h1 class="ob__doneTitle">You're all set.</h1>
+        <p class="ob__doneLede">Manuscript is configured and ready. Drop in your first recording to generate a transcript.</p>
+        <div class="ob__summary">
+          <div class="ob__summaryItem"><div class="k">Token</div><div class="v" id="ob-sum-token">hf_••••</div></div>
+          <div class="ob__summaryItem"><div class="k">Model</div><div class="v" id="ob-sum-model">—</div></div>
+          <div class="ob__summaryItem"><div class="k">Backend</div><div class="v" id="ob-sum-backend">—</div></div>
+        </div>
+        <div style="margin-top:40px">
+          <button type="submit" class="btn-primary lg" id="ob-enter">Enter Manuscript <sl-icon name="arrow-right"></sl-icon></button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  {# Hidden carriers for the final POST (the sl-input token submits natively). #}
+  <input type="hidden" name="model" id="ob-model" value="{{ selected_size }}">
+  <input type="hidden" name="device" id="ob-device" value="{{ models.device }}">
+</form>
+
+{% if store_error %}
+<script>window.__obStoreError = {{ store_error|tojson }};</script>
+{% endif %}
+
+<script>
+  const form = document.getElementById('ob-form');
+  const prog = document.getElementById('ob-prog');
+  const stepEls = [...document.querySelectorAll('#ob-steps .ob__step')];
+  const panels = [...document.querySelectorAll('.ob__step-panel')];
+  const verifyEl = document.getElementById('ob-verify');
+  const tokenInput = document.getElementById('ob-token');
+  const modelInput = document.getElementById('ob-model');
+  const deviceInput = document.getElementById('ob-device');
+
+  let tokenVerified = false;
+  let step = 0;
+
+  function show(n) {
+    step = n;
+    panels.forEach((p) => p.classList.toggle('is-active', +p.dataset.panel === n));
+    const disp = Math.min(n, 2);              // cover shows the 3 named steps
+    prog.style.width = (n >= 3 ? 100 : ((disp + 1) / 3) * 100) + '%';
+    stepEls.forEach((el, i) => {
+      el.classList.toggle('ob__step--active', i === disp && n < 3);
+      el.classList.toggle('ob__step--done', i < n);
+    });
+    if (n === 3) fillSummary();
+  }
+
+  // Step navigation. Guard: leaving the Access step requires a verified token.
+  document.querySelectorAll('[data-go]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = +btn.dataset.go;
+      if (step === 1 && target > 1 && !tokenVerified) { verifyToken(target); return; }
+      show(target);
+    });
+  });
+
+  document.getElementById('ob-verify-btn').addEventListener('click', () => verifyToken(2));
+
+  // Editing the token invalidates a prior verification.
+  tokenInput.addEventListener('sl-input', () => { tokenVerified = false; });
+
+  async function verifyToken(advanceTo) {
+    const token = (tokenInput.value || '').trim();
+    if (!token) { setNotice(false, 'Enter a token to continue.'); return; }
+    setNotice(null, 'Verifying…');
+    try {
+      const body = new URLSearchParams({ token });
+      const res = await fetch('/onboarding/verify', { method: 'POST', body });
+      const html = await res.text();
+      verifyEl.innerHTML = html;            // server returns the styled notice fragment
+      tokenVerified = res.headers.get('X-Token-OK') === '1';
+      if (tokenVerified) show(advanceTo);
+    } catch (e) {
+      setNotice(false, 'Could not reach the server. Try again.');
+    }
+  }
+
+  function setNotice(ok, text) {
+    const cls = ok === null ? '' : (ok ? 'frag--ok' : 'frag--err');
+    const icon = ok === null ? 'hourglass-split' : (ok ? 'check-circle' : 'exclamation-triangle');
+    verifyEl.innerHTML = `<span class="frag ${cls}"><sl-icon name="${icon}"></sl-icon> ${text}</span>`;
+  }
+
+  // Model-size cards.
+  document.querySelectorAll('.ob__size').forEach((card) => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.ob__size').forEach((c) => c.classList.remove('ob__size--on'));
+      card.classList.add('ob__size--on');
+      modelInput.value = card.dataset.size;
+      updateSizeNote();
+    });
+  });
+  function updateSizeNote() {
+    const on = document.querySelector('.ob__size--on');
+    document.getElementById('ob-size-note').innerHTML = on ? on.dataset.note : '';
+  }
+
+  // Backend cards (unavailable ones are inert).
+  document.querySelectorAll('.ob__backend').forEach((card) => {
+    card.addEventListener('click', () => {
+      if (card.dataset.unavailable) return;
+      document.querySelectorAll('.ob__backend').forEach((c) => c.classList.remove('ob__backend--on'));
+      card.classList.add('ob__backend--on');
+      deviceInput.value = card.dataset.backend;
+    });
+  });
+
+  function fillSummary() {
+    const t = (tokenInput.value || '').trim();
+    document.getElementById('ob-sum-token').textContent = t ? 'hf_••••' + t.slice(-4) : 'hf_••••';
+    const sizeCard = document.querySelector('.ob__size--on .ob__sizeName');
+    document.getElementById('ob-sum-model').textContent = sizeCard ? sizeCard.textContent : modelInput.value;
+    const beCard = document.querySelector('.ob__backend--on .ob__beName');
+    document.getElementById('ob-sum-backend').textContent = beCard ? beCard.textContent : deviceInput.value;
+  }
+
+  updateSizeNote();
+  if (window.__obStoreError) { show(1); setNotice(false, window.__obStoreError); }
+</script>
+</body>
+</html>

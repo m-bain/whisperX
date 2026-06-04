@@ -39,6 +39,17 @@
       </section>
 
       <section class="card">
+        <h2 class="card__h">Hugging Face Access</h2>
+        {% with token_set=token_set, notice=None, notice_ok=True %}
+          {% include 'partials/_hf_token.html' %}
+        {% endwith %}
+        <div class="pref__desc" style="margin-top:18px">
+          Want to walk through setup again?
+          <a class="ob__link" href="/onboarding">Re-run first-run setup</a>.
+        </div>
+      </section>
+
+      <section class="card">
         <h2 class="card__h">Compute Device</h2>
         <div class="pref-row">
           <div>
@@ -81,6 +92,19 @@
   // Clear the loading state after htmx swaps in the confirmation.
   document.getElementById('settings-form').addEventListener('htmx:afterRequest', () => {
     document.getElementById('save-btn').removeAttribute('loading');
+  });
+
+  // HF token card: sl-buttons aren't native submits. Delegate so the handlers
+  // survive the outerHTML swaps that re-render the card.
+  document.addEventListener('click', (e) => {
+    const save = e.target.closest('[data-hf-save]');
+    if (save) {
+      save.setAttribute('loading', '');
+      window.htmx?.trigger(document.getElementById('hf-token-form'), 'submit');
+      return;
+    }
+    const clear = e.target.closest('[data-hf-clear]');
+    if (clear) window.htmx?.trigger(clear.closest('form'), 'submit');
   });
 </script>
 {% endblock %}
