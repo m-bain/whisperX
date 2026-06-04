@@ -347,7 +347,9 @@ body, body * { font-kerning: normal; }
   --track-height: 4px; --thumb-size: 14px;
   width: 104px;  /* becomes the vertical length once rotated */
   position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(-90deg); transform-origin: center;
+  /* Shoelace centers the track 3px below the host's own centre; after the -90deg
+     rotation that becomes a 3px horizontal offset, so nudge the track back. */
+  transform: translate(calc(-50% - 3px), -50%) rotate(-90deg); transform-origin: center;
 }
 
 /* ===== SETTINGS ===== */
