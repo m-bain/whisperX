@@ -3,8 +3,12 @@
    Non-variable @fontsource packages keep the family names 'Literata' /
    'JetBrains Mono' so manuscript.css needs no changes. Bun inlines the woff2
    files referenced here as data URIs, so vendor.css is fully self-contained.
-   We import only the `latin` subset (the UI is English) to keep it small —
-   the full multi-subset import is ~1.7 MB. */
+   The UI chrome is English, but transcript content can be any language, so
+   Literata (the serif used for turn text) also pulls cyrillic subsets. Each
+   subset file carries its own unicode-range, so the cyrillic woff2 is only
+   fetched when Cyrillic text is on the page — no cost for English-only pages.
+   German (ä ö ü ß) is in the latin subset already. JetBrains Mono stays
+   latin-only: it's only used for English UI chrome/metadata. */
 @import "@shoelace-style/shoelace/dist/themes/light.css";
 
 @import "@fontsource/literata/latin-400.css";
@@ -12,6 +16,17 @@
 @import "@fontsource/literata/latin-600.css";
 @import "@fontsource/literata/latin-700.css";
 @import "@fontsource/literata/latin-400-italic.css";
+
+@import "@fontsource/literata/cyrillic-400.css";
+@import "@fontsource/literata/cyrillic-500.css";
+@import "@fontsource/literata/cyrillic-600.css";
+@import "@fontsource/literata/cyrillic-700.css";
+@import "@fontsource/literata/cyrillic-400-italic.css";
+@import "@fontsource/literata/cyrillic-ext-400.css";
+@import "@fontsource/literata/cyrillic-ext-500.css";
+@import "@fontsource/literata/cyrillic-ext-600.css";
+@import "@fontsource/literata/cyrillic-ext-700.css";
+@import "@fontsource/literata/cyrillic-ext-400-italic.css";
 
 @import "@fontsource/jetbrains-mono/latin-400.css";
 @import "@fontsource/jetbrains-mono/latin-500.css";
