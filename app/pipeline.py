@@ -21,7 +21,7 @@ import sys
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +378,7 @@ def run_job(
     min_speakers: Optional[int] = None,
     max_speakers: Optional[int] = None,
     artifact_basename: str = "transcript",
+    progress: Optional[Callable[[str], None]] = None,
 ) -> dict:
     """Run the full pipeline for one audio file.
 
@@ -390,21 +391,30 @@ def run_job(
     from whisperx.audio import SAMPLE_RATE
     from whisperx.utils import get_writer
 
+    def _stage(name: str) -> None:
+        if progress is not None:
+            progress(name)
+
+    _stage("decoding")
     logger.info("Decoding audio: %s", audio_path)
     audio = whisperx.load_audio(audio_path)  # 16kHz mono float32, decoded once
     duration = len(audio) / SAMPLE_RATE
 
+    _stage("transcribing")
     logger.info("Transcribing (batch_size=%d)", BATCH_SIZE)
     result = bundle.asr.transcribe(audio, batch_size=BATCH_SIZE, language=language)
 
     lang = result["language"]
+    _stage("loading_align")  # bundle.align_model may download/load a ~1.26 GB model
     align_model, align_meta = bundle.align_model(lang)
+    _stage("aligning")
     logger.info("Aligning (language=%s)", lang)
     result = whisperx.align(
         result["segments"], align_model, align_meta, audio, _torch_device(bundle.device)
     )
 
     if bundle.diarize is not None:
+        _stage("diarizing")
         logger.info("Diarizing (min=%s max=%s)", min_speakers, max_speakers)
         diarize_df = bundle.diarize(
             audio, min_speakers=min_speakers, max_speakers=max_speakers

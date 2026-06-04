@@ -71,12 +71,33 @@ docker run --rm -p 5000:5000 --env-file app/.env \
 ```
 
 The container runs gunicorn with a **single worker** (the job store, model
-bundle, and warm-up thread are in-memory process-local state); threads serve
-concurrent htmx polls while jobs run one at a time in the app's executor.
+bundle, warm-up thread, and the SSE broker are in-memory process-local state);
+threads serve concurrent SSE streams while jobs run one at a time in the app's
+executor.
 
 Models load in a background thread at startup; the first upload waits until they
 are ready. Jobs run **one at a time** (single-worker executor) so concurrent
 uploads queue rather than overload the CPU.
+
+## Live progress (SSE)
+
+The browser watches a job over **Server-Sent Events**, not polling. As the
+pipeline advances it pushes the current stage (`decoding` → `transcribing` →
+`loading_align` → `aligning` → `diarizing`) to any connected client:
+
+- `events.py::Broker` — in-process, per-`session_id` pub/sub. The background job
+  thread `publish()`es; each open SSE request drains a `subscribe()`d queue.
+- `run_job(progress=…)` reports each stage; `server.py::_on_stage` writes it to
+  the session row **and** publishes it — the SQLite row stays the durable source
+  of truth (used for the initial state on connect and after a reload), the broker
+  only carries live deltas. Terminal `done`/`error` events are published by
+  `JobQueue` *after* the store is updated.
+- `GET /sessions/<id>/events` streams `text/event-stream`: current state on
+  connect, then deltas, `:` keepalive comments while idle, closing on a terminal
+  event.
+- Client: a global `htmx:load` hook in `base.html` opens one native `EventSource`
+  per `[data-sse-session]` element, updates its label as stages arrive, and on a
+  terminal status fetches the final `/sessions/<id>/status` render in place.
 
 ## Model selection
 
@@ -117,12 +138,17 @@ HTTP API:
 ## Layout
 
 - `pipeline.py` — `WhisperModel` enum + `ModelManager` (multi-model cache, shared
-  diarizer/align) + `run_job()` (the 3-stage pipeline).
-- `store.py` — `SessionStore`: SQLite metadata + on-disk audio/artifacts, plus a
-  `settings` key/value table (e.g. the persisted active model).
-- `jobs.py` — `JobQueue`: single-worker background executor over the store.
-- `server.py` — Flask routes; htmx polls `/sessions/<id>/status` until done; model
-  endpoints `GET /models`, `POST /models/active`.
+  diarizer/align) + `run_job(progress=…)` (the 3-stage pipeline, reporting stages).
+- `store.py` — `SessionStore`: SQLite metadata (incl. live `stage`) + on-disk
+  audio/artifacts, plus a `settings` key/value table (e.g. the persisted active
+  model).
+- `events.py` — `Broker`: in-process per-session pub/sub bridging the job thread
+  to SSE clients.
+- `jobs.py` — `JobQueue`: single-worker background executor over the store; emits
+  terminal status to the broker.
+- `server.py` — Flask routes; `GET /sessions/<id>/events` streams live progress
+  over SSE (see *Live progress*); model endpoints `GET /models`,
+  `POST /models/active`.
 - `render.py` — result dict → speaker-grouped transcript HTML.
-- `templates/` — `index.html`, `_status.html` (self-polling), `_result.html`,
+- `templates/` — `index.html`, `_status.html` (SSE-driven status), `_result.html`,
   `_models.html` (active-model switcher), `partials/_model_select.html`.

@@ -162,7 +162,11 @@
 
     // The submit <sl-button> isn't a native submit; trigger the htmx form explicitly.
     document.getElementById('start-btn').addEventListener('click', () => {
-      if (!input.files.length) { alert('Choose an audio file first.'); return; }
+      if (!input.files.length) {
+        notify({ variant: 'danger', duration: 4000, closable: true,
+          html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Choose an audio file first.' });
+        return;
+      }
       document.getElementById('start-btn').setAttribute('loading', '');
       if (window.htmx) htmx.trigger(document.getElementById('upload-form'), 'submit');
     });

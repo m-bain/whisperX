@@ -22,7 +22,7 @@ ARTIFACT_BASENAME = "transcript"
 RESULT_FILE = f"{ARTIFACT_BASENAME}.json"
 
 _COLUMNS = (
-    "id", "filename", "audio_filename", "status", "error", "options",
+    "id", "filename", "audio_filename", "status", "stage", "error", "options",
     "language", "diarized", "model", "num_segments", "duration",
     "created_at", "updated_at",
 )
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     filename      TEXT,
     audio_filename TEXT,
     status        TEXT NOT NULL,
+    stage         TEXT,
     error         TEXT,
     options       TEXT,
     language      TEXT,
@@ -73,6 +74,13 @@ class SessionStore:
         with self._db:
             self._db.execute("PRAGMA journal_mode=WAL")
             self._db.executescript(_SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns missing from older DBs (SQLite has no ADD COLUMN IF NOT EXISTS)."""
+        cols = {r["name"] for r in self._db.execute("PRAGMA table_info(sessions)")}
+        if "stage" not in cols:
+            self._db.execute("ALTER TABLE sessions ADD COLUMN stage TEXT")
 
     # --- path helpers ---------------------------------------------------
     def session_dir(self, session_id: str) -> str:
@@ -112,16 +120,20 @@ class SessionStore:
     def mark_running(self, session_id: str) -> None:
         self._update(session_id, status="running")
 
+    def mark_stage(self, session_id: str, stage: Optional[str]) -> None:
+        """Record the pipeline stage in flight (decoding/transcribing/aligning/…)."""
+        self._update(session_id, stage=stage)
+
     def mark_done(self, session_id: str, *, language: Optional[str], diarized: bool,
                   model: str, num_segments: int, duration: float) -> None:
         self._update(
-            session_id, status="done", error=None, language=language,
+            session_id, status="done", stage=None, error=None, language=language,
             diarized=1 if diarized else 0, model=model,
             num_segments=num_segments, duration=duration,
         )
 
     def mark_error(self, session_id: str, message: str) -> None:
-        self._update(session_id, status="error", error=message)
+        self._update(session_id, status="error", stage=None, error=message)
 
     def rename(self, session_id: str, name: str) -> None:
         """Change a recording's display title (metadata only; audio untouched)."""

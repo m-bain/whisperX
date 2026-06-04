@@ -1,15 +1,21 @@
-{# Self-polling fragment. While running it re-requests /status and swaps itself
-   (outerHTML); when the job finishes the status route returns _result.html. #}
+{# SSE-driven status fragment. The element subscribes to /sessions/<id>/events
+   (initialised by the htmx:load hook in base.html); stage deltas update the
+   label live and a terminal status triggers a fetch of the final render. The
+   initial label below is the server-side state, so a no-JS / pre-connect view
+   still shows something sensible. #}
 {% if state == "error" %}
   <p class="frag frag--err"><sl-icon name="exclamation-octagon"></sl-icon> Job failed: {{ error }}</p>
 {% elif state == "loading_models" %}
   <p class="frag"><sl-spinner></sl-spinner> Models still loading — try again in a moment.</p>
 {% else %}
-  <div hx-get="/sessions/{{ job_id }}/status"
-       hx-trigger="load delay:2s"
-       hx-swap="outerHTML">
-    <p class="frag"><sl-spinner></sl-spinner>
-      {% if state == "queued" %}Queued…{% else %}Transcribing on {{ device_label }}…{% if device_label == "CPU" %} this can take a while.{% endif %}{% endif %}
-    </p>
+  <div data-sse-session="{{ job_id }}" data-device-label="{{ device_label }}">
+    <p class="frag"><sl-spinner></sl-spinner> <span data-status-label>
+      {%- if state == "queued" %}Queued…
+      {%- elif stage == "decoding" %}Decoding audio…
+      {%- elif stage == "loading_align" %}Loading alignment model…
+      {%- elif stage == "aligning" %}Aligning words…
+      {%- elif stage == "diarizing" %}Identifying speakers…
+      {%- else %}Transcribing on {{ device_label }}…{% if device_label == "CPU" %} this can take a while.{% endif %}{% endif %}
+    </span></p>
   </div>
 {% endif %}

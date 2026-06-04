@@ -8,8 +8,10 @@ Config: put HF_TOKEN (and optional WHISPERX_* overrides) in app/.env.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import queue
 import threading
 import uuid
 from pathlib import Path
@@ -37,6 +39,7 @@ from datetime import datetime  # noqa: E402
 
 from flask import (  # noqa: E402 - load .env first
     Flask,
+    Response,
     abort,
     jsonify,
     redirect,
@@ -47,6 +50,7 @@ from flask import (  # noqa: E402 - load .env first
 from werkzeug.utils import secure_filename  # noqa: E402
 
 from app import pipeline  # noqa: E402
+from app.events import Broker  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
 from app.render import render_transcript, resolve_label  # noqa: E402
 from app.store import SessionStore  # noqa: E402
@@ -182,6 +186,7 @@ def run_session(session_id: str) -> None:
         language=opts.get("language"),
         min_speakers=opts.get("min_speakers"),
         max_speakers=opts.get("max_speakers"),
+        progress=lambda s: _on_stage(session_id, s),
     )
     _sessions.mark_done(
         session_id,
@@ -193,7 +198,16 @@ def run_session(session_id: str) -> None:
     )
 
 
-_queue = JobQueue(_sessions, run_session)
+_broker = Broker()
+
+
+def _on_stage(session_id: str, stage: str) -> None:
+    """Persist the live stage (durable, for reconnects) and push it to SSE clients."""
+    _sessions.mark_stage(session_id, stage)
+    _broker.publish(session_id, {"stage": stage})
+
+
+_queue = JobQueue(_sessions, run_session, broker=_broker)
 
 
 def models_ready() -> bool:
@@ -386,7 +400,7 @@ def session_status(session_id: str):
     if status in ("queued", "running"):
         device_label = pipeline.DEVICE_LABELS.get(_manager.device, _manager.device)
         return render_template("_status.html", state=status, job_id=session_id,
-                               device_label=device_label)
+                               device_label=device_label, stage=row.get("stage"))
     if status == "error":
         return render_template("_status.html", state="error", job_id=session_id, error=row["error"])
     # done
@@ -400,6 +414,52 @@ def session_status(session_id: str):
         formats=[f for f in pipeline.OUTPUT_FORMATS
                  if os.path.exists(_sessions.artifact_path(session_id, f))],
     )
+
+
+@app.get("/sessions/<session_id>/events")
+def session_events(session_id: str):
+    """Server-Sent Events stream of stage/status changes for one session.
+
+    Emits the current state immediately on connect (from the durable row), then
+    live deltas via the broker, and closes on a terminal ``status`` event. The
+    client reacts to ``done``/``error`` by fetching the final ``/status`` render.
+    """
+    if _sessions.get(session_id) is None:
+        abort(404)
+
+    def stream():
+        q = _broker.subscribe(session_id)
+        try:
+            # Re-read after subscribing so we can't miss a terminal event that
+            # fired in the gap between the existence check and the subscribe.
+            row = _sessions.get(session_id) or {}
+            status = row.get("status")
+            if status in ("done", "error"):
+                yield _sse({"status": status})
+                return
+            yield _sse({"stage": row["stage"]} if row.get("stage")
+                       else {"status": status or "queued"})
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                except queue.Empty:
+                    yield ": keepalive\n\n"  # comment frame keeps the connection warm
+                    continue
+                yield _sse(event)
+                if event.get("status") in ("done", "error"):
+                    return
+        finally:
+            _broker.unsubscribe(session_id, q)
+
+    return Response(
+        stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
 
 @app.get("/sessions")

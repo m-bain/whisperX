@@ -33,6 +33,48 @@
       }
     }
 
+    // Live job status over Server-Sent Events. Any swapped-in (or page-load)
+    // status fragment carries [data-sse-session]; open one EventSource per
+    // element, update its label as stages arrive, and on a terminal status
+    // fetch the final /status render (result panel or error) in its place.
+    const STAGE_LABELS = {
+      queued: 'Queued…',
+      decoding: 'Decoding audio…',
+      transcribing: 'Transcribing',  // device suffix appended below
+      loading_align: 'Loading alignment model…',
+      aligning: 'Aligning words…',
+      diarizing: 'Identifying speakers…',
+    };
+    document.addEventListener('htmx:load', (evt) => initStatusStreams(evt.target));
+    function initStatusStreams(root) {
+      const nodes = root.matches?.('[data-sse-session]')
+        ? [root] : root.querySelectorAll?.('[data-sse-session]') ?? [];
+      nodes.forEach((box) => {
+        if (box.dataset.sseInit) return;  // idempotent — htmx:load can re-fire
+        box.dataset.sseInit = '1';
+        const id = box.dataset.sseSession;
+        const device = box.dataset.deviceLabel || '';
+        const label = box.querySelector('[data-status-label]');
+        const es = new EventSource(`/sessions/${id}/events`);
+        es.onmessage = (e) => {
+          const d = JSON.parse(e.data);
+          if (d.status === 'done' || d.status === 'error') {
+            es.close();
+            window.htmx?.ajax('GET', `/sessions/${id}/status`, { target: box, swap: 'outerHTML' });
+            return;
+          }
+          if (d.stage && label && STAGE_LABELS[d.stage]) {
+            let text = STAGE_LABELS[d.stage];
+            if (d.stage === 'transcribing') {
+              text += ` on ${device}…` + (device === 'CPU' ? ' this can take a while.' : '');
+            }
+            label.textContent = text;
+          }
+        };
+        // Browser auto-reconnects on transient errors; nothing to do here.
+      });
+    }
+
     // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the icon).
     function notify({ variant = 'primary', closable = false, duration = 4000, html = '' }) {
       const alert = Object.assign(document.createElement('sl-alert'), { variant, closable, duration });
