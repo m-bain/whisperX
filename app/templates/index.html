@@ -133,6 +133,9 @@
   {% if bundle_error %}
     notify({ variant: 'danger', duration: 6000, closable: true,
       html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Model load failed: ' + {{ bundle_error|tojson }} });
+  {% elif diarize_error %}
+    notify({ variant: 'danger', duration: Infinity, closable: true,
+      html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Diarization failed to load (transcription + alignment still work): ' + {{ diarize_error|tojson }} });
   {% elif not models_ready %}
     notify({ variant: 'primary', duration: Infinity, closable: true,
       html: '<sl-spinner slot="icon"></sl-spinner> Loading models — your first upload will wait until they are ready.' });

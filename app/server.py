@@ -217,6 +217,7 @@ def index():
         models_ready=models_ready(),
         bundle_error=active_error,
         diarize_enabled=status["diarize_token"],
+        diarize_error=status["diarize_error"],
         models=status,
     )
 
