@@ -52,7 +52,7 @@ from werkzeug.utils import secure_filename  # noqa: E402
 from app import pipeline  # noqa: E402
 from app.events import Broker  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
-from app.render import render_transcript, resolve_label  # noqa: E402
+from app.render import render_markdown, render_transcript, resolve_label  # noqa: E402
 from app.store import SessionStore  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -549,6 +549,26 @@ def download(session_id: str, fmt: str):
     if not os.path.exists(path):
         abort(404)
     return send_file(path, as_attachment=True)
+
+
+@app.get("/sessions/<session_id>/export.md")
+def export_markdown(session_id: str):
+    """Markdown transcript of the current (edit-overlaid) segments: title, then
+    per-turn speaker tag + timestamp span + text."""
+    row = _sessions.get(session_id)
+    if row is None:
+        abort(404)
+    result = _sessions.load_result(session_id) or {}
+    segments = _sessions.current_segments(session_id, result.get("segments", []))
+    view = {**result, "segments": segments}
+    title = row.get("filename") or "Transcript"
+    md = render_markdown(view, _sessions.get_speaker_names(session_id), title=title)
+    fname = f"{secure_filename(title) or 'transcript'}.md"
+    return Response(
+        md,
+        mimetype="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 @app.post("/sessions/<session_id>/delete")

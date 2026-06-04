@@ -3,6 +3,10 @@
 
 {% block topbar_mid %}
 <div style="flex:1"></div>
+<sl-button size="small" variant="default" href="/sessions/{{ session.id }}/export.md"
+           download title="Export transcript as Markdown">
+  <sl-icon slot="prefix" name="download"></sl-icon> Export
+</sl-button>
 <sl-button id="undo-btn" size="small" variant="default" {% if not can_undo %}disabled{% endif %}
            title="Undo last edit">
   <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon> Undo

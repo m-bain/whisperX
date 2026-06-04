@@ -77,6 +77,34 @@ def _word_spans(seg: dict) -> str:
     return "".join(out)
 
 
+def render_markdown(result: dict, names: Optional[dict] = None,
+                    title: Optional[str] = None) -> str:
+    """Render a result as a Markdown transcript: a title heading, then one block
+    per speaker turn — a bold speaker tag with the turn's ``[start - end]`` span,
+    followed by the turn text. ``names`` maps raw speaker keys to display names.
+
+    Mirrors :func:`render_transcript`'s turn grouping so the export matches the
+    on-screen transcript (including edits, since callers pass the overlaid segments).
+    """
+    lines: list[str] = [f"# {title.strip()}" if title and title.strip() else "# Transcript", ""]
+    segments = result.get("segments", [])
+    if not segments:
+        lines.append("_No speech detected._")
+        return "\n".join(lines) + "\n"
+
+    for t in group_turns(segments):
+        text = t.text.strip()
+        if not text:
+            continue
+        label = resolve_label(t.speaker, names)
+        span = f"{_fmt_ts(t.start)} – {_fmt_ts(t.end)}"
+        lines.append(f"**{label}** [{span}]")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def render_transcript(result: dict, names: Optional[dict] = None) -> str:
     """Group consecutive segments by speaker into turn blocks of timed words.
 
