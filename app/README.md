@@ -27,10 +27,26 @@ cp app/.env.example app/.env   # then edit HF_TOKEN
 
 ## Run (local)
 
+One command (any platform — bundles the frontend, syncs deps, picks the best ASR
+backend: Apple GPU/MLX on Apple Silicon, CUDA on a GPU Linux host, else CPU):
+
+```bash
+./app/start.sh                              # serves on http://localhost:5000
+```
+
+Or do the steps manually:
+
 ```bash
 pip install -r app/requirements.txt        # in the whisperx env
+(cd app && bun install && bun run build)   # bundle frontend deps -> app/static/vendor/
 python -m app.server                        # serves on http://localhost:5000
 ```
+
+The frontend deps (Shoelace, htmx, the Literata/JetBrains Mono fonts) are
+**bundled locally** — no CDNs — by [Bun](https://bun.sh) into `app/static/vendor/`
+(gitignored). Run `bun run build` once (and after changing `app/src/` or the
+pinned versions in `app/package.json`). The Docker image builds this
+automatically, so the step above is only for local runs.
 
 ## Run (Docker)
 

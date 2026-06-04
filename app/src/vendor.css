@@ -1,0 +1,19 @@
+/* Vendored stylesheet: Shoelace light theme + self-hosted Google Fonts.
+   Replaces the Shoelace theme CDN link and the Google Fonts <link> in base.html.
+   Non-variable @fontsource packages keep the family names 'Literata' /
+   'JetBrains Mono' so manuscript.css needs no changes. Bun inlines the woff2
+   files referenced here as data URIs, so vendor.css is fully self-contained.
+   We import only the `latin` subset (the UI is English) to keep it small —
+   the full multi-subset import is ~1.7 MB. */
+@import "@shoelace-style/shoelace/dist/themes/light.css";
+
+@import "@fontsource/literata/latin-400.css";
+@import "@fontsource/literata/latin-500.css";
+@import "@fontsource/literata/latin-600.css";
+@import "@fontsource/literata/latin-700.css";
+@import "@fontsource/literata/latin-400-italic.css";
+
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-600.css";
+@import "@fontsource/jetbrains-mono/latin-700.css";
