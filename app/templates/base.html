@@ -33,6 +33,14 @@
       }
     }
 
+    // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the icon).
+    function notify({ variant = 'primary', closable = false, duration = 4000, html = '' }) {
+      const alert = Object.assign(document.createElement('sl-alert'), { variant, closable, duration });
+      alert.innerHTML = html;
+      document.body.append(alert);
+      customElements.whenDefined('sl-alert').then(() => alert.toast());
+    }
+
     // The New Recording dialog only lives on the index page. From other pages
     // (settings, transcript) there's nothing to open, so send the user home
     // with ?new=1 and let index auto-open it.

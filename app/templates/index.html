@@ -17,14 +17,6 @@
   <h1 class="dash__h">Recent Recordings</h1>
   <p class="dash__sub">Manage and transcribe your captured audio.</p>
 
-  {% if bundle_error %}
-    <p class="frag frag--err" style="margin-top:20px"><sl-icon name="exclamation-octagon"></sl-icon> Model load failed: {{ bundle_error }}</p>
-  {% elif not models_ready %}
-    <p class="frag" style="margin-top:20px"><sl-spinner></sl-spinner> Loading models — your first upload will wait until they are ready.</p>
-  {% elif not diarize_enabled %}
-    <p class="frag" style="margin-top:20px"><sl-icon name="info-circle"></sl-icon> Diarization disabled (no HF_TOKEN). Transcription + alignment only.</p>
-  {% endif %}
-
   <div class="dash__grid">
     {% if featured %}
       <article class="feature" data-name="{{ featured.name|lower }}">
@@ -136,6 +128,19 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  // Dashboard status notices as toasts (out of page flow) instead of inline banners.
+  {% if bundle_error %}
+    notify({ variant: 'danger', duration: 6000, closable: true,
+      html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Model load failed: ' + {{ bundle_error|tojson }} });
+  {% elif not models_ready %}
+    notify({ variant: 'primary', duration: Infinity, closable: true,
+      html: '<sl-spinner slot="icon"></sl-spinner> Loading models — your first upload will wait until they are ready.' });
+  {% elif not diarize_enabled %}
+    notify({ variant: 'neutral', duration: 5000,
+      html: '<sl-icon slot="icon" name="info-circle"></sl-icon> Diarization disabled (no HF_TOKEN). Transcription + alignment only.' });
+  {% endif %}
+</script>
 <script>
   // Dropzone: click to browse, drag-drop to set the hidden file input.
   (function () {
