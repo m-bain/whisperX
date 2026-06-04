@@ -216,7 +216,7 @@ def index():
         default_language=_sessions.get_setting("default_language", ""),
         models_ready=models_ready(),
         bundle_error=active_error,
-        diarize_enabled=status["diarize"],
+        diarize_enabled=status["diarize_token"],
         models=status,
     )
 

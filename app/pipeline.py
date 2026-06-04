@@ -350,6 +350,13 @@ class ModelManager:
             "mlx_available": mlx_available(),
             "diarize": self._diarize is not None,
             "diarize_error": self._diarize_error,
+            # Token presence is independent of lazy-load timing: the diarizer
+            # object is None until the background warm finishes, but that does
+            # NOT mean diarization is unavailable. Drive the "no HF_TOKEN" toast
+            # off this, not off `diarize`.
+            "diarize_token": bool(
+                os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+            ),
             "models": [
                 {
                     "name": v,
