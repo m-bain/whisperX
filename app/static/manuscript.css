@@ -75,7 +75,7 @@ body, body * { font-kerning: normal; }
 .screen {
   position: relative;
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--surface);
   color: var(--on-surface);
   overflow: hidden;
@@ -147,7 +147,7 @@ body, body * { font-kerning: normal; }
 .avatar--round { border-radius: 50%; }
 
 /* ===== MAIN + TOPBAR ===== */
-.main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 100vh; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .topbar {
   height: 80px; flex: 0 0 80px;
   border-bottom: 1px solid var(--outline-variant);
