@@ -52,7 +52,7 @@
   </script>
   {% block head %}{% endblock %}
 </head>
-<body>
+<body hx-boost="true">
 <div class="screen">
   <aside class="sb">
     <a class="sb__brand" href="/">
@@ -94,17 +94,9 @@
       <div class="topbar__tabs">
         <span class="topbar__tab topbar__tab--active">Dashboard</span>
       </div>
-      {% block topbar_mid %}
-      <div class="topbar__search">
-        <sl-icon name="search"></sl-icon>
-        <input id="search" type="text" placeholder="Search transcripts..." autocomplete="off">
-      </div>
-      {% endblock %}
+      {% block topbar_mid %}<div style="flex:1"></div>{% endblock %}
       <div class="topbar__right">
-        {% block topbar_action %}
-        <sl-button size="small" variant="default" onclick="document.getElementById('new-recording')?.show()">Upload</sl-button>
-        {% endblock %}
-        <a class="icon-btn" href="https://github.com/m-bain/whisperX" target="_blank" rel="noopener"><sl-icon name="question-circle"></sl-icon></a>
+        {% block topbar_action %}{% endblock %}
       </div>
     </header>
 

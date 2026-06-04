@@ -8,7 +8,7 @@
   <div class="downloads">
     <a class="dl" href="/sessions/{{ job_id }}/view"><sl-icon name="journal-text"></sl-icon> Open Transcript</a>
     {% for fmt in formats %}
-      <a class="dl" href="/sessions/{{ job_id }}/download/{{ fmt }}">{{ fmt }}</a>
+      <a class="dl" hx-boost="false" href="/sessions/{{ job_id }}/download/{{ fmt }}">{{ fmt }}</a>
     {% endfor %}
   </div>
   <div style="margin-top:18px">
