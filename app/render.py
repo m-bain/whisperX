@@ -12,6 +12,8 @@ import re
 from html import escape
 from typing import Optional
 
+from app.edits import group_turns
+
 
 def _fmt_ts(seconds: Optional[float]) -> str:
     if seconds is None:
@@ -85,22 +87,15 @@ def render_transcript(result: dict, names: Optional[dict] = None) -> str:
     if not segments:
         return '<p class="tr__empty">No speech detected.</p>'
 
-    turns: list[dict] = []
-    for seg in segments:
-        raw = seg.get("speaker")
-        speaker = raw or "Speaker"
-        spans = _word_spans(seg)
-        if not spans:
-            continue
-        if turns and turns[-1]["speaker"] == speaker:
-            turns[-1]["html"] += spans
-        else:
-            turns.append({"speaker": speaker, "raw": raw, "html": spans,
-                          "start": seg.get("start")})
-
     rows = []
-    for t in turns:
-        raw = t["raw"]
+    for t in group_turns(segments):
+        # Turn indices come straight from group_turns so the edit endpoint and the
+        # rendered DOM agree on what each `data-turn` refers to. Turns with no
+        # visible text are skipped from the DOM but never renumber the rest.
+        html = "".join(_word_spans(segments[k]) for k in t.seg_indices)
+        if not html.strip():
+            continue
+        raw = t.speaker
         label = resolve_label(raw, names)
         # Only diarized turns (a real speaker key) get the rename affordance.
         if raw:
@@ -116,13 +111,13 @@ def render_transcript(result: dict, names: Optional[dict] = None) -> str:
             speaker_attr = ""
             edit = ""
         rows.append(
-            '<div class="turn">'
+            f'<div class="turn" data-turn="{t.index}">'
             '<div class="turn__who">'
             f'<div class="turn__speaker"{speaker_attr}>{escape(label)}</div>'
             f'{edit}'
-            f'<div class="turn__time">{_fmt_ts(t["start"])}</div>'
+            f'<div class="turn__time">{_fmt_ts(t.start)}</div>'
             "</div>"
-            f'<div class="turn__text">{t["html"]}</div>'
+            f'<div class="turn__text" data-text="{escape(t.text, quote=True)}">{html}</div>'
             "</div>"
         )
     return "\n".join(rows)

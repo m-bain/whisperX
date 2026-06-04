@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block title %}{{ session.name }} — Manuscript{% endblock %}
 
-{% block topbar_mid %}<div style="flex:1"></div>{% endblock %}
+{% block topbar_mid %}
+<div style="flex:1"></div>
+<sl-button id="undo-btn" size="small" variant="default" {% if not can_undo %}disabled{% endif %}
+           title="Undo last edit">
+  <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon> Undo
+</sl-button>
+{% endblock %}
 
 {% block content %}
 <div class="tr">
@@ -81,9 +87,16 @@
   const rateLabel = document.getElementById('rate-label');
 
   // Words with timestamps, sorted by start — drives synced highlighting.
-  const segs = [...document.querySelectorAll('#tr-body .seg[data-start]')]
-    .map(el => ({ el, start: parseFloat(el.dataset.start), end: parseFloat(el.dataset.end) }))
-    .sort((a, b) => a.start - b.start);
+  // Rebuilt (not const) so it survives a transcript body swap after an edit/undo.
+  let segs = [];
+  function rebuildSegs() {
+    segs = [...document.querySelectorAll('#tr-body .seg[data-start]')]
+      .map(el => ({ el, start: parseFloat(el.dataset.start), end: parseFloat(el.dataset.end) }))
+      .sort((a, b) => a.start - b.start);
+    activeIdx = -1;
+    render();
+  }
+  window.rebuildSegs = rebuildSegs;
 
   const fmt = (s) => {
     s = Math.max(0, Math.floor(s || 0));
@@ -171,7 +184,119 @@
     rateLabel.textContent = (rates[ri] % 1 === 0 ? rates[ri].toFixed(1) : rates[ri]) + 'x';
   });
 
-  render();
+  rebuildSegs();
+})();
+</script>
+
+<script>
+// Inline turn editing: double-click a turn's text -> contenteditable -> persist.
+// Double-click (not single) so single-click still seeks the audio. On save the
+// server returns the whole re-rendered body; we swap it and rebuild the highlight
+// index. Per-id endpoint -> plain fetch(), not hx-post (htmx process-time gotcha).
+(function () {
+  const sessionId = "{{ session.id }}";
+  const body = document.getElementById('tr-body');
+  const undoBtn = document.getElementById('undo-btn');
+  let editing = null;   // the .turn__text being edited
+  let original = null;  // its innerHTML, for cancel/restore
+  let pending = false;  // a save() POST is in flight (its swapBody will re-render)
+
+  function enter(el) {
+    // Block while a save is mid-flight: that save's swapBody will replace the body
+    // (this element included), so entering edit now would be clobbered.
+    if (editing || pending) return;
+    editing = el;
+    original = el.innerHTML;
+    el.textContent = el.dataset.text || el.innerText;
+    el.setAttribute('contenteditable', 'true');
+    el.classList.add('is-editing');
+    el.focus();
+    const r = document.createRange();
+    r.selectNodeContents(el); r.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(r);
+  }
+
+  // Leave edit mode without saving. Null `editing` FIRST: removeAttribute() blurs
+  // the element synchronously, which fires `focusout` re-entrantly — the guard must
+  // already see editing===null so it doesn't turn a cancel into a save.
+  function cancel() {
+    if (!editing) return;
+    const el = editing, prev = original;
+    editing = null; original = null;
+    el.innerHTML = prev;
+    el.removeAttribute('contenteditable');
+    el.classList.remove('is-editing');
+  }
+
+  function setUndo(can) {
+    if (!undoBtn) return;
+    if (can) undoBtn.removeAttribute('disabled');
+    else undoBtn.setAttribute('disabled', '');
+  }
+
+  function swapBody(resp, html) {
+    // Clear edit state before replacing the DOM so the detach can't fire a stray save.
+    editing = null; original = null;
+    body.innerHTML = html;
+    window.rebuildSegs && window.rebuildSegs();
+    setUndo(resp.headers.get('X-Can-Undo') === '1');
+  }
+
+  async function save() {
+    if (!editing) return;
+    const el = editing, prev = original;
+    const turn = el.closest('.turn').dataset.turn;
+    const text = el.innerText.trim();
+    // Null `editing` BEFORE removeAttribute(): it blurs the element synchronously and
+    // re-enters this handler via `focusout`; the guard must already be cleared so a
+    // single save can't fire twice (one edit -> one POST -> one delta).
+    editing = null; original = null;
+    el.removeAttribute('contenteditable');
+    el.classList.remove('is-editing');
+    // Unchanged text (e.g. you opened a turn then clicked away, or switched turns):
+    // restore the timed word spans and skip the round-trip entirely. Without this,
+    // merely focusing a turn would POST it and collapse its segments.
+    if (text === (el.dataset.text || '').trim()) {
+      el.innerHTML = prev;
+      return;
+    }
+    pending = true;
+    try {
+      const resp = await fetch(`/sessions/${sessionId}/turns/${turn}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'text=' + encodeURIComponent(text),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      swapBody(resp, await resp.text());
+    } catch (err) {
+      el.innerHTML = prev;  // restore on failure
+      notify({ variant: 'danger', closable: true,
+               html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Could not save the edit.' });
+    } finally {
+      pending = false;
+    }
+  }
+
+  body.addEventListener('dblclick', (e) => {
+    const t = e.target.closest('.turn__text');
+    if (t) { e.preventDefault(); enter(t); }
+  });
+  body.addEventListener('keydown', (e) => {
+    if (!editing || e.target !== editing) return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  });
+  body.addEventListener('focusout', (e) => {
+    if (editing && e.target === editing) save();
+  });
+
+  undoBtn && undoBtn.addEventListener('click', async () => {
+    const resp = await fetch(`/sessions/${sessionId}/undo`, { method: 'POST' });
+    if (!resp.ok) return;
+    swapBody(resp, await resp.text());
+  });
 })();
 </script>
 

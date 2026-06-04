@@ -272,14 +272,54 @@ def view_session(session_id: str):
         abort(404)
     if row["status"] != "done":
         return redirect("/")
-    result = _sessions.load_result(session_id) or {}
     return render_template(
         "transcript.html",
         session=_card(row),
-        transcript=render_transcript(result, _sessions.get_speaker_names(session_id)),
+        transcript=_render_body(session_id),
+        can_undo=_sessions.edit_history_len(session_id) > 0,
         formats=[f for f in pipeline.OUTPUT_FORMATS
                  if os.path.exists(_sessions.artifact_path(session_id, f))],
     )
+
+
+def _render_body(session_id: str) -> str:
+    """Render the transcript body from the current (edit-overlaid) segments."""
+    result = _sessions.load_result(session_id) or {}
+    segments = _sessions.current_segments(session_id, result.get("segments", []))
+    view = {**result, "segments": segments}
+    return render_transcript(view, _sessions.get_speaker_names(session_id))
+
+
+def _body_response(session_id: str):
+    """Transcript body HTML + an X-Can-Undo header so the client can toggle Undo."""
+    resp = app.make_response(_render_body(session_id))
+    resp.headers["X-Can-Undo"] = "1" if _sessions.edit_history_len(session_id) > 0 else "0"
+    return resp
+
+
+@app.post("/sessions/<session_id>/turns/<int:turn_index>")
+def edit_turn(session_id: str, turn_index: int):
+    """Edit one turn's text (collapses its segments). Returns the re-rendered body.
+
+    Empty text deletes the turn. The whole body is returned (not just the turn) so a
+    deletion that re-merges neighbours and the shifted turn indices stay consistent.
+    """
+    if _sessions.get(session_id) is None:
+        abort(404)
+    try:
+        _sessions.save_turn_edit(session_id, turn_index, request.form.get("text", ""))
+    except IndexError:
+        abort(400, "Unknown turn.")
+    return _body_response(session_id)
+
+
+@app.post("/sessions/<session_id>/undo")
+def undo_edit(session_id: str):
+    """Reverse the most recent turn edit. Returns the re-rendered body."""
+    if _sessions.get(session_id) is None:
+        abort(404)
+    _sessions.undo_turn_edit(session_id)
+    return _body_response(session_id)
 
 
 @app.post("/sessions/<session_id>/rename")
@@ -415,11 +455,10 @@ def session_status(session_id: str):
     if status == "error":
         return render_template("_status.html", state="error", job_id=session_id, error=row["error"])
     # done
-    result = _sessions.load_result(session_id) or {}
     return render_template(
         "_result.html",
         job_id=session_id,
-        transcript=render_transcript(result, _sessions.get_speaker_names(session_id)),
+        transcript=_render_body(session_id),
         diarized=bool(row.get("diarized")),
         language=row.get("language"),
         formats=[f for f in pipeline.OUTPUT_FORMATS

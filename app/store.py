@@ -20,6 +20,9 @@ from typing import Optional
 # from the session id alone (no absolute paths stored in the DB).
 ARTIFACT_BASENAME = "transcript"
 RESULT_FILE = f"{ARTIFACT_BASENAME}.json"
+# Per-session edit overlay: edited segments + capped delta history. Absent until
+# the first edit; the original RESULT_FILE is never mutated.
+EDITS_FILE = f"{ARTIFACT_BASENAME}.edits.json"
 
 _COLUMNS = (
     "id", "filename", "audio_filename", "status", "stage", "error", "options",
@@ -104,6 +107,78 @@ class SessionStore:
             return None
         with open(path, encoding="utf-8") as f:
             return json.load(f)
+
+    # --- transcript edits (non-destructive overlay; original never mutated) ---
+    def edits_path(self, session_id: str) -> str:
+        return os.path.join(self.session_dir(session_id), EDITS_FILE)
+
+    def load_edits(self, session_id: str) -> Optional[dict]:
+        path = self.edits_path(session_id)
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    def current_segments(self, session_id: str, original_segments: list) -> list:
+        """The edited segment list if an overlay exists, else the original."""
+        edits = self.load_edits(session_id)
+        if edits and edits.get("segments") is not None:
+            return edits["segments"]
+        return original_segments
+
+    def edit_history_len(self, session_id: str) -> int:
+        edits = self.load_edits(session_id)
+        return len(edits["history"]) if edits and edits.get("history") else 0
+
+    def _original_segments(self, session_id: str) -> list:
+        return (self.load_result(session_id) or {}).get("segments", [])
+
+    def _write_edits(self, session_id: str, segments: list, history: list) -> None:
+        """Atomically write the overlay (tmp + os.replace) so readers never see a
+        half-written file."""
+        path = self.edits_path(session_id)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "segments": segments, "history": history},
+                      f, ensure_ascii=False)
+        os.replace(tmp, path)
+
+    def save_turn_edit(self, session_id: str, turn_index: int, new_text: str) -> list:
+        """Apply a turn edit, append the delta (history capped), persist. Returns the
+        new segment list. Raises IndexError for an unknown turn."""
+        from app.edits import HISTORY_LIMIT, apply_turn_edit
+        with self._lock:
+            edits = self.load_edits(session_id)
+            segments = edits["segments"] if edits else self._original_segments(session_id)
+            history = list(edits["history"]) if edits else []
+            new_segments, delta = apply_turn_edit(segments, turn_index, new_text)
+            history.append(delta)
+            if len(history) > HISTORY_LIMIT:
+                history = history[-HISTORY_LIMIT:]
+            self._write_edits(session_id, new_segments, history)
+            return new_segments
+
+    def undo_turn_edit(self, session_id: str) -> list:
+        """Reverse the most recent edit. Returns the resulting segment list. A no-op
+        (returns original) when there is nothing to undo; drops the overlay file once
+        fully reverted to the pristine original."""
+        from app.edits import undo_last
+        with self._lock:
+            edits = self.load_edits(session_id)
+            original = self._original_segments(session_id)
+            if not edits or not edits.get("history"):
+                # Nothing left to undo. Return the live state — which, once the
+                # oldest deltas have rolled off the 100-cap, may differ from the
+                # pristine original (those edits are no longer reversible).
+                return edits["segments"] if edits else original
+            new_segments, new_history = undo_last(edits["segments"], edits["history"])
+            if not new_history and new_segments == original:
+                path = self.edits_path(session_id)
+                if os.path.exists(path):
+                    os.remove(path)
+                return original
+            self._write_edits(session_id, new_segments, new_history)
+            return new_segments
 
     # --- writes ---------------------------------------------------------
     def create(self, session_id: str, filename: str, audio_filename: str,

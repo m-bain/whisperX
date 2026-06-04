@@ -177,3 +177,7 @@ app/data/
 app/static/vendor/
 node_modules/
 app/node_modules/
+
+# playwright-cli scratch: per-session snapshots/console logs + driver config
+.playwright-cli/
+.playwright/

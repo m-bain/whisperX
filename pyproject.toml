@@ -38,6 +38,11 @@ whisperx = "whisperx.__main__:cli"
 [build-system]
 requires = ["setuptools"]
 
+[tool.pytest.ini_options]
+# The web app (`app/`) isn't an installed package; put the repo root on sys.path
+# so `import app.*` resolves in tests (whisperx is installed separately).
+pythonpath = ["."]
+
 [tool.setuptools]
 include-package-data = true
 
