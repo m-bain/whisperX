@@ -118,9 +118,9 @@
     <div id="dialog-status"></div>
 
     <div slot="footer" style="display:flex;gap:14px;justify-content:flex-end">
-      <sl-button variant="default" onclick="document.getElementById('new-recording').hide()">Cancel</sl-button>
+      <sl-button variant="default" id="cancel-btn">Cancel</sl-button>
       <sl-button variant="primary" id="start-btn">
-        Start Processing <sl-icon slot="suffix" name="arrow-right"></sl-icon>
+        <span id="start-label">Start Processing</span> <sl-icon slot="suffix" name="arrow-right"></sl-icon>
       </sl-button>
     </div>
   </form>
@@ -160,15 +160,58 @@
     ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('is-over'); }));
     dz.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; show(); } });
 
+    // The footer has two modes. "upload": [Cancel] [Start Processing]. "done"
+    // (set once the job finishes): [Back to recordings] [View transcript]. The
+    // same two buttons are reused — resetFooter() restores upload mode.
+    const startBtn = document.getElementById('start-btn');
+    const startLabel = document.getElementById('start-label');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const dialog = document.getElementById('new-recording');
+
+    function resetFooter() {
+      startBtn.dataset.mode = 'upload';
+      startBtn.removeAttribute('loading');
+      startLabel.textContent = 'Start Processing';
+      cancelBtn.dataset.mode = 'upload';
+      cancelBtn.textContent = 'Cancel';
+    }
+    resetFooter();
+
     // The submit <sl-button> isn't a native submit; trigger the htmx form explicitly.
-    document.getElementById('start-btn').addEventListener('click', () => {
+    startBtn.addEventListener('click', () => {
+      if (startBtn.dataset.mode === 'done') { location.href = startBtn.dataset.viewUrl; return; }
       if (!input.files.length) {
         notify({ variant: 'danger', duration: 4000, closable: true,
           html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Choose an audio file first.' });
         return;
       }
-      document.getElementById('start-btn').setAttribute('loading', '');
+      startBtn.setAttribute('loading', '');
       if (window.htmx) htmx.trigger(document.getElementById('upload-form'), 'submit');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      if (cancelBtn.dataset.mode === 'done') { location.href = '/'; return; }  // back to recordings
+      dialog.hide();
+    });
+
+    // Job finished: turn the footer into the post-run nav (or just un-stick the
+    // spinner on error so the user can fix their input and retry).
+    document.addEventListener('job:terminal', (e) => {
+      if (e.detail.status === 'error') { startBtn.removeAttribute('loading'); return; }
+      startBtn.dataset.mode = 'done';
+      startBtn.dataset.viewUrl = `/sessions/${e.detail.id}/view`;
+      startBtn.removeAttribute('loading');
+      startLabel.textContent = 'View transcript';
+      cancelBtn.dataset.mode = 'done';
+      cancelBtn.textContent = 'Back to recordings';
+    });
+
+    // Reopening the dialog (any path → sl-show) starts a fresh upload.
+    dialog?.addEventListener('sl-show', () => {
+      resetFooter();
+      document.getElementById('dialog-status').innerHTML = '';
+      input.value = '';
+      label.hidden = true;
     });
   })();
 

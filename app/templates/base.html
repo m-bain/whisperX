@@ -68,6 +68,9 @@
           if (d.status === 'done' || d.status === 'error') {
             es.close();
             window.htmx?.ajax('GET', `/sessions/${id}/status`, { target: box, swap: 'outerHTML' });
+            // Let page-specific UI (e.g. the New Recording dialog footer) react.
+            box.dispatchEvent(new CustomEvent('job:terminal',
+              { bubbles: true, detail: { id, status: d.status } }));
             return;
           }
           if (d.stage && label && STAGE_LABELS[d.stage]) {
