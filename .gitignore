@@ -172,3 +172,8 @@ cython_debug/
 
 # WhisperX web app: persisted sessions (audio + transcripts)
 app/data/
+
+# WhisperX web app: bundled frontend deps (built with `cd app && bun run build`)
+app/static/vendor/
+node_modules/
+app/node_modules/

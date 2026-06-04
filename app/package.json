@@ -1,0 +1,13 @@
+{
+  "name": "whisperx-web-assets",
+  "private": true,
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.4",
+    "@shoelace-style/shoelace": "2.20.1",
+    "@fontsource/literata": "^5",
+    "@fontsource/jetbrains-mono": "^5"
+  }
+}
