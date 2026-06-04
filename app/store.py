@@ -124,6 +124,10 @@ class SessionStore:
         """Record the pipeline stage in flight (decoding/transcribing/aligning/…)."""
         self._update(session_id, stage=stage)
 
+    def mark_duration(self, session_id: str, duration: float) -> None:
+        """Persist the clip length once known (after decode) so ETAs survive reconnects."""
+        self._update(session_id, duration=duration)
+
     def mark_done(self, session_id: str, *, language: Optional[str], diarized: bool,
                   model: str, num_segments: int, duration: float) -> None:
         self._update(

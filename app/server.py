@@ -187,6 +187,7 @@ def run_session(session_id: str) -> None:
         min_speakers=opts.get("min_speakers"),
         max_speakers=opts.get("max_speakers"),
         progress=lambda s: _on_stage(session_id, s),
+        on_duration=lambda d: _sessions.mark_duration(session_id, d),
     )
     _sessions.mark_done(
         session_id,
@@ -201,10 +202,20 @@ def run_session(session_id: str) -> None:
 _broker = Broker()
 
 
+def _stage_event(stage: str, duration) -> dict:
+    """SSE payload for a stage, with an ETA (seconds) when one can be estimated."""
+    event = {"stage": stage}
+    eta = pipeline.eta_seconds(stage, duration)
+    if eta is not None:
+        event["eta"] = round(eta)
+    return event
+
+
 def _on_stage(session_id: str, stage: str) -> None:
     """Persist the live stage (durable, for reconnects) and push it to SSE clients."""
     _sessions.mark_stage(session_id, stage)
-    _broker.publish(session_id, {"stage": stage})
+    row = _sessions.get(session_id) or {}
+    _broker.publish(session_id, _stage_event(stage, row.get("duration")))
 
 
 _queue = JobQueue(_sessions, run_session, broker=_broker)
@@ -437,7 +448,7 @@ def session_events(session_id: str):
             if status in ("done", "error"):
                 yield _sse({"status": status})
                 return
-            yield _sse({"stage": row["stage"]} if row.get("stage")
+            yield _sse(_stage_event(row["stage"], row.get("duration")) if row.get("stage")
                        else {"status": status or "queued"})
             while True:
                 try:

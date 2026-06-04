@@ -38,13 +38,20 @@
     // element, update its label as stages arrive, and on a terminal status
     // fetch the final /status render (result panel or error) in its place.
     const STAGE_LABELS = {
-      queued: 'Queued…',
-      decoding: 'Decoding audio…',
+      queued: 'Queued',
+      decoding: 'Decoding audio',
       transcribing: 'Transcribing',  // device suffix appended below
-      loading_align: 'Loading alignment model…',
-      aligning: 'Aligning words…',
-      diarizing: 'Identifying speakers…',
+      loading_align: 'Loading alignment model',
+      aligning: 'Aligning words',
+      diarizing: 'Identifying speakers',
     };
+    // "~1m 39s left" / "~42s left" — an estimate, so keep it loose.
+    function fmtEta(s) {
+      s = Math.round(s);
+      if (s < 60) return `· ~${s}s left`;
+      const m = Math.floor(s / 60), r = s % 60;
+      return r ? `· ~${m}m ${r}s left` : `· ~${m}m left`;
+    }
     document.addEventListener('htmx:load', (evt) => initStatusStreams(evt.target));
     function initStatusStreams(root) {
       const nodes = root.matches?.('[data-sse-session]')
@@ -65,9 +72,10 @@
           }
           if (d.stage && label && STAGE_LABELS[d.stage]) {
             let text = STAGE_LABELS[d.stage];
-            if (d.stage === 'transcribing') {
-              text += ` on ${device}…` + (device === 'CPU' ? ' this can take a while.' : '');
-            }
+            if (d.stage === 'transcribing') text += ` on ${device}`;
+            text += '…';
+            if (d.eta) text += ` ${fmtEta(d.eta)}`;
+            else if (d.stage === 'transcribing' && device === 'CPU') text += ' this can take a while.';
             label.textContent = text;
           }
         };

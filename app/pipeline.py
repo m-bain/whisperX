@@ -129,6 +129,26 @@ OUTPUT_FORMATS = ("srt", "vtt", "txt", "json")
 # get_writer reads these keys directly (whisperx/utils.py).
 WRITER_OPTIONS = {"max_line_width": None, "max_line_count": None, "highlight_words": False}
 
+# Rough per-stage wall-time ≈ RTF × audio seconds, used only for a UI ETA hint.
+# Calibrated on a CPU run of the 'small' model over a 191 s clip (transcribe 42 s,
+# align 36 s, diarize ~97 s net of the one-time model download). GPU runs are far
+# faster, so treat these as loose upper bounds, not promises. Stages without an
+# entry (decoding, loading_align) are skipped: too fast or download-dominated to
+# estimate meaningfully.
+STAGE_RTF = {
+    "transcribing": 0.22,
+    "aligning": 0.19,
+    "diarizing": 0.51,
+}
+
+
+def eta_seconds(stage: str, duration: Optional[float]) -> Optional[float]:
+    """Estimated seconds for ``stage`` on a clip of ``duration`` s, or None."""
+    rtf = STAGE_RTF.get(stage)
+    if rtf is None or not duration:
+        return None
+    return rtf * duration
+
 
 @dataclass
 class ModelBundle:
@@ -379,6 +399,7 @@ def run_job(
     max_speakers: Optional[int] = None,
     artifact_basename: str = "transcript",
     progress: Optional[Callable[[str], None]] = None,
+    on_duration: Optional[Callable[[float], None]] = None,
 ) -> dict:
     """Run the full pipeline for one audio file.
 
@@ -399,6 +420,8 @@ def run_job(
     logger.info("Decoding audio: %s", audio_path)
     audio = whisperx.load_audio(audio_path)  # 16kHz mono float32, decoded once
     duration = len(audio) / SAMPLE_RATE
+    if on_duration is not None:
+        on_duration(duration)  # report early so later stages can be ETA'd live
 
     _stage("transcribing")
     logger.info("Transcribing (batch_size=%d)", BATCH_SIZE)
