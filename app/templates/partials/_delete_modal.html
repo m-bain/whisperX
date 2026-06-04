@@ -1,0 +1,56 @@
+<sl-dialog id="delete-modal" label="Delete recording" style="--width:440px">
+  <div>Delete <strong id="delete-name"></strong>? This permanently removes the recording and its transcript.</div>
+  <div slot="footer" style="display:flex;gap:14px;justify-content:flex-end">
+    <sl-button variant="default" onclick="document.getElementById('delete-modal').hide()">Cancel</sl-button>
+    <sl-button variant="danger" id="delete-confirm">Delete</sl-button>
+  </div>
+</sl-dialog>
+
+<script>
+// Delete recording: trash button -> confirm modal -> persist + live row removal.
+// Generic + delegated, mirrors _rename_modal: the post URL is per-recording so a
+// shared modal can't rely on a fixed htmx hx-post (htmx binds attrs at process time).
+(function () {
+  const modal = document.getElementById('delete-modal');
+  const nameEl = document.getElementById('delete-name');
+  const confirmBtn = document.getElementById('delete-confirm');
+  let deletingId = null;
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.rec-del');
+    if (!btn) return;
+    e.stopPropagation();
+    deletingId = btn.dataset.id;
+    nameEl.textContent = btn.dataset.name || 'this recording';
+    modal.show();
+  });
+
+  async function remove() {
+    if (!deletingId) return;
+    const id = deletingId;
+    confirmBtn.setAttribute('loading', '');
+    try {
+      const res = await fetch('/sessions/' + id + '/delete', { method: 'POST' });
+      if (!res.ok) return;
+      // Deleting the featured card promotes the next recording + shifts summary:
+      // let the server re-render rather than patching that locally.
+      const targets = document.querySelectorAll(`.rec-del[data-id="${CSS.escape(id)}"]`);
+      if ([...targets].some(el => el.closest('.feature'))) { location.reload(); return; }
+      // Otherwise drop the older row(s) live and refresh the empty state.
+      targets.forEach(el => el.closest('.older__row')?.remove());
+      const older = document.querySelector('.older');
+      if (older && !older.querySelector('.older__row') && !older.querySelector('.older__empty')) {
+        const empty = document.createElement('div');
+        empty.className = 'older__empty';
+        empty.textContent = 'No other recordings.';
+        older.appendChild(empty);
+      }
+      modal.hide();
+    } finally {
+      confirmBtn.removeAttribute('loading');
+    }
+  }
+
+  confirmBtn.addEventListener('click', remove);
+})();
+</script>

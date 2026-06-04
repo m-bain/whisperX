@@ -31,6 +31,10 @@
         <div class="feature__meta">
           {{ card_chip(featured) }}
           <span class="feature__dur">{{ featured.dur }}</span>
+          <button class="older__del rec-del" type="button" title="Delete" style="margin-left:auto"
+                  data-id="{{ featured.id }}" data-name="{{ featured.name }}">
+            <sl-icon name="trash3"></sl-icon>
+          </button>
         </div>
         <h2 class="feature__title"><span class="rec-name" data-id="{{ featured.id }}">{{ featured.name }}</span>{{ rec_edit(featured) }}</h2>
         <p class="feature__desc">{{ featured.sub }}</p>
@@ -66,13 +70,12 @@
     <div class="older__h">Older Recordings</div>
     {% for c in older %}
       <div class="older__row" data-name="{{ c.name|lower }}"
-           {% if c.viewable %}onclick="if(!event.target.closest('.older__del,.rec-edit'))location.href='/sessions/{{ c.id }}/view'" style="cursor:pointer"{% endif %}>
+           {% if c.viewable %}onclick="if(!event.target.closest('.rec-del,.rec-edit'))location.href='/sessions/{{ c.id }}/view'" style="cursor:pointer"{% endif %}>
         <span class="older__date">{{ c.date }}</span>
         <span class="older__name"><span class="rec-name" data-id="{{ c.id }}">{{ c.name }}</span>{{ rec_edit(c) }}{% if not c.viewable %} <span class="chip {{ c.chip_class }}" style="margin-left:8px">{{ c.chip_label }}</span>{% endif %}</span>
         <span class="older__dur">{{ c.dur }}</span>
-        <button class="older__del" title="Delete"
-                hx-post="/sessions/{{ c.id }}/delete" hx-confirm="Delete this recording?"
-                hx-target="closest .older__row" hx-swap="outerHTML swap:0.2s">
+        <button class="older__del rec-del" type="button" title="Delete"
+                data-id="{{ c.id }}" data-name="{{ c.name }}">
           <sl-icon name="trash3"></sl-icon>
         </button>
       </div>
@@ -85,6 +88,7 @@
 
 {% block dialogs %}
 {% include 'partials/_rename_modal.html' %}
+{% include 'partials/_delete_modal.html' %}
 <sl-dialog id="new-recording" label="New Recording Session" style="--width:680px">
   <div class="modal__sub">Upload an audio file to generate a new manuscript draft.</div>
 
