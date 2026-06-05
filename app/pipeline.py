@@ -63,6 +63,7 @@ class WhisperModel(str, Enum):
     MEDIUM_EN = "medium.en"
     LARGE_V2 = "large-v2"
     LARGE_V3 = "large-v3"
+    LARGE_V3_TURBO = "large-v3-turbo"
     DISTIL_LARGE_V3 = "distil-large-v3"
 
     @classmethod

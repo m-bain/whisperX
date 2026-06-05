@@ -28,6 +28,8 @@ CTranslate2 has no Metal backend, so there is no whole-pipeline `mps` device —
 | small | **whispercpp** | `WhisperCppPipeline` | 15.1s | **0.050** | ru ✅ |
 | small | mlx | `MLXWhisperPipeline` | 15.7s | 0.052 | ru ✅ |
 | small | cpu | `FasterWhisperPipeline` | 26.7s | 0.089 | ru ✅ |
+| large-v3-turbo | **whispercpp** | `WhisperCppPipeline` | **21.0s** | **0.070** | ru ✅ |
+| large-v3-turbo | mlx | `MLXWhisperPipeline` | 41.7s | 0.139 | ru ✅ |
 | large-v3 | **whispercpp** | `WhisperCppPipeline` | **52.6s** | **0.175** | ru ✅ |
 | large-v3 | mlx | `MLXWhisperPipeline` | 82.5s | 0.275 | ru ✅ |
 | large-v3 | cpu | `FasterWhisperPipeline` | 217.3s | 0.724 | ru ✅ |
@@ -40,6 +42,13 @@ CTranslate2 has no Metal backend, so there is no whole-pipeline `mps` device —
 grows with model size). Metal is confirmed engaged (whisper.cpp's `ggml_metal`
 backend initializes). `pywhispercpp`'s `Model.__del__` logs a harmless
 "Exception ignored" at interpreter shutdown only — no effect on output.
+
+**Best Mac config: `large-v3-turbo` on whisper.cpp — RTF 0.070 (≈14× realtime).**
+2.0× faster than MLX turbo and 2.5× faster than whisper.cpp large-v3, while
+staying **multilingual** with near-large-v3 quality (turbo is a pruned large-v3).
+This is the fast lane `distil-large-v3` could not be — distil is English-only and
+mis-transcribed the Russian clip. (Note: `large-v3-turbo` is not yet in the app's
+`WhisperModel` enum, so it's CLI-only until added — see `app/pipeline.py`.)
 
 - **MLX is genuinely used when selected** — the pipeline class is
   `MLXWhisperPipeline` and the resolved device is `mlx`. No silent CPU fallback.
@@ -54,12 +63,11 @@ backend initializes). `pywhispercpp`'s `Model.__del__` logs a harmless
 - **First run feels slowest** because the model downloads/loads (e.g. CPU
   large-v3 `load=35.6s` was mostly that); warm cache removes it.
 
-**Recommendation:** for multilingual / Russian-quality work, **use
-`device="whispercpp"` with large-v3 (RTF ≈ 0.175)** — the fastest accurate Mac
-path, ~1.6× faster than MLX. MLX large-v3 (RTF ≈ 0.275) is the fallback if the
-`whispercpp` extra isn't installed. For known-English audio, `distil-large-v3`
-on MLX (RTF ≈ 0.118) is faster still. `small`/`medium` are multilingual and
-faster than large-v3 at an accuracy cost — pick per content.
+**Recommendation:** for multilingual work, **use `device="whispercpp"` with
+`large-v3-turbo` (RTF ≈ 0.070, ≈14× realtime)** — fastest accurate Mac path,
+multilingual, near-large-v3 quality. Use `large-v3` on whisper.cpp (RTF ≈ 0.175)
+when you need maximum accuracy. MLX is the fallback if the `whispercpp` extra
+isn't installed. `distil-large-v3` is English-only — avoid for multilingual.
 
 ## Diarization (pyannote `speaker-diarization-community-1`)
 
