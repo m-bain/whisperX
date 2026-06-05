@@ -7,7 +7,8 @@
     <div>
       <div class="pref__title">Hugging Face Token</div>
       <div class="pref__desc">
-        Required for speaker diarization (downloads the gated pyannote models).
+        Optional. Speaker diarization works out of the box from the bundled model —
+        a token is only needed to refresh/update the gated pyannote models (see below).
         Stored in your OS keyring — never in plaintext. Status:
         <strong>{{ 'set' if token_set else 'not set' }}</strong>.
         Changing it takes effect immediately, no restart needed.

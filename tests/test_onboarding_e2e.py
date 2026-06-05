@@ -223,3 +223,41 @@ def test_onboarding_gate_lifts_after_completion(live_server, browser):
     assert page.url.rstrip("/") == base.rstrip("/")
     assert "Recent Recordings" in page.content()
     page.close()
+
+
+def test_onboarding_completes_without_token(live_server, browser):
+    """The token is optional: leaving it blank still completes onboarding, and
+    nothing is written to the keyring — diarization falls back to the bundled model."""
+    base = live_server["base"]
+    server = live_server["server"]
+    mem = live_server["mem"]
+
+    # Reset to a fresh first-run state (module-scoped server shares one DB).
+    server._sessions.set_setting("onboarded", "0")
+    mem.clear()
+
+    page = browser.new_page(viewport={"width": 1440, "height": 960})
+    page.goto(base + "/")
+    assert page.url.rstrip("/").endswith("/onboarding")
+
+    # Welcome -> Access, leave the token blank, Continue advances straight to Engine.
+    page.click("[data-go='1']")
+    page.wait_for_selector("[data-panel='1'].is-active")
+    page.click("#ob-verify-btn")  # blank token -> skip verification
+    page.wait_for_selector("[data-panel='2'].is-active", timeout=5000)
+
+    # Pick a model + backend, finish, enter.
+    page.click("[data-size='base']")
+    page.click("[data-backend='cpu']")
+    page.click("[data-go='3']")
+    page.wait_for_selector("[data-panel='3'].is-active")
+    assert "Bundled model" in page.locator(".ob__summary").inner_text()
+
+    page.click("#ob-enter")
+    page.wait_for_url(base + "/", timeout=5000)
+
+    # Onboarded, choices persisted, and NO token in the keyring.
+    assert server._sessions.get_setting("onboarded") == "1"
+    assert server._sessions.get_setting("active_model") == "base"
+    assert mem.get("t") is None
+    page.close()

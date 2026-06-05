@@ -43,6 +43,9 @@
         {% with token_set=token_set, notice=None, notice_ok=True %}
           {% include 'partials/_hf_token.html' %}
         {% endwith %}
+        <div class="set__divider" style="margin:18px 0"></div>
+        {% include 'partials/_diarize_model.html' %}
+
         <div class="pref__desc" style="margin-top:18px">
           Want to walk through setup again?
           <a class="ob__link" href="/onboarding">Re-run first-run setup</a>.
@@ -104,7 +107,12 @@
       return;
     }
     const clear = e.target.closest('[data-hf-clear]');
-    if (clear) window.htmx?.trigger(clear.closest('form'), 'submit');
+    if (clear) { window.htmx?.trigger(clear.closest('form'), 'submit'); return; }
+    const refresh = e.target.closest('[data-diarize-refresh]');
+    if (refresh && !refresh.hasAttribute('disabled')) {
+      refresh.setAttribute('loading', '');
+      window.htmx?.trigger(refresh.closest('form'), 'submit');
+    }
   });
 </script>
 {% endblock %}

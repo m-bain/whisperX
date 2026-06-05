@@ -1,0 +1,41 @@
+{# Diarization-model status + refresh control for Settings. Swapped in place
+   (outerHTML) by /settings/diarize-model/refresh. Shows the vendored model's
+   version (HF commit sha8 + vendor date) and whether it's the bundled baseline
+   or a refreshed copy. A token (managed by the card above) is required to
+   refresh, since the pyannote repo is gated. #}
+<div id="diarize-model-card">
+  <div class="pref-row">
+    <div>
+      <div class="pref__title">Diarization Model</div>
+      <div class="pref__desc">
+        Speaker separation runs on <span class="ob__code">{{ diarize_model_name }}</span>,
+        bundled with Manuscript so it works without any setup.
+        {% if diarize_version %}
+        Current revision <strong>{{ diarize_version.sha8 }}</strong>
+        ({{ diarize_version.source }}{% if diarize_version.vendored_at %}, {{ diarize_version.vendored_at }}{% endif %}).
+        {% else %}
+        No local copy is vendored.
+        {% endif %}
+        Refreshing fetches the latest revision from Hugging Face and takes effect immediately.
+      </div>
+    </div>
+    <div class="pref__control">
+      <form hx-post="/settings/diarize-model/refresh" hx-target="#diarize-model-card" hx-swap="outerHTML">
+        <sl-button size="small" variant="default" data-diarize-refresh
+                   {% if not token_set %}disabled{% endif %}>
+          Refresh from Hugging Face
+        </sl-button>
+      </form>
+      {% if not token_set %}
+      <div class="pref__desc" style="margin-top:8px;text-align:right">
+        Add a token above to enable updates.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% if notice %}
+  <div class="frag {{ 'frag--ok' if notice_ok else 'frag--err' }}" style="margin-top:8px;justify-content:flex-end">
+    <sl-icon name="{{ 'check-circle' if notice_ok else 'exclamation-triangle' }}"></sl-icon> {{ notice }}
+  </div>
+  {% endif %}
+</div>

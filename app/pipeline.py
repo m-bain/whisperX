@@ -236,24 +236,28 @@ class ModelManager:
         with self._load_lock:
             if self._diarize_loaded:
                 return self._diarize
-            from app import secret_store
+            from app import diarize_model, secret_store
 
+            # Prefer the vendored local copy (works offline, no token); fall back
+            # to downloading the gated HF repo only if nothing is vendored.
+            local = diarize_model.resolve_local_model()
             hf_token = secret_store.resolve_hf_token()
-            if not hf_token:
+            if local is None and not hf_token:
                 logger.warning(
-                    "HF_TOKEN not set: diarization disabled (transcribe + align only). "
-                    "Set HF_TOKEN and accept the %s user agreement to enable speakers.",
-                    DIARIZE_MODEL,
+                    "No vendored diarization model and no HF_TOKEN: diarization disabled "
+                    "(transcribe + align only). Vendor the model (app/scripts/"
+                    "vendor_diarize_model.py) or set HF_TOKEN to enable speakers.",
                 )
                 self._diarize_loaded = True
                 return None
+            model_ref = str(local) if local is not None else DIARIZE_MODEL
             try:
                 from whisperx.diarize import DiarizationPipeline
 
                 diarize_device = _torch_device(self._device)
-                logger.info("Loading diarization model=%s on %s", DIARIZE_MODEL, diarize_device)
+                logger.info("Loading diarization model=%s on %s", model_ref, diarize_device)
                 self._diarize = DiarizationPipeline(
-                    model_name=DIARIZE_MODEL, token=hf_token, device=diarize_device
+                    model_name=model_ref, token=hf_token, device=diarize_device
                 )
             except Exception as exc:  # noqa: BLE001 - surface to status, don't crash boot
                 self._diarize_error = str(exc)
@@ -384,6 +388,11 @@ class ModelManager:
             return self._status_locked()
 
     def _status_locked(self) -> dict:
+        from app import diarize_model
+
+        local = diarize_model.resolve_local_model()
+        version = diarize_model.derive_version(local)
+        has_token = bool(_resolve_hf_token())
         return {
             "active": self._active,
             "device": self._device,
@@ -391,11 +400,16 @@ class ModelManager:
             "mlx_available": mlx_available(),
             "diarize": self._diarize is not None,
             "diarize_error": self._diarize_error,
-            # Token presence is independent of lazy-load timing: the diarizer
-            # object is None until the background warm finishes, but that does
-            # NOT mean diarization is unavailable. Drive the "no HF_TOKEN" toast
-            # off this, not off `diarize`.
-            "diarize_token": bool(_resolve_hf_token()),
+            # Availability is independent of lazy-load timing: the diarizer object
+            # is None until the background warm finishes, and diarization now works
+            # token-free from the vendored model. Drive the dashboard toast off
+            # `diarize_available`, not `diarize`.
+            "diarize_available": local is not None or has_token,
+            "diarize_source": (version["source"] if version else ("hf" if has_token else "none")),
+            "diarize_version": version,
+            # Whether an HF token is in effect — only relevant for the Settings
+            # token card and the model-refresh flow.
+            "diarize_token": has_token,
             "models": [
                 {
                     "name": v,

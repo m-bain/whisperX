@@ -65,10 +65,10 @@
     {# STEP 1 — Hugging Face token (required + live-verified) #}
     <section class="ob__step-panel" data-panel="1">
       <div class="ob__kicker">STEP 02 / 03 · ACCESS</div>
-      <h1 class="ob__title">Connect Hugging Face.</h1>
-      <p class="ob__lede">Speaker diarization runs on pyannote models hosted by Hugging Face. Paste a free access token so Manuscript can download them. We'll verify it before continuing.</p>
+      <h1 class="ob__title">Connect Hugging Face.<br><span style="font-weight:400;opacity:.6">Optional.</span></h1>
+      <p class="ob__lede">Speaker diarization works out of the box — the pyannote model is bundled with Manuscript. Adding a free Hugging Face token is <strong>optional</strong>; it only lets you fetch model updates later. Paste one to verify and save it, or just continue.</p>
       <div class="ob__content">
-        <label class="ob__label" for="ob-token">Access Token</label>
+        <label class="ob__label" for="ob-token">Access Token <span style="font-weight:400;opacity:.55">— optional</span></label>
         <div class="ob__tokenField">
           <sl-input id="ob-token" name="token" type="password" password-toggle
                     placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="{{ token }}" autocomplete="off">
@@ -92,7 +92,7 @@
       <div class="ob__foot">
         <button type="button" class="btn-text lg" data-go="0">Back</button>
         <div class="spacer"></div>
-        <button type="button" class="btn-primary lg" id="ob-verify-btn">Verify &amp; continue <sl-icon name="arrow-right"></sl-icon></button>
+        <button type="button" class="btn-primary lg" id="ob-verify-btn">Continue <sl-icon name="arrow-right"></sl-icon></button>
       </div>
     </section>
 
@@ -194,16 +194,19 @@
     if (n === 3) fillSummary();
   }
 
-  // Step navigation. Guard: leaving the Access step requires a verified token.
+  // Step navigation. The token is optional, so advancing is never blocked here.
   document.querySelectorAll('[data-go]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = +btn.dataset.go;
-      if (step === 1 && target > 1 && !tokenVerified) { verifyToken(target); return; }
-      show(target);
-    });
+    btn.addEventListener('click', () => show(+btn.dataset.go));
   });
 
-  document.getElementById('ob-verify-btn').addEventListener('click', () => verifyToken(2));
+  // Continue from Access: if a token was entered, verify it first (advance only
+  // on success, so we never store a bad token); if blank, skip — the bundled
+  // model handles diarization without a token.
+  document.getElementById('ob-verify-btn').addEventListener('click', () => {
+    const token = (tokenInput.value || '').trim();
+    if (!token) { show(2); return; }
+    verifyToken(2);
+  });
 
   // Editing the token invalidates a prior verification.
   tokenInput.addEventListener('sl-input', () => { tokenVerified = false; });
@@ -256,7 +259,7 @@
 
   function fillSummary() {
     const t = (tokenInput.value || '').trim();
-    document.getElementById('ob-sum-token').textContent = t ? 'hf_••••' + t.slice(-4) : 'hf_••••';
+    document.getElementById('ob-sum-token').textContent = t ? 'hf_••••' + t.slice(-4) : 'Bundled model — no token';
     const sizeCard = document.querySelector('.ob__size--on .ob__sizeName');
     document.getElementById('ob-sum-model').textContent = sizeCard ? sizeCard.textContent : modelInput.value;
     const beCard = document.querySelector('.ob__backend--on .ob__beName');
