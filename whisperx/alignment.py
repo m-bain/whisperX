@@ -2,6 +2,8 @@
 Forced Alignment with Whisper
 C. Max Bain
 """
+import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Iterable, Optional, Union, List
 
@@ -76,6 +78,74 @@ DEFAULT_ALIGN_MODELS_HF = {
     "id": "cahya/wav2vec2-large-xlsr-indonesian",
 }
 
+# Multilingual fallback aligner (MMS, ~1130 languages via uroman romanization).
+# Used for any language without a dedicated wav2vec2 model in the dicts above.
+MMS_ALIGN_MODEL = "MahmoudAshraf/mms-300m-1130-forced-aligner"
+
+# ISO 639-1 (whisper) -> ISO 639-3 (uroman lcode). Unmapped codes fall back to
+# language-agnostic romanization, which still works for most scripts.
+ISO639_1_TO_3 = {
+    "af": "afr", "am": "amh", "ar": "ara", "as": "asm", "az": "aze", "ba": "bak",
+    "be": "bel", "bg": "bul", "bn": "ben", "bo": "bod", "br": "bre", "bs": "bos",
+    "ca": "cat", "cs": "ces", "cy": "cym", "da": "dan", "de": "deu", "el": "ell",
+    "en": "eng", "es": "spa", "et": "est", "eu": "eus", "fa": "fas", "fi": "fin",
+    "fo": "fao", "fr": "fra", "gl": "glg", "gu": "guj", "ha": "hau", "haw": "haw",
+    "he": "heb", "hi": "hin", "hr": "hrv", "ht": "hat", "hu": "hun", "hy": "hye",
+    "id": "ind", "is": "isl", "it": "ita", "ja": "jpn", "jw": "jav", "ka": "kat",
+    "kk": "kaz", "km": "khm", "kn": "kan", "ko": "kor", "la": "lat", "lb": "ltz",
+    "lo": "lao", "lt": "lit", "lv": "lav", "mg": "mlg", "mi": "mri", "mk": "mkd",
+    "ml": "mal", "mn": "mon", "mr": "mar", "ms": "msa", "mt": "mlt", "my": "mya",
+    "ne": "nep", "nl": "nld", "nn": "nno", "no": "nor", "oc": "oci", "pa": "pan",
+    "pl": "pol", "ps": "pus", "pt": "por", "ro": "ron", "ru": "rus", "sa": "san",
+    "sd": "snd", "si": "sin", "sk": "slk", "sl": "slv", "sn": "sna", "so": "som",
+    "sq": "sqi", "sr": "srp", "su": "sun", "sv": "swe", "sw": "swa", "ta": "tam",
+    "te": "tel", "tg": "tgk", "th": "tha", "tk": "tuk", "tl": "tgl", "tr": "tur",
+    "tt": "tat", "uk": "ukr", "ur": "urd", "uz": "uzb", "vi": "vie", "yi": "yid",
+    "yo": "yor", "zh": "zho", "zu": "zul",
+}
+
+_uroman_instance = None
+
+
+def _get_uroman():
+    """Lazily build a single Uroman instance (loading its data takes ~1s)."""
+    global _uroman_instance
+    if _uroman_instance is None:
+        try:
+            import uroman as ur
+        except ImportError as e:
+            raise ImportError(
+                "The MMS fallback aligner requires the 'uroman' package. "
+                "Install it with `pip install uroman`."
+            ) from e
+        _uroman_instance = ur.Uroman()
+    return _uroman_instance
+
+
+def load_mms_align_model(language_code: str, device: str, model_dir=None, model_cache_only: bool = False):
+    """Load the multilingual MMS forced-alignment model as a fallback for
+    languages without a dedicated wav2vec2 model."""
+    from transformers import AutoModelForCTC, AutoTokenizer
+
+    align_model = AutoModelForCTC.from_pretrained(
+        MMS_ALIGN_MODEL, cache_dir=model_dir, local_files_only=model_cache_only
+    ).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MMS_ALIGN_MODEL, cache_dir=model_dir, local_files_only=model_cache_only,
+        word_delimiter_token=None,
+    )
+    align_dictionary = {char.lower(): code for char, code in tokenizer.get_vocab().items()}
+    blank_id = align_dictionary.get("<blank>", tokenizer.pad_token_id)
+
+    align_metadata = {
+        "language": language_code,
+        "dictionary": align_dictionary,
+        "type": "mms",
+        "blank_id": blank_id,
+        "iso": ISO639_1_TO_3.get(language_code),
+    }
+    return align_model, align_metadata
+
 
 def load_align_model(language_code: str, device: str, model_name: Optional[str] = None, model_dir=None, model_cache_only: bool = False):
     if model_name is None:
@@ -85,10 +155,9 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         elif language_code in DEFAULT_ALIGN_MODELS_HF:
             model_name = DEFAULT_ALIGN_MODELS_HF[language_code]
         else:
-            logger.error(f"No default alignment model for language: {language_code}. "
-                         f"Please find a wav2vec2.0 model finetuned on this language at https://huggingface.co/models, "
-                         f"then pass the model name via --align_model [MODEL_NAME]")
-            raise ValueError(f"No default align-model for language: {language_code}")
+            logger.info(f"No dedicated alignment model for language: {language_code}. "
+                        f"Falling back to the multilingual MMS forced aligner ({MMS_ALIGN_MODEL}).")
+            return load_mms_align_model(language_code, device, model_dir, model_cache_only)
 
     if model_name in torchaudio.pipelines.__all__:
         pipeline_type = "torchaudio"
@@ -129,6 +198,20 @@ def align(
     """
     Align phoneme recognition predictions to known transcription.
     """
+
+    if align_model_metadata["type"] == "mms":
+        return align_mms(
+            transcript,
+            model,
+            align_model_metadata,
+            audio,
+            device,
+            interpolate_method=interpolate_method,
+            return_char_alignments=return_char_alignments,
+            print_progress=print_progress,
+            combined_progress=combined_progress,
+            progress_callback=progress_callback,
+        )
 
     if not torch.is_tensor(audio):
         if isinstance(audio, str):
@@ -416,6 +499,189 @@ def align(
         word_segments += segment["words"]
 
     return {"segments": aligned_segments, "word_segments": word_segments}
+
+
+def _mms_normalize(text: str) -> str:
+    """Light normalization applied before romanization."""
+    return unicodedata.normalize("NFKC", text).lower().strip()
+
+
+def align_mms(
+    transcript: Iterable[SingleSegment],
+    model: torch.nn.Module,
+    align_model_metadata: dict,
+    audio: Union[str, np.ndarray, torch.Tensor],
+    device: str,
+    interpolate_method: str = "nearest",
+    return_char_alignments: bool = False,
+    print_progress: bool = False,
+    combined_progress: bool = False,
+    progress_callback: ProgressCallback = None,
+) -> AlignedTranscriptionResult:
+    """Forced alignment using the multilingual MMS model.
+
+    Unlike the per-language wav2vec2 path, MMS operates on a romanized (uroman)
+    Latin token set. Each transcript "unit" (a word, or a single character for
+    languages written without spaces) is romanized independently so its frames
+    can be mapped back to the original text.
+    """
+    if not torch.is_tensor(audio):
+        if isinstance(audio, str):
+            audio = load_audio(audio)
+        audio = torch.from_numpy(audio)
+    if len(audio.shape) == 1:
+        audio = audio.unsqueeze(0)
+
+    MAX_DURATION = audio.shape[1] / SAMPLE_RATE
+
+    dictionary = align_model_metadata["dictionary"]
+    model_lang = align_model_metadata["language"]
+    blank_id = align_model_metadata["blank_id"]
+    iso = align_model_metadata.get("iso")
+    uroman = _get_uroman()
+
+    use_chars = model_lang in LANGUAGES_WITHOUT_SPACES
+
+    aligned_segments: List[SingleAlignedSegment] = []
+    total_segments = len(transcript)
+
+    for sdx, segment in enumerate(transcript):
+        if print_progress:
+            base_progress = ((sdx + 1) / total_segments) * 100
+            percent_complete = (50 + base_progress / 2) if combined_progress else base_progress
+            print(f"Progress: {percent_complete:.2f}%...")
+
+        t1 = segment["start"]
+        t2 = segment["end"]
+        text = segment["text"]
+        avg_logprob = segment.get("avg_logprob")
+
+        aligned_seg: SingleAlignedSegment = {
+            "start": t1,
+            "end": t2,
+            "text": text,
+            "words": [],
+            "chars": [] if return_char_alignments else None,
+        }
+        if avg_logprob is not None:
+            aligned_seg["avg_logprob"] = avg_logprob
+
+        # Split the segment into alignment units.
+        if use_chars:
+            units = [c for c in text if not c.isspace()]
+        else:
+            units = text.split()
+
+        # Romanize each unit and record which unit every romanized char belongs to.
+        rom_chars: List[str] = []
+        char_unit_idx: List[int] = []
+        for udx, unit in enumerate(units):
+            norm = _mms_normalize(unit)
+            if not norm:
+                continue
+            romanized = uroman.romanize_string(norm, lcode=iso)
+            romanized = re.sub(r"\s+", "", romanized).lower()
+            for ch in romanized:
+                rom_chars.append(ch)
+                char_unit_idx.append(udx)
+
+        if len(rom_chars) == 0:
+            logger.warning(f'Failed to align segment ("{text}"): no romanizable characters, resorting to original')
+            aligned_segments.append(aligned_seg)
+            continue
+
+        if t1 >= MAX_DURATION:
+            logger.warning(f'Failed to align segment ("{text}"): original start time longer than audio duration, skipping')
+            aligned_segments.append(aligned_seg)
+            continue
+
+        f1 = int(t1 * SAMPLE_RATE)
+        f2 = min(int(t2 * SAMPLE_RATE), audio.shape[1])
+        waveform_segment = audio[:, f1:f2]
+        if waveform_segment.shape[-1] < 400:
+            waveform_segment = torch.nn.functional.pad(
+                waveform_segment, (0, 400 - waveform_segment.shape[-1])
+            )
+
+        with torch.inference_mode():
+            emissions = model(waveform_segment.to(device)).logits
+            emissions = torch.log_softmax(emissions, dim=-1)
+        emission = emissions[0].cpu().detach()
+
+        # Append a wildcard (<star>) column = best non-blank score per frame.
+        non_blank_mask = torch.ones(emission.size(1), dtype=torch.bool)
+        non_blank_mask[blank_id] = False
+        wildcard_col = emission[:, non_blank_mask].max(dim=1).values
+        emission = torch.cat([emission, wildcard_col.unsqueeze(1)], dim=1)
+        star_id = emission.size(1) - 1
+
+        tokens = [dictionary.get(c, star_id) for c in rom_chars]
+
+        trellis = get_trellis(emission, tokens, blank_id)
+        path = backtrack(trellis, emission, tokens, blank_id)
+        if path is None:
+            logger.warning(f'Failed to align segment ("{text}"): backtrack failed, resorting to original')
+            aligned_segments.append(aligned_seg)
+            continue
+
+        duration = t2 - t1
+        ratio = duration * waveform_segment.size(0) / (trellis.size(0) - 1)
+
+        # Collect frame indices and scores per original unit.
+        unit_frames = {udx: [] for udx in range(len(units))}
+        for point in path:
+            udx = char_unit_idx[point.token_index]
+            unit_frames[udx].append((point.time_index, point.score))
+
+        word_segments_local: List[SingleWordSegment] = []
+        char_alignments = []
+        for udx, unit in enumerate(units):
+            frames = unit_frames.get(udx, [])
+            word_segment: SingleWordSegment = {"word": unit}
+            if frames:
+                times = [f for f, _ in frames]
+                start = round(min(times) * ratio + t1, 3)
+                end = round((max(times) + 1) * ratio + t1, 3)
+                score = round(sum(s for _, s in frames) / len(frames), 3)
+                word_segment["start"] = start
+                word_segment["end"] = end
+                word_segment["score"] = score
+                if return_char_alignments:
+                    char_alignments.append({"char": unit, "start": start, "end": end, "score": score})
+            word_segments_local.append(word_segment)
+
+        # Interpolate timestamps for units with no aligned frames.
+        if word_segments_local:
+            _starts = pd.Series([w.get("start", np.nan) for w in word_segments_local])
+            _ends = pd.Series([w.get("end", np.nan) for w in word_segments_local])
+            if _starts.isna().any() and _starts.notna().any():
+                _starts = interpolate_nans(_starts, method=interpolate_method)
+                _ends = interpolate_nans(_ends, method=interpolate_method)
+                for i, w in enumerate(word_segments_local):
+                    if "start" not in w and pd.notna(_starts.iloc[i]):
+                        w["start"] = float(_starts.iloc[i])
+                    if "end" not in w and pd.notna(_ends.iloc[i]):
+                        w["end"] = float(_ends.iloc[i])
+
+        seg_starts = [w["start"] for w in word_segments_local if "start" in w]
+        seg_ends = [w["end"] for w in word_segments_local if "end" in w]
+        aligned_seg["start"] = min(seg_starts) if seg_starts else t1
+        aligned_seg["end"] = max(seg_ends) if seg_ends else t2
+        aligned_seg["words"] = word_segments_local
+        if return_char_alignments:
+            aligned_seg["chars"] = char_alignments
+
+        aligned_segments.append(aligned_seg)
+
+        if progress_callback is not None:
+            progress_callback(((sdx + 1) / total_segments) * 100)
+
+    word_segments: List[SingleWordSegment] = []
+    for segment in aligned_segments:
+        word_segments += segment["words"]
+
+    return {"segments": aligned_segments, "word_segments": word_segments}
+
 
 """
 source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
