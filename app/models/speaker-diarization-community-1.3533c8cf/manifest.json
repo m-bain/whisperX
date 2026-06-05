@@ -1,0 +1,7 @@
+{
+  "repo_id": "pyannote/speaker-diarization-community-1",
+  "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "sha8": "3533c8cf",
+  "vendored_at": "2026-06-05",
+  "pyannote_audio": "4.0.0"
+}

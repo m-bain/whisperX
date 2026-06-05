@@ -1,3 +1,6 @@
 # Frontend deps. whisperx itself must already be installed in the same env
 # (e.g. `uv pip install -e .` from the repo root). htmx is loaded from a CDN.
 Flask>=3.0
+# Cross-platform secure storage for the Hugging Face token (macOS Keychain /
+# Windows Credential Locker / Linux Secret Service). Set in onboarding/Settings.
+keyring>=24

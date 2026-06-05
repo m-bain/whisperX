@@ -64,8 +64,9 @@ fi
 echo "Syncing Python deps…"
 uv sync ${EXTRA[@]+"${EXTRA[@]}"}
 
-# Flask is an app-only dep (app/requirements.txt), not part of pyproject, so add
-# it ephemerally for this run instead of mutating the project env.
+# Flask + keyring are app-only deps (app/requirements.txt), not part of
+# pyproject, so add them ephemerally for this run instead of mutating the
+# project env. keyring stores the Hugging Face token in the OS keyring.
 PORT="${PORT:-5000}"
 echo "Starting WhisperX web app on http://localhost:${PORT} (Ctrl-C to stop)…"
-PORT="$PORT" uv run ${EXTRA[@]+"${EXTRA[@]}"} --with "Flask>=3.0" python -m app.server
+PORT="$PORT" uv run ${EXTRA[@]+"${EXTRA[@]}"} --with "Flask>=3.0" --with "keyring>=24" python -m app.server

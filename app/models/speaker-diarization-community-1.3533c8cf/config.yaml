@@ -1,0 +1,21 @@
+dependencies: 
+  pyannote.audio: 4.0.0
+
+pipeline:
+  name: pyannote.audio.pipelines.SpeakerDiarization
+  params:
+    clustering: VBxClustering
+    segmentation: $model/segmentation
+    segmentation_batch_size: 32
+    embedding: $model/embedding
+    embedding_batch_size: 32
+    embedding_exclude_overlap: true
+    plda: $model/plda
+    
+params:
+  clustering:
+    threshold: 0.6
+    Fa: 0.07
+    Fb: 0.8
+  segmentation:
+    min_duration_off: 0.0

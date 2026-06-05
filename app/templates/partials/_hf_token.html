@@ -1,0 +1,38 @@
+{# Hugging Face token control for Settings. Swapped in place (outerHTML) by the
+   /settings/hf-token endpoints. The token secret is never sent back to the
+   client — only whether one is stored. The base.html htmx:configRequest hook
+   forwards the <sl-input> value from the wrapping <form>. #}
+<div id="hf-token-card">
+  <div class="pref-row">
+    <div>
+      <div class="pref__title">Hugging Face Token</div>
+      <div class="pref__desc">
+        Optional. Speaker diarization works out of the box from the bundled model —
+        a token is only needed to refresh/update the gated pyannote models (see below).
+        Stored in your OS keyring — never in plaintext. Status:
+        <strong>{{ 'set' if token_set else 'not set' }}</strong>.
+        Changing it takes effect immediately, no restart needed.
+      </div>
+    </div>
+    <div class="pref__control">
+      <form id="hf-token-form" hx-post="/settings/hf-token" hx-target="#hf-token-card" hx-swap="outerHTML">
+        <sl-input name="hf_token" type="password" password-toggle autocomplete="off"
+                  placeholder="{{ 'hf_•••• (stored)' if token_set else 'hf_xxxxxxxx…' }}"
+                  style="min-width:300px"></sl-input>
+      </form>
+      <div style="display:flex;gap:10px;margin-top:10px;justify-content:flex-end">
+        {% if token_set %}
+        <form hx-post="/settings/hf-token/clear" hx-target="#hf-token-card" hx-swap="outerHTML">
+          <sl-button size="small" variant="default" data-hf-clear>Clear</sl-button>
+        </form>
+        {% endif %}
+        <sl-button size="small" variant="primary" data-hf-save>Verify &amp; Save</sl-button>
+      </div>
+    </div>
+  </div>
+  {% if notice %}
+  <div class="frag {{ 'frag--ok' if notice_ok else 'frag--err' }}" style="margin-top:8px;justify-content:flex-end">
+    <sl-icon name="{{ 'check-circle' if notice_ok else 'exclamation-triangle' }}"></sl-icon> {{ notice }}
+  </div>
+  {% endif %}
+</div>

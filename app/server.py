@@ -49,7 +49,9 @@ from flask import (  # noqa: E402 - load .env first
 )
 from werkzeug.utils import secure_filename  # noqa: E402
 
+from app import diarize_model  # noqa: E402
 from app import pipeline  # noqa: E402
+from app import secret_store  # noqa: E402
 from app.events import Broker  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
 from app.render import render_markdown, render_transcript, resolve_label  # noqa: E402
@@ -227,6 +229,8 @@ def models_ready() -> bool:
 
 @app.route("/")
 def index():
+    if _sessions.get_setting("onboarded") != "1":
+        return redirect("/onboarding")
     rows = _sessions.list()  # newest first
     cards = [_card(r) for r in rows]
     status = _manager.status()
@@ -241,10 +245,22 @@ def index():
         default_language=_sessions.get_setting("default_language", ""),
         models_ready=models_ready(),
         bundle_error=active_error,
-        diarize_enabled=status["diarize_token"],
+        diarize_enabled=status["diarize_available"],
         diarize_error=status["diarize_error"],
         models=status,
     )
+
+
+def _diarize_card_ctx(notice: str | None = None, notice_ok: bool = True) -> dict:
+    """Template context for the diarization-model Settings card (and its swaps)."""
+    version = diarize_model.derive_version(diarize_model.resolve_local_model())
+    return {
+        "diarize_version": version,
+        "diarize_model_name": diarize_model.REPO_ID,
+        "token_set": bool(secret_store.resolve_hf_token()),
+        "notice": notice,
+        "notice_ok": notice_ok,
+    }
 
 
 @app.get("/settings")
@@ -254,6 +270,7 @@ def settings():
         active="settings",
         default_language=_sessions.get_setting("default_language", ""),
         models=_manager.status(),
+        **_diarize_card_ctx(),
     )
 
 
@@ -262,6 +279,179 @@ def save_settings():
     _sessions.set_setting("default_language", request.form.get("default_language", "").strip())
     return (
         '<span class="frag frag--ok"><sl-icon name="check-circle"></sl-icon> Saved</span>'
+    )
+
+
+# --- Onboarding (first-run setup) -------------------------------------------
+# The five model sizes shown in the onboarding "Engine" step (design subset of
+# pipeline.WhisperModel; each id is a valid WhisperModel value). Advanced/.en/
+# distil variants stay available in Settings.
+ONBOARDING_SIZES = [
+    {"id": "tiny", "name": "Tiny", "meta": "39M · 1GB",
+     "note": "<b>Fastest, lowest accuracy.</b> Best for quick drafts and short, clean recordings."},
+    {"id": "base", "name": "Base", "meta": "74M · 1GB",
+     "note": "<b>Fast with decent accuracy.</b> A good default for clear single-speaker audio."},
+    {"id": "small", "name": "Small", "meta": "244M · 2GB",
+     "note": "<b>Balanced speed and accuracy.</b> Handles light background noise well."},
+    {"id": "medium", "name": "Medium", "meta": "769M · 5GB",
+     "note": "<b>Strong accuracy, slower.</b> Reliable for interviews and accented speech."},
+    {"id": "large-v3", "name": "Large-v3", "meta": "1.5B · 10GB",
+     "note": "<b>Best accuracy, multilingual.</b> Recommended for research-grade transcripts. Slowest."},
+]
+
+
+def _onboarding_size(active: str) -> str:
+    """The preselected size card: the active model if it's one of the five, else 'small'."""
+    ids = {s["id"] for s in ONBOARDING_SIZES}
+    return active if active in ids else "small"
+
+
+@app.get("/onboarding")
+def onboarding():
+    status = _manager.status()
+    return render_template(
+        "onboarding.html",
+        token=secret_store.resolve_hf_token() or "",
+        sizes=ONBOARDING_SIZES,
+        selected_size=_onboarding_size(status["active"]),
+        models=status,
+        diarize_model=secret_store.DIARIZE_MODEL,
+    )
+
+
+def _verify_fragment(token: str):
+    """Verify a token and return an (ok, html-fragment) pair for the inline notice."""
+    ok, detail = secret_store.verify_token(token)
+    cls = "frag--ok" if ok else "frag--err"
+    icon = "check-circle" if ok else "exclamation-triangle"
+    from markupsafe import escape
+
+    html = (f'<span class="frag {cls}"><sl-icon name="{icon}"></sl-icon> '
+            f'{escape(detail)}</span>')
+    return ok, html
+
+
+@app.post("/onboarding/verify")
+def onboarding_verify():
+    """Live-verify the entered token; the Access step gates 'Continue' on the
+    X-Token-OK header (and shows the returned notice fragment)."""
+    token = request.form.get("token", "").strip()
+    ok, html = _verify_fragment(token)
+    resp = app.make_response(html)
+    resp.headers["X-Token-OK"] = "1" if ok else "0"
+    return resp
+
+
+def _onboarding_store_error(token: str, model: str, exc: Exception):
+    """Re-render onboarding on the Access step with a secret-store error."""
+    return render_template(
+        "onboarding.html",
+        token=token, sizes=ONBOARDING_SIZES,
+        selected_size=_onboarding_size(model), models=_manager.status(),
+        diarize_model=secret_store.DIARIZE_MODEL, store_error=str(exc),
+    ), 500
+
+
+@app.post("/onboarding")
+def onboarding_finish():
+    """Persist the setup: store the (re-verified) token if one was given, the
+    model, and device, mark onboarded, then redirect to the dashboard.
+
+    The token is **optional** — diarization works out of the box from the
+    vendored model. A token is stored only to enable refreshing that model from
+    Hugging Face. If a token IS supplied it must verify, so we never store junk.
+    """
+    token = request.form.get("token", "").strip()
+    model = request.form.get("model", "").strip()
+    device = request.form.get("device", "").strip()
+
+    try:
+        model = pipeline.WhisperModel(model).value
+    except ValueError:
+        abort(400, f"Unknown model: {model}")
+    if device not in pipeline.DEVICES:
+        abort(400, f"Unknown device: {device}")
+
+    if token:
+        ok, _detail = secret_store.verify_token(token)
+        if not ok:
+            return redirect("/onboarding")
+        try:
+            secret_store.set_hf_token(token)
+        except secret_store.SecretStoreUnavailable as exc:
+            return _onboarding_store_error(token, model, exc)
+
+    _sessions.set_setting("active_model", model)
+    _sessions.set_setting("device", device)
+    _manager.set_active(model)            # background warm
+    if device != _manager.device:
+        try:
+            _manager.set_device(device)   # flush + background warm on new device
+        except ValueError:
+            pass                          # unavailable device: keep current, dashboard shows it
+    _manager.reset_diarize()              # pick up the new token without a restart
+    _sessions.set_setting("onboarded", "1")
+    return redirect("/")
+
+
+@app.post("/settings/hf-token")
+def settings_hf_token():
+    """Verify + store the HF token from Settings; re-render the token card body."""
+    token = request.form.get("hf_token", "").strip()
+    ok, detail = secret_store.verify_token(token)
+    if not ok:
+        return render_template("partials/_hf_token.html",
+                               token_set=bool(secret_store.resolve_hf_token()),
+                               notice=detail, notice_ok=False)
+    try:
+        secret_store.set_hf_token(token)
+    except secret_store.SecretStoreUnavailable as exc:
+        return render_template("partials/_hf_token.html",
+                               token_set=bool(secret_store.resolve_hf_token()),
+                               notice=str(exc), notice_ok=False)
+    _manager.reset_diarize()
+    return render_template("partials/_hf_token.html", token_set=True,
+                           notice="Token saved and verified.", notice_ok=True)
+
+
+@app.post("/settings/hf-token/clear")
+def settings_hf_token_clear():
+    """Remove the stored token; diarization falls back to disabled."""
+    secret_store.delete_hf_token()
+    _manager.reset_diarize()
+    token_set = bool(secret_store.resolve_hf_token())  # env override may still apply
+    notice = ("Cleared the stored token, but HF_TOKEN is still set in the environment."
+              if token_set else "Token cleared. Speaker diarization is now disabled.")
+    return render_template("partials/_hf_token.html", token_set=token_set,
+                           notice=notice, notice_ok=True)
+
+
+@app.post("/settings/diarize-model/refresh")
+def settings_diarize_refresh():
+    """Download the latest pyannote pipeline from HF into the data dir and switch
+    to it. Requires a token (the model is gated); re-renders the model card."""
+    token = secret_store.resolve_hf_token()
+    if not token:
+        return render_template(
+            "partials/_diarize_model.html",
+            **_diarize_card_ctx(
+                notice="Add a Hugging Face token above to fetch model updates.",
+                notice_ok=False,
+            ),
+        )
+    try:
+        dest = diarize_model.vendor(token, dest_root=diarize_model.data_root())
+    except Exception as exc:  # noqa: BLE001 - surface download/network errors to the card
+        logger.exception("Diarization model refresh failed")
+        return render_template(
+            "partials/_diarize_model.html",
+            **_diarize_card_ctx(notice=f"Refresh failed: {exc}", notice_ok=False),
+        )
+    _manager.reset_diarize()  # next job re-resolves to the refreshed copy
+    sha8 = dest.name.rsplit(".", 1)[-1]
+    return render_template(
+        "partials/_diarize_model.html",
+        **_diarize_card_ctx(notice=f"Refreshed to revision {sha8}.", notice_ok=True),
     )
 
 
