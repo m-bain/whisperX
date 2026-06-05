@@ -14,6 +14,7 @@
   <div class="set__grid">
     <nav class="set__tabs">
       <div class="set__tab set__tab--active">Transcription</div>
+      <div class="set__tab">Backup &amp; Restore</div>
     </nav>
 
     <div class="set__panels">
@@ -80,9 +81,18 @@
           </div>
         </div>
       </section>
+
+      <section class="card">
+        <h2 class="card__h">Backup &amp; Restore</h2>
+        {% include 'partials/_backup_card.html' %}
+      </section>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block dialogs %}
+{% include 'partials/_backup_restore_modal.html' %}
 {% endblock %}
 
 {% block scripts %}
@@ -112,6 +122,13 @@
     if (refresh && !refresh.hasAttribute('disabled')) {
       refresh.setAttribute('loading', '');
       window.htmx?.trigger(refresh.closest('form'), 'submit');
+    }
+    // Backup card: sl-buttons in hx-post forms (connect / back up now / adopt /
+    // overwrite / disconnect). Delegated so it survives the card's outerHTML swaps.
+    const backup = e.target.closest('[data-backup-busy]');
+    if (backup && !backup.hasAttribute('loading')) {
+      backup.setAttribute('loading', '');
+      window.htmx?.trigger(backup.closest('form'), 'submit');
     }
   });
 </script>

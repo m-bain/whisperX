@@ -1,0 +1,101 @@
+{# Backup & Restore card body for Settings. Swapped in place (outerHTML) by the
+   /settings/backup/* routes. Branches on backup.state (see BackupState). The
+   sl-buttons inside the hx-post forms aren't native submits — a delegated
+   handler in settings.html triggers the form (data-backup-busy). #}
+<div id="backup-card">
+{% set st = backup.state %}
+{% if st == 'disabled' %}
+  <div class="pref__desc">
+    Cloud backup isn't enabled on this server. Set
+    <span class="ob__code">WHISPERX_BACKUP_BACKEND</span> (and Google credentials
+    for Drive) in <span class="ob__code">app/.env</span> to turn it on — see
+    <span class="ob__code">app/.env.example</span>.
+  </div>
+
+{% elif backup_remote and backup_remote.exists %}
+  {# Just linked and a backup already exists — let the user choose. #}
+  <div class="pref__title">A backup already exists on {{ backup_provider }}</div>
+  <div class="pref__desc" style="margin-top:6px">
+    {{ backup_remote.entries }} item{{ '' if backup_remote.entries == 1 else 's' }}
+    {% if backup_remote_size %}· {{ backup_remote_size }}{% endif %}
+    {% if backup_remote.created_at %}· saved {{ backup_remote.created_at }}{% endif %}.
+    Choose how to start:
+  </div>
+  <div class="backup__choice">
+    <form hx-post="/settings/backup/adopt" hx-target="#backup-card" hx-swap="outerHTML">
+      <sl-button variant="primary" data-backup-busy>
+        <sl-icon slot="prefix" name="cloud-download"></sl-icon> Load existing backup
+      </sl-button>
+    </form>
+    <form hx-post="/settings/backup/overwrite" hx-target="#backup-card" hx-swap="outerHTML">
+      <sl-button variant="default" data-backup-busy>
+        <sl-icon slot="prefix" name="cloud-upload"></sl-icon> Start fresh
+      </sl-button>
+    </form>
+  </div>
+  <div class="pref__desc backup__warn">
+    <strong>Load existing</strong> replaces the transcripts on this device with the
+    backup. <strong>Start fresh</strong> overwrites the backup with this device's data.
+  </div>
+
+{% elif backup.linked %}
+  {# Connected. Tapping the row opens the restore confirmation modal. #}
+  <div class="backup__provider backup__provider--on"
+       {% if st not in ('backing_up', 'restoring') %}data-backup-restore role="button" tabindex="0"{% endif %}>
+    <div class="backup__ico"><sl-icon name="cloud-check"></sl-icon></div>
+    <div class="backup__meta">
+      <div class="backup__name">{{ backup_provider }}</div>
+      <div class="backup__sub">
+        {%- if st == 'backing_up' %}Backing up…
+        {%- elif st == 'restoring' %}Restoring…
+        {%- elif backup.dirty %}Changes not backed up yet
+        {%- else %}Up to date{% endif %}
+      </div>
+    </div>
+    {% if st in ('backing_up', 'restoring') %}
+      <sl-spinner></sl-spinner>
+    {% else %}
+      <span class="chip chip--ok">● CONNECTED</span>
+      <sl-icon class="backup__chev" name="chevron-right"></sl-icon>
+    {% endif %}
+  </div>
+
+  {% if st not in ('backing_up', 'restoring') %}
+  <div class="backup__actions">
+    <form hx-post="/settings/backup/now" hx-target="#backup-card" hx-swap="outerHTML">
+      <sl-button size="small" variant="primary" data-backup-busy>
+        <sl-icon slot="prefix" name="cloud-arrow-up"></sl-icon> Back up now
+      </sl-button>
+    </form>
+    <form hx-post="/settings/backup/disconnect" hx-target="#backup-card" hx-swap="outerHTML">
+      <sl-button size="small" variant="default" data-backup-busy>Disconnect</sl-button>
+    </form>
+  </div>
+  {% endif %}
+
+{% else %}
+  {# Configured but not linked. #}
+  <div class="pref__desc" style="margin-bottom:14px">
+    Keep your transcripts safe and pull them back onto any device by connecting a
+    backup source. Everything stays local first — the backup is an extra copy you control.
+  </div>
+  <div class="backup__provider">
+    <div class="backup__ico"><sl-icon name="cloud"></sl-icon></div>
+    <div class="backup__meta">
+      <div class="backup__name">{{ backup_provider }}</div>
+      <div class="backup__sub">Not connected · transcripts stay on this device only</div>
+    </div>
+    <form hx-post="/settings/backup/connect" hx-target="#backup-card" hx-swap="outerHTML">
+      <sl-button variant="primary" data-backup-busy>
+        <sl-icon slot="prefix" name="cloud-upload"></sl-icon> Connect
+      </sl-button>
+    </form>
+  </div>
+{% endif %}
+
+{% if backup_notice %}
+<div class="frag {{ 'frag--ok' if backup_notice_ok else 'frag--err' }}" style="margin-top:14px">
+  <sl-icon name="{{ 'check-circle' if backup_notice_ok else 'exclamation-triangle' }}"></sl-icon> {{ backup_notice }}
+</div>
+{% endif %}
+</div>
