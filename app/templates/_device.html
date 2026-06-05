@@ -15,6 +15,9 @@
       <sl-option value="mlx" {% if not models.mlx_available %}disabled{% endif %}>
         Apple GPU (MLX){% if not models.mlx_available %} · unavailable{% endif %}
       </sl-option>
+      <sl-option value="whispercpp" {% if not models.whispercpp_available %}disabled{% endif %}>
+        whisper.cpp (Metal){% if not models.whispercpp_available %} · unavailable{% endif %}
+      </sl-option>
     </sl-select>
   </form>
   {% if busy %}
@@ -25,11 +28,12 @@
   {% endif %}
   <div class="pref__desc" style="margin-top:8px">
     Current device:
-    <strong>{% if models.device == 'cuda' %}GPU (CUDA){% elif models.device == 'mlx' %}Apple GPU (MLX){% else %}CPU{% endif %}</strong>.
+    <strong>{% if models.device == 'cuda' %}GPU (CUDA){% elif models.device == 'mlx' %}Apple GPU (MLX){% elif models.device == 'whispercpp' %}whisper.cpp (Metal){% else %}CPU{% endif %}</strong>.
     Switching reloads every model on the new device. CPU/CUDA pick precision
     automatically (float32 / float16); MLX runs on the Apple Silicon GPU
-    (mlx-whisper, no batching).{% if not models.cuda_available %} No CUDA GPU
+    (mlx-whisper, no batching); whisper.cpp uses Metal on Apple Silicon (CPU
+    elsewhere).{% if not models.cuda_available %} No CUDA GPU
     detected on this host.{% endif %}{% if not models.mlx_available %} MLX is
-    available only on Apple Silicon with the 'mlx' extra installed.{% endif %}
+    available only on Apple Silicon with the 'mlx' extra installed.{% endif %}{% if not models.whispercpp_available %} whisper.cpp needs the 'whispercpp' extra installed.{% endif %}
   </div>
 </div>

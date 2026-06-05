@@ -30,9 +30,14 @@ logger = logging.getLogger(__name__)
 # see _compute_for. "mlx" runs ASR on the Apple Silicon GPU via mlx-whisper and the
 # torch stages (VAD/align/diarize) on mps — see _torch_device.
 DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE", "cpu")
-DEVICES = ("cpu", "cuda", "mlx")
+DEVICES = ("cpu", "cuda", "mlx", "whispercpp")
 # Human-readable device names for the UI (status fragment, switcher).
-DEVICE_LABELS = {"cpu": "CPU", "cuda": "GPU (CUDA)", "mlx": "Apple GPU (MLX)"}
+DEVICE_LABELS = {
+    "cpu": "CPU",
+    "cuda": "GPU (CUDA)",
+    "mlx": "Apple GPU (MLX)",
+    "whispercpp": "whisper.cpp (Metal)",
+}
 DIARIZE_MODEL = os.environ.get(
     "WHISPERX_DIARIZE_MODEL", "pyannote/speaker-diarization-community-1"
 )
@@ -107,6 +112,12 @@ def mlx_available() -> bool:
     )
 
 
+def whispercpp_available() -> bool:
+    """Whether the whisper.cpp ASR backend can run here (uses Metal on Apple
+    Silicon, CPU elsewhere — available wherever pywhispercpp is installed)."""
+    return importlib.util.find_spec("pywhispercpp") is not None
+
+
 def _compute_for(device: str) -> str:
     """Pick the compute type for a device: float16 on CUDA, float32 otherwise.
 
@@ -117,10 +128,11 @@ def _compute_for(device: str) -> str:
 def _torch_device(device: str) -> str:
     """Torch device for the non-ASR stages (VAD/align/diarize).
 
-    For "mlx" the ASR runs on the Apple GPU but the torch stages run on mps
-    (fallback cpu); cpu/cuda pass through unchanged.
+    For "mlx" / "whispercpp" the ASR runs on the Apple GPU (MLX) or Metal
+    (whisper.cpp) but the torch stages run on mps (fallback cpu); cpu/cuda pass
+    through unchanged.
     """
-    if device != "mlx":
+    if device not in ("mlx", "whispercpp"):
         return device
     try:
         import torch
@@ -211,6 +223,10 @@ class ModelManager:
         if device == "mlx" and not mlx_available():
             logger.warning("device=mlx requested but MLX is unavailable (needs Apple "
                            "Silicon + the 'mlx' extra); using cpu")
+            return "cpu"
+        if device == "whispercpp" and not whispercpp_available():
+            logger.warning("device=whispercpp requested but whisper.cpp is unavailable "
+                           "(install the 'whispercpp' extra); using cpu")
             return "cpu"
         return device
 
@@ -359,6 +375,8 @@ class ModelManager:
             raise ValueError("No CUDA GPU available")
         if name == "mlx" and not mlx_available():
             raise ValueError("MLX unavailable (needs Apple Silicon + the 'mlx' extra)")
+        if name == "whispercpp" and not whispercpp_available():
+            raise ValueError("whisper.cpp unavailable (install the 'whispercpp' extra)")
         with self._lock:
             if name == self._device:
                 return self._status_locked()
@@ -398,6 +416,7 @@ class ModelManager:
             "device": self._device,
             "cuda_available": cuda_available(),
             "mlx_available": mlx_available(),
+            "whispercpp_available": whispercpp_available(),
             "diarize": self._diarize is not None,
             "diarize_error": self._diarize_error,
             # Availability is independent of lazy-load timing: the diarizer object

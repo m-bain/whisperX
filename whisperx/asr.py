@@ -374,6 +374,25 @@ def load_model(
             task=task,
         )
 
+    if device == "whispercpp":
+        # whisper.cpp backend. ASR runs on Metal (Apple Silicon) / CPU elsewhere;
+        # the VAD torch model runs on mps (fallback cpu). Same transcribe()
+        # contract, so the downstream align/diarize stages are unchanged.
+        from whisperx.asr_whispercpp import load_whispercpp_model
+
+        return load_whispercpp_model(
+            whisper_arch,
+            torch_device=_mlx_torch_device(),
+            asr_options=asr_options,
+            language=language,
+            vad_model=vad_model,
+            vad_method=vad_method,
+            vad_options=vad_options,
+            task=task,
+            download_root=download_root,
+            threads=threads,
+        )
+
     if compute_type == "default":
         compute_type = "float16" if device == "cuda" else "float32"
         logger.info(f"Compute type not specified, defaulting to {compute_type} for device {device}")

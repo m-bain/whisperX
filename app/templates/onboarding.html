@@ -123,6 +123,7 @@
               ('cpu', 'CPU', 'Runs on any machine — no GPU required. Slowest for long files.', 'Universal · int8', true),
               ('cuda', 'CUDA', 'NVIDIA GPUs. Highest throughput using float16 compute.', 'NVIDIA · float16', models.cuda_available),
               ('mlx', 'MLX', 'Apple Silicon (M-series). Native on-device acceleration for macOS.', 'Apple Silicon', models.mlx_available),
+              ('whispercpp', 'whisper.cpp', 'whisper.cpp via pywhispercpp. Metal on Apple Silicon, CPU elsewhere. Fastest on Mac for large models.', 'Metal · CPU', models.whispercpp_available),
             ] %}
             {% for id, name, desc, tag, avail in be %}
             <div class="ob__backend{% if id == models.device %} ob__backend--on{% endif %}{% if not avail %} ob__backend--off{% endif %}"
