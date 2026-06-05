@@ -49,6 +49,7 @@ from flask import (  # noqa: E402 - load .env first
 )
 from werkzeug.utils import secure_filename  # noqa: E402
 
+from app import backup as backup_pkg  # noqa: E402
 from app import diarize_model  # noqa: E402
 from app import pipeline  # noqa: E402
 from app import secret_store  # noqa: E402
@@ -222,9 +223,81 @@ def _on_stage(session_id: str, stage: str) -> None:
 
 _queue = JobQueue(_sessions, run_session, broker=_broker)
 
+# --- Cloud backup: mirror the data dir (DB + artifacts) to a swappable backend.
+#     Disabled unless WHISPERX_BACKUP_BACKEND is set. Snapshot-under-lock keeps
+#     the DB copy consistent; periodic push runs only when local state changed. ---
+_backup = backup_pkg.build_service(_sessions)
+if _backup.is_linked():
+    _backup.start_periodic()
+
 
 def models_ready() -> bool:
     return _manager.is_loaded(_manager.active)
+
+
+# --- Backup endpoints (thin: all logic lives in BackupService) ----------------
+@app.get("/backup/status")
+def backup_status():
+    return jsonify(_backup.status())
+
+
+@app.post("/backup/link")
+def backup_link():
+    """Run the OAuth consent flow (loopback) then report what's on the remote."""
+    from app.backup import oauth
+    try:
+        oauth.link_interactive()
+    except Exception as exc:  # noqa: BLE001 - surface to caller
+        return jsonify({"error": str(exc)}), 400
+    if _backup.interval and _backup.is_linked():
+        _backup.start_periodic()
+    state = _backup.bootstrap()
+    return jsonify({"linked": True, "remote": state.__dict__})
+
+
+@app.post("/backup/unlink")
+def backup_unlink():
+    from app.backup import oauth
+    oauth.unlink()
+    return jsonify({"linked": False})
+
+
+@app.post("/backup/now")
+def backup_now():
+    try:
+        result = _backup.backup_now()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(result.__dict__)
+
+
+@app.post("/backup/restore")
+def backup_restore():
+    try:
+        restored = _backup.restore()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"restored": restored})
+
+
+@app.post("/backup/bootstrap/adopt")
+def backup_adopt():
+    """Bootstrap choice 'load existing': pull the remote down."""
+    try:
+        restored = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"restored": restored})
+
+
+@app.post("/backup/bootstrap/overwrite")
+def backup_overwrite():
+    """Bootstrap choice 'start fresh': push local over the remote."""
+    try:
+        result = _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(result.__dict__)
 
 
 @app.route("/")

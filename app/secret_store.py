@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 SERVICE = "manuscript-whisperx"
 KEY = "hf_token"
+# OAuth credentials (JSON) for the cloud backup backend — refresh token + the
+# bits google.auth needs to refresh. A secret, so it lives in the keyring too.
+GDRIVE_KEY = "google_drive_creds"
 
 # The gated diarization model whose conditions must be accepted for diarization
 # to work. Kept here (not imported from pipeline) so this module stays import-cheap.
@@ -90,6 +93,45 @@ def delete_hf_token() -> None:
 
     try:
         keyring.delete_password(SERVICE, KEY)
+    except Exception:  # noqa: BLE001 - PasswordDeleteError when absent, etc.
+        pass
+
+
+def set_gdrive_creds(creds_json: str) -> None:
+    """Store the Google Drive OAuth credentials JSON in the OS keyring."""
+    creds_json = (creds_json or "").strip()
+    if not creds_json:
+        raise ValueError("Credentials are empty.")
+    if not keyring_available():
+        raise SecretStoreUnavailable(_NO_BACKEND_MSG)
+    import keyring
+
+    try:
+        keyring.set_password(SERVICE, GDRIVE_KEY, creds_json)
+    except Exception as exc:  # noqa: BLE001 - surface backend errors uniformly
+        raise SecretStoreUnavailable(f"{_NO_BACKEND_MSG} ({exc})") from exc
+
+
+def get_gdrive_creds() -> str | None:
+    """Read the stored Google Drive credentials JSON, or None if unset."""
+    if not keyring_available():
+        return None
+    import keyring
+
+    try:
+        return keyring.get_password(SERVICE, GDRIVE_KEY)
+    except Exception:  # noqa: BLE001 - treat any read failure as "not stored"
+        return None
+
+
+def delete_gdrive_creds() -> None:
+    """Remove stored Google Drive credentials (no-op if absent / no backend)."""
+    if not keyring_available():
+        return
+    import keyring
+
+    try:
+        keyring.delete_password(SERVICE, GDRIVE_KEY)
     except Exception:  # noqa: BLE001 - PasswordDeleteError when absent, etc.
         pass
 
