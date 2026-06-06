@@ -16,6 +16,7 @@
      components load as a module. See app/build.ts and app/src/. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vendor.css') }}">
   <script src="{{ url_for('static', filename='vendor/htmx.js') }}"></script>
+  <script src="{{ url_for('static', filename='sse.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='vendor/shoelace.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
 
@@ -33,6 +34,10 @@
         if (!(v instanceof File)) evt.detail.parameters[k] = v;  // files already handled by htmx
       }
     }
+
+    // SSE primitives (openSSE / sseSwap / watchBackupConnect) are defined in
+    // static/sse.js, loaded above so both this page and standalone onboarding
+    // share them. The consumers below build on those.
 
     // Live job status over Server-Sent Events. Any swapped-in (or page-load)
     // status fragment carries [data-sse-session]; open one EventSource per
@@ -63,9 +68,7 @@
         const id = box.dataset.sseSession;
         const device = box.dataset.deviceLabel || '';
         const label = box.querySelector('[data-status-label]');
-        const es = new EventSource(`/sessions/${id}/events`);
-        es.onmessage = (e) => {
-          const d = JSON.parse(e.data);
+        openSSE(`/sessions/${id}/events`, (d, es) => {
           if (d.status === 'done' || d.status === 'error') {
             es.close();
             window.htmx?.ajax('GET', `/sessions/${id}/status`, { target: box, swap: 'outerHTML' });
@@ -82,34 +85,16 @@
             else if (d.stage === 'transcribing' && device === 'CPU') text += ' this can take a while.';
             label.textContent = text;
           }
-        };
-        // Browser auto-reconnects on transient errors; nothing to do here.
+        });
       });
     }
 
     // Cloud-backup OAuth: the consent flow runs server-side and is non-blocking,
-    // so the "Connect" action swaps in a [data-backup-connecting] fragment. Open
-    // a one-shot EventSource to /backup/events and, on the terminal event, swap
-    // the rendered card into place (settings = outerHTML, onboarding = innerHTML).
+    // so "Connect" swaps in a [data-backup-connecting] fragment; watchBackupConnect
+    // (static/sse.js, shared with onboarding) opens /backup/events and swaps the
+    // rendered card in on the terminal event. Wire it to htmx:load so a swapped-in
+    // fragment starts watching.
     document.addEventListener('htmx:load', (evt) => watchBackupConnect(evt.target));
-    function watchBackupConnect(root) {
-      const el = root.matches?.('[data-backup-connecting]') ? root
-        : root.querySelector?.('[data-backup-connecting]');
-      if (!el || el.dataset.backupWatching) return;
-      el.dataset.backupWatching = '1';
-      const target = el.dataset.backupTarget, swap = el.dataset.backupSwap;
-      const es = new EventSource('/backup/events');
-      es.onmessage = (e) => {
-        let d; try { d = JSON.parse(e.data); } catch { return; }
-        if (d.status !== 'linked' && d.status !== 'error') return;
-        es.close();
-        const dst = document.querySelector(target);
-        if (!dst) return;
-        if (swap === 'outer') dst.outerHTML = d.html; else dst.innerHTML = d.html;
-        window.htmx?.process(document.querySelector(target) || document.body);
-      };
-      // Browser auto-reconnects on transient errors; the terminal event ends it.
-    }
 
     // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the
     // icon). Returns the <sl-alert> so callers can keep/replace a sticky toast.
@@ -165,9 +150,7 @@
         }
       }
 
-      const es = new EventSource('/models/events');
-      es.onmessage = (e) => { try { onState(JSON.parse(e.data)); } catch (_) { /* ignore */ } };
-      // Browser auto-reconnects on transient errors; nothing to do here.
+      openSSE('/models/events', onState);
     })();
 
     // Live backup sync status over Server-Sent Events. Every BackupService state
@@ -175,18 +158,7 @@
     // re-renders the Settings card server-side and pushes it here; we swap
     // #backup-card in place so it never goes stale. No-op on pages without the card
     // (index/onboarding). Lives in <head> so it opens once and survives hx-boost.
-    (function () {
-      const es = new EventSource('/backup/status/events');
-      es.onmessage = (e) => {
-        let d; try { d = JSON.parse(e.data); } catch { return; }
-        if (!d.html) return;
-        const card = document.getElementById('backup-card');
-        if (!card) return;  // not on the Settings page
-        card.outerHTML = d.html;
-        window.htmx?.process(document.getElementById('backup-card') || document.body);
-      };
-      // Browser auto-reconnects on transient errors; nothing to do here.
-    })();
+    sseSwap('/backup/status/events', { target: '#backup-card', swap: 'outer' });
 
     // The New Recording dialog only lives on the index page. From other pages
     // (settings, transcript) there's nothing to open, so send the user home
