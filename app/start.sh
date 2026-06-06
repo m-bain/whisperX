@@ -2,7 +2,10 @@
 # Run the WhisperX web app natively (no Docker), auto-selecting the best ASR
 # backend for the host:
 #
-#   macOS Apple Silicon (arm64) -> MLX (Apple GPU), via the `mlx` extra
+#   macOS Apple Silicon (arm64) -> whisper.cpp (Metal) + MLX (Apple GPU) extras
+#                                  whisper.cpp is the fastest Mac ASR path
+#                                  (1.57× faster than MLX on large-v3);
+#                                  select it in Settings -> Compute Device.
 #   Linux x86_64                -> CUDA GPU when available, else CPU
 #   anything else               -> CPU
 #
@@ -13,7 +16,7 @@
 #
 # Usage:  ./app/start.sh
 # Then open http://localhost:5000
-#   (on Mac, also set Settings -> Compute Device -> Apple GPU (MLX)).
+#   (on Mac, set Settings -> Compute Device -> whisper.cpp (Metal) for best performance).
 set -euo pipefail
 
 # Repo root = parent of this script's dir, regardless of where it's invoked from.
@@ -29,8 +32,8 @@ ARCH="$(uname -m)"
 EXTRA=()
 BACKEND="CPU"
 if [[ "$OS" == "Darwin" && "$ARCH" == "arm64" ]]; then
-  EXTRA=(--extra mlx)            # installs mlx-whisper (Apple GPU backend)
-  BACKEND="Apple GPU (MLX)"
+  EXTRA=(--extra mlx --extra whispercpp)  # mlx-whisper + pywhispercpp (Metal)
+  BACKEND="whisper.cpp (Metal) + Apple GPU (MLX)"
 elif [[ "$OS" == "Linux" ]]; then
   BACKEND="CUDA GPU (if present, else CPU)"
 fi

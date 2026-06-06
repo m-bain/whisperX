@@ -108,7 +108,7 @@ wav2vec2 alignment models are loaded once and shared across all Whisper models.
 
 Allowed models (a whitelist — the client cannot trigger arbitrary HF downloads):
 `tiny`, `tiny.en`, `base`, `base.en`, `small`, `small.en`, `medium`, `medium.en`,
-`large-v2`, `large-v3`, `distil-large-v3`.
+`large-v2`, `large-v3`, `large-v3-turbo`, `distil-large-v3`.
 
 - **Per upload:** the New Recording dialog has a **Model** dropdown; each session
   records the model it used.
