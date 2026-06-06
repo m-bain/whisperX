@@ -212,7 +212,12 @@ class ModelManager:
     keeps the first in ``_asr`` (no eviction), so switching back is instant.
     """
 
-    def __init__(self, active: Optional[str] = None, device: Optional[str] = None):
+    def __init__(
+        self,
+        active: Optional[str] = None,
+        device: Optional[str] = None,
+        on_change: Optional[Callable[[dict], None]] = None,
+    ):
         self._asr: dict[str, object] = {}          # model name -> FasterWhisperPipeline
         self._align_cache: dict = {}               # shared: lang -> (model, metadata)
         self._diarize = None                       # shared DiarizationPipeline or None
@@ -225,6 +230,22 @@ class ModelManager:
         self._compute_type = _compute_for(self._device)
         self._lock = threading.Lock()              # guards dicts / _active / _device / status
         self._load_lock = threading.Lock()         # held only during a heavy model load
+        # Fired with status() after any load/active/device/diarize transition so a
+        # listener (the server's SSE broker) can push live model state to browsers.
+        self._on_change = on_change
+
+    def _notify_change(self) -> None:
+        """Best-effort fire of the on_change callback with the current status().
+
+        Must be called WITHOUT holding ``self._lock`` (status() re-acquires it).
+        A broken listener must never break model loading, so swallow + log."""
+        cb = self._on_change
+        if cb is None:
+            return
+        try:
+            cb(self.status())
+        except Exception:  # noqa: BLE001 - a listener error must not break loading
+            logger.exception("model on_change callback failed")
 
     @staticmethod
     def _resolve_device(device: str) -> str:
@@ -280,6 +301,7 @@ class ModelManager:
                     "vendor_diarize_model.py) or set HF_TOKEN to enable speakers.",
                 )
                 self._diarize_loaded = True
+                self._notify_change()
                 return None
             model_ref = str(local) if local is not None else DIARIZE_MODEL
             try:
@@ -295,6 +317,7 @@ class ModelManager:
                 logger.exception("Diarization model load failed")
             finally:
                 self._diarize_loaded = True
+            self._notify_change()
             return self._diarize
 
     def reset_diarize(self) -> None:
@@ -308,6 +331,7 @@ class ModelManager:
             self._diarize = None
             self._diarize_loaded = False
             self._diarize_error = None
+        self._notify_change()
 
     # --- ASR (per-model, cached) ----------------------------------------
     def load_asr(self, name: str):
@@ -322,6 +346,7 @@ class ModelManager:
                 if key in self._asr:
                     return self._asr[key]
                 self._loading.add(key)
+            self._notify_change()  # broadcast the "loading" state
             try:
                 import whisperx
 
@@ -333,12 +358,14 @@ class ModelManager:
                 with self._lock:
                     self._loading.discard(key)
                     self._errors[key] = str(exc)
+                self._notify_change()  # broadcast the failure
                 logger.exception("Whisper model=%s load failed", key)
                 raise
             with self._lock:
                 self._asr[key] = pipe
                 self._loading.discard(key)
                 self._errors.pop(key, None)
+            self._notify_change()  # broadcast "ready"
             return pipe
 
     def warm(self, name: str) -> None:
@@ -359,6 +386,7 @@ class ModelManager:
         with self._lock:
             self._active = model.value
         self.warm(model.value)
+        self._notify_change()  # active changed; the warm thread re-notifies on load
         return self.status()
 
     def bundle_for(self, name: str) -> ModelBundle:
@@ -414,6 +442,7 @@ class ModelManager:
                 pass
         logger.info("Device switched to %s (%s); reloading models", name, _compute_for(name))
         self.warm(self._active)
+        self._notify_change()  # caches flushed; the warm thread re-notifies on reload
         return self.status()
 
     def status(self) -> dict:

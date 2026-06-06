@@ -86,13 +86,64 @@
       });
     }
 
-    // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the icon).
+    // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the
+    // icon). Returns the <sl-alert> so callers can keep/replace a sticky toast.
     function notify({ variant = 'primary', closable = false, duration = 4000, html = '' }) {
       const alert = Object.assign(document.createElement('sl-alert'), { variant, closable, duration });
       alert.innerHTML = html;
       document.body.append(alert);
       customElements.whenDefined('sl-alert').then(() => alert.toast());
+      return alert;
     }
+
+    // Global model-load state over Server-Sent Events. The active Whisper model
+    // warms in a background thread after boot, so the first page render shows it
+    // "loading…". This stream pushes the live state (broadcast by the server's
+    // ModelManager.on_change hook) so the "loading models" toast flips to a
+    // success state and every model <sl-select> refreshes its loaded/loading
+    // badge — no polling, no reload. The EventSource lives in <head> so it opens
+    // once and survives hx-boost navigations (head scripts don't re-run).
+    (function () {
+      let loadingToast = null;  // the sticky "loading models" alert, if shown
+      let sawLoading = false;   // gate the success toast to a real loading→ready edge
+
+      function refreshModelSelects(models) {
+        const byName = Object.fromEntries((models || []).map((m) => [m.name, m]));
+        document.querySelectorAll('sl-select[data-model-select] sl-option').forEach((opt) => {
+          const m = byName[opt.value];
+          if (!m) return;
+          const badge = m.loaded ? ' · cached' : m.loading ? ' · loading…' : m.error ? ' · failed' : '';
+          const next = opt.value + badge;
+          // Setting textContent makes sl-option emit sl-label-change, which
+          // sl-select listens for to refresh its displayed value.
+          if (opt.textContent.trim() !== next) opt.textContent = next;
+        });
+      }
+
+      function onState(d) {
+        refreshModelSelects(d.models);
+        if (d.bundle_error) return;  // a load failure surfaces via its own toast
+        if (!d.models_ready) {
+          sawLoading = true;
+          if (!loadingToast || !loadingToast.isConnected) {
+            loadingToast = notify({ variant: 'primary', duration: Infinity, closable: true,
+              html: '<sl-spinner slot="icon"></sl-spinner> Loading models — your first upload will wait until they are ready.' });
+          }
+          return;
+        }
+        if (loadingToast && loadingToast.isConnected) loadingToast.hide();
+        loadingToast = null;
+        if (sawLoading) {  // only celebrate an actual transition, not a ready-on-connect
+          sawLoading = false;
+          notify({ variant: 'success', duration: 5000, closable: true,
+            html: '<sl-icon slot="icon" name="check-circle"></sl-icon> Models ready — you can start transcribing now.' });
+        }
+      }
+
+      const es = new EventSource('/models/events');
+      es.onmessage = (e) => { try { onState(JSON.parse(e.data)); } catch (_) { /* ignore */ } };
+      // Browser auto-reconnects on transient errors; nothing to do here.
+    })();
 
     // The New Recording dialog only lives on the index page. From other pages
     // (settings, transcript) there's nothing to open, so send the user home

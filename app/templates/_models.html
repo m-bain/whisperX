@@ -4,7 +4,7 @@
    htmx:configRequest merge forward the Shoelace <sl-select> value. #}
 <div id="model-switcher" class="model-switcher">
   <form>
-    <sl-select name="model" value="{{ models.active }}"
+    <sl-select name="model" value="{{ models.active }}" data-model-select
                hx-post="/models/active" hx-trigger="sl-change"
                hx-target="#model-switcher" hx-swap="outerHTML" hoist>
       {% for m in models.models %}
