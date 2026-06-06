@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import uuid
 from pathlib import Path
@@ -28,7 +29,10 @@ def _load_dotenv() -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if value[:1] not in ('"', "'"):  # strip unquoted inline comment
+            value = re.split(r"\s+#", value, maxsplit=1)[0].rstrip()
+        value = value.strip('"').strip("'")
         if key and key not in os.environ:  # don't override an already-set var
             os.environ[key] = value
 
