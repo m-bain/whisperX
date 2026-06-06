@@ -84,6 +84,14 @@ isn't installed. `distil-large-v3` is English-only — avoid for multilingual.
   `mlx`, diarization is already at RTF ≈ 0.075. The slow case is `--device cpu`
   (the Mac CLI default), where diarization stays on CPU.
 
+### MPS alignment limitation
+
+MPS enforces `output_channels <= 65536` for conv layers. Large wav2vec2 models
+(`wav2vec2-large-xlsr-53-*`, used for Russian, French, and most non-English
+languages) exceed this and crash with "Output channels > 65536 not supported at
+the MPS device". The app's alignment stage is pinned to **CPU** for the `mlx`
+and `whispercpp` device paths to avoid this — diarization continues on MPS.
+
 **Recommendation:** ensure diarization runs on MPS (use `--device mlx`; in the
 web app, select the Apple GPU device). A possible enhancement is to decouple the
 diarize device from the ASR device so CPU-ASR users can still diarize on MPS.
