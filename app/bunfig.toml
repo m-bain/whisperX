@@ -1,0 +1,4 @@
+# Frontend unit tests run on `bun test`. The preload installs a DOM (happy-dom)
+# and a fake EventSource before any test file — see tests/setup.ts.
+[test]
+preload = ["./tests/setup.ts"]

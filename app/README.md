@@ -96,7 +96,9 @@ pipeline advances it pushes the current stage (`decoding` → `transcribing` →
 - `GET /sessions/<id>/events` streams `text/event-stream`: current state on
   connect, then deltas, `:` keepalive comments while idle, closing on a terminal
   event.
-- Client: a global `htmx:load` hook in `base.html` opens one native `EventSource`
+- Client: shared primitives live in `static/sse.js` (`openSSE` /
+  `sseSwap` / `watchBackupConnect`), loaded by `base.html` and the standalone
+  onboarding page. A global `htmx:load` hook in `base.html` `openSSE`s one stream
   per `[data-sse-session]` element, updates its label as stages arrive, and on a
   terminal status fetches the final `/sessions/<id>/status` render in place.
 
@@ -218,5 +220,23 @@ mirror to another disk or a mounted share (also what the tests use).
   over SSE (see *Live progress*); model endpoints `GET /models`,
   `POST /models/active`.
 - `render.py` — result dict → speaker-grouped transcript HTML.
+- `static/sse.js` — client SSE primitives (`openSSE` / `sseSwap` /
+  `watchBackupConnect`), shared by `base.html` and onboarding.
 - `templates/` — `index.html`, `_status.html` (SSE-driven status), `_result.html`,
   `_models.html` (active-model switcher), `partials/_model_select.html`.
+- `tests/` — frontend unit tests (`bun test`): `sse.test.ts` exercises the
+  `static/sse.js` primitives against happy-dom + a fake `EventSource`; `setup.ts`
+  / `fake-eventsource.ts` / `load-sse.ts` are the harness.
+
+## Tests
+
+Backend (Python, from the repo root): `uv run pytest tests/` — the SSE broker is
+covered by `tests/test_sse.py` (`Broker` fan-out, isolation, cleanup,
+drop-not-block backpressure, concurrency) and the backup glue by
+`tests/test_backup_server.py` (those `importorskip("flask")`).
+
+Frontend (TypeScript): `cd app && bun test` (or `bun run test`). `tests/sse.test.ts`
+unit-tests `static/sse.js` — `openSSE` framing + JSON-parse guard, `sseSwap`
+swap/terminal/close behavior, and `watchBackupConnect` discovery + idempotency —
+on happy-dom with a controllable fake `EventSource`. Needs `bun install` once
+(dev dep: `@happy-dom/global-registrator`); the preload is wired in `bunfig.toml`.
