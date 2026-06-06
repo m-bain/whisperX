@@ -31,6 +31,11 @@
   --error: #ba1a1a;
   --ok: #3f6b3f;
 
+  /* Rubrication red — the manuscript tradition of red marginal annotation.
+     Marks reassigned/edited speaker turns. */
+  --rubric: #a4402f;
+  --rubric-soft: rgba(164,64,47,0.08);
+
   /* Type */
   --serif: 'Literata', Georgia, 'Times New Roman', serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -338,6 +343,36 @@ body, body * { font-kerning: normal; }
 .turn:hover .turn__edit { opacity: 1; }
 .turn__edit:hover { color: var(--on-surface); background: var(--surface-container-high); }
 .turn__edit:focus-visible { opacity: 1; outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* Reassign-speaker affordance: a swap button beside the rename pencil that opens
+   a "Reassign to" picker. Same hover-reveal as .turn__edit; stays visible (and
+   marked) while its menu is open. */
+.swap-pick { position: relative; display: inline-flex; vertical-align: middle; }
+.turn__swap { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin-left: 4px; padding: 2px; border: 0; background: none; color: var(--on-surface-faint); cursor: pointer; border-radius: 6px; opacity: 0; transition: opacity 0.12s, color 0.12s, background 0.12s; }
+.turn:hover .turn__swap { opacity: 1; }
+.turn__swap:hover { color: var(--on-surface); background: var(--surface-container-high); }
+.turn__swap:focus-visible { opacity: 1; outline: 2px solid var(--primary); outline-offset: 1px; }
+.turn__swap[aria-expanded="true"] { opacity: 1; color: var(--rubric); background: var(--rubric-soft); }
+
+.spk-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; width: 252px; z-index: 40;
+  background: var(--surface-container-lowest); border: 1px solid var(--outline-variant);
+  border-radius: var(--radius); box-shadow: 0 18px 44px rgba(0,0,0,0.14); overflow: hidden;
+  text-align: left;
+}
+.spk-menu__head { padding: 12px 16px; border-bottom: 1px solid var(--outline-soft); font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--on-surface-variant); }
+.spk-opt { display: flex; align-items: center; gap: 11px; padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--outline-soft); }
+.spk-opt:hover { background: var(--surface-container-low); }
+.spk-opt__badge { width: 24px; height: 24px; flex: 0 0 24px; border-radius: var(--radius-sm); background: var(--inverse-surface); color: var(--inverse-on-surface); font-family: var(--mono); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; letter-spacing: 0.02em; }
+.spk-opt__name { font-size: 15px; font-weight: 600; }
+.spk-opt__check { margin-left: auto; color: var(--on-surface); display: flex; }
+.spk-opt__check sl-icon { font-size: 16px; }
+.spk-add { display: flex; gap: 8px; padding: 12px 14px; align-items: center; }
+.spk-add input { flex: 1; min-width: 0; border: 1px solid var(--outline-variant); border-radius: var(--radius); padding: 9px 11px; font-family: var(--serif); font-size: 14px; background: var(--surface); color: var(--on-surface); outline: none; }
+.spk-add input:focus { border-color: var(--primary); }
+.spk-add button { flex: 0 0 auto; border: none; border-radius: var(--radius); background: var(--primary); color: var(--on-primary); font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 9px 12px; cursor: pointer; }
+.spk-add button:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .turn__time { font-family: var(--mono); font-size: 12px; color: var(--on-surface-faint); margin-top: 4px; }
 .turn__text { font-size: 19px; line-height: 1.66; color: var(--on-surface); border-radius: var(--radius); }
 .turn__text .seg { cursor: pointer; transition: background 0.12s, color 0.12s, box-shadow 0.12s; -webkit-box-decoration-break: clone; box-decoration-break: clone; }

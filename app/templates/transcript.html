@@ -280,6 +280,9 @@
     window.rebuildSegs && window.rebuildSegs();
     setUndo(resp.headers.get('X-Can-Undo') === '1');
   }
+  // Shared with the speaker-reassign flow: a reassignment re-renders the whole body
+  // (it can merge adjacent same-speaker turns and shift indices) on the same contract.
+  window.__applyBodySwap = swapBody;
 
   async function save() {
     if (!editing) return;
@@ -368,6 +371,140 @@
     document.querySelectorAll(`.turn__edit[data-speaker="${CSS.escape(key)}"]`)
       .forEach(el => { el.dataset.name = label; });
     modal.hide();
+  });
+})();
+</script>
+
+<script>
+// Speaker reassignment: the per-turn swap button opens a "Reassign to" picker —
+// pick an existing speaker, or type a new name to enroll one and assign it. The
+// server returns the whole re-rendered body (a reassign can merge adjacent
+// same-speaker turns and shift indices), swapped in via the shared __applyBodySwap.
+(function () {
+  const sessionId = "{{ session.id }}";
+  const body = document.getElementById('tr-body');
+  let openBtn = null;   // the .turn__swap whose menu is currently open
+  let busy = false;     // a reassign POST is in flight
+
+  const CHECK_SVG = '<sl-icon name="check-lg"></sl-icon>';
+
+  function initials(label) {
+    return (label || '').split(/\s+/).filter(Boolean).slice(0, 2)
+      .map(w => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '') || '?';
+  }
+
+  function closeMenu() {
+    const wrap = openBtn && openBtn.closest('.swap-pick');
+    const menu = wrap && wrap.querySelector('.spk-menu');
+    if (menu) menu.remove();
+    if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
+    openBtn = null;
+  }
+
+  async function reassign(turn, params) {
+    if (busy) return;
+    busy = true;
+    try {
+      const resp = await fetch(`/sessions/${sessionId}/turns/${turn}/speaker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params).toString(),
+      });
+      if (!resp.ok) {
+        const msg = (await resp.text()) || 'Could not reassign the speaker.';
+        notify({ variant: 'danger', closable: true,
+                 html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> ' + msg });
+        return;
+      }
+      const html = await resp.text();
+      closeMenu();
+      window.__applyBodySwap(resp, html);   // discards the (now stale) menu DOM
+    } catch (err) {
+      notify({ variant: 'danger', closable: true,
+               html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Could not reassign the speaker.' });
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function openMenu(btn) {
+    const turn = btn.dataset.turn;
+    const current = btn.dataset.speaker || '';
+    const wrap = btn.closest('.swap-pick');
+
+    let speakers = [];
+    try {
+      const resp = await fetch(`/sessions/${sessionId}/speakers`);
+      if (resp.ok) speakers = await resp.json();
+    } catch (err) { /* fall through with whatever we have */ }
+    if (openBtn !== btn) return;   // user closed/switched while the fetch was out
+
+    const menu = document.createElement('div');
+    menu.className = 'spk-menu';
+    menu.setAttribute('role', 'menu');
+
+    const head = document.createElement('div');
+    head.className = 'spk-menu__head';
+    head.textContent = 'Reassign to';
+    menu.appendChild(head);
+
+    speakers.forEach(sp => {
+      const opt = document.createElement('div');
+      opt.className = 'spk-opt';
+      opt.setAttribute('role', 'menuitem');
+      opt.innerHTML =
+        `<span class="spk-opt__badge">${initials(sp.label)}</span>` +
+        `<span class="spk-opt__name"></span>` +
+        (sp.key === current ? `<span class="spk-opt__check">${CHECK_SVG}</span>` : '');
+      opt.querySelector('.spk-opt__name').textContent = sp.label;
+      if (sp.key !== current) opt.addEventListener('click', () => reassign(turn, { speaker: sp.key }));
+      menu.appendChild(opt);
+    });
+
+    const add = document.createElement('div');
+    add.className = 'spk-add';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'New speaker…';
+    input.autocomplete = 'off';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.textContent = 'Add';
+    addBtn.disabled = true;
+    const submit = () => { const nm = input.value.trim(); if (nm) reassign(turn, { name: nm }); };
+    input.addEventListener('input', () => { addBtn.disabled = !input.value.trim(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); closeMenu(); btn.focus(); }
+    });
+    addBtn.addEventListener('click', submit);
+    add.appendChild(input);
+    add.appendChild(addBtn);
+    menu.appendChild(add);
+
+    wrap.appendChild(menu);
+    input.focus();
+  }
+
+  body.addEventListener('click', (e) => {
+    const btn = e.target.closest('.turn__swap');
+    if (!btn) return;
+    e.preventDefault();
+    if (openBtn === btn) { closeMenu(); return; }
+    closeMenu();
+    openBtn = btn;
+    btn.setAttribute('aria-expanded', 'true');
+    openMenu(btn);
+  });
+
+  // Dismiss on an outside click or Escape.
+  document.addEventListener('click', (e) => {
+    if (!openBtn) return;
+    if (e.target.closest('.spk-menu') || e.target.closest('.turn__swap')) return;
+    closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openBtn) { closeMenu(); }
   });
 })();
 </script>

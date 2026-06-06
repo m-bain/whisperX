@@ -49,6 +49,16 @@ _PENCIL_SVG = (
     '<path d="m15 5 4 4"/></svg>'
 )
 
+# lucide "arrow-left-right" (https://lucide.dev/icons/arrow-left-right) — the
+# per-turn "reassign speaker" affordance.
+_SWAP_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
+    'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/>'
+    '<path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>'
+)
+
 
 def _word_spans(seg: dict) -> str:
     """Render a segment's words as timed spans; fall back to the raw text."""
@@ -135,14 +145,26 @@ def render_transcript(result: dict, names: Optional[dict] = None) -> str:
                 'title="Edit speaker name" aria-label="Edit speaker name">'
                 f'{_PENCIL_SVG}</button>'
             )
+            # Reassign affordance: the button toggles a speaker picker that the
+            # client builds (and anchors) inside this .swap-pick wrapper.
+            swap = (
+                '<span class="swap-pick">'
+                f'<button class="turn__swap" type="button" data-turn="{t.index}" '
+                f'data-speaker="{key}" '
+                'title="Reassign speaker" aria-label="Reassign speaker" '
+                f'aria-haspopup="true" aria-expanded="false">{_SWAP_SVG}</button>'
+                '</span>'
+            )
         else:
             speaker_attr = ""
             edit = ""
+            swap = ""
         rows.append(
             f'<div class="turn" data-turn="{t.index}">'
             '<div class="turn__who">'
             f'<div class="turn__speaker"{speaker_attr}>{escape(label)}</div>'
             f'{edit}'
+            f'{swap}'
             f'<div class="turn__time">{_fmt_ts(t.start)}</div>'
             "</div>"
             f'<div class="turn__text" data-text="{escape(t.text, quote=True)}">{html}</div>'
