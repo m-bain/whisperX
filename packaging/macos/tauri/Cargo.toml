@@ -1,0 +1,28 @@
+[package]
+name = "manuscript"
+version = "0.0.0"
+description = "Manuscript (WhisperX) macOS shell"
+edition = "2021"
+rust-version = "1.77"
+
+# Plain library-mode Tauri binary: NOT built via `cargo tauri build`. build.py
+# (the macOS packaging driver) compiles this with `cargo build --release` and drops
+# the binary in as Contents/MacOS/Manuscript — build.py stays the single owner of
+# the .app tree + the leaf-first deep codesign. See ../../MACOS_INSTALLER.md (D).
+
+[[bin]]
+name = "manuscript"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+ureq = "2"
+libc = "0.2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

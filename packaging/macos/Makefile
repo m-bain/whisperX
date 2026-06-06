@@ -23,7 +23,9 @@ BUILD := build
 APP := $(BUILD)/Manuscript.app
 STAMP := $(BUILD)/.stamp
 
-.PHONY: all poc release bundle skeleton runtime app ffmpeg launcher sign notarize dmg clean
+TAURI_SRC := tauri/src/main.rs tauri/Cargo.toml tauri/build.rs tauri/tauri.conf.json
+
+.PHONY: all poc release bundle skeleton runtime app ffmpeg tauri sign notarize dmg clean
 
 ## poc: assemble + ad-hoc sign a locally launchable .app (default goal)
 poc: bundle sign
@@ -34,8 +36,9 @@ poc: bundle sign
 release: bundle sign notarize dmg
 	@echo "Release DMG built under $(BUILD)/"
 
-## bundle: full .app tree, no signing
-bundle: $(STAMP).skeleton $(STAMP).runtime $(STAMP).app $(STAMP).ffmpeg $(STAMP).launcher
+## bundle: full .app tree, no signing. The Tauri WKWebView shell is the
+## CFBundleExecutable.
+bundle: $(STAMP).skeleton $(STAMP).runtime $(STAMP).app $(STAMP).ffmpeg $(STAMP).tauri
 
 $(STAMP).skeleton:
 	$(DRIVER) skeleton && mkdir -p $(BUILD) && touch $@
@@ -45,15 +48,15 @@ $(STAMP).app: $(STAMP).skeleton
 	$(DRIVER) app && touch $@
 $(STAMP).ffmpeg: $(STAMP).skeleton
 	$(DRIVER) ffmpeg && touch $@
-$(STAMP).launcher: $(STAMP).skeleton launcher.c
-	$(DRIVER) launcher && touch $@
+$(STAMP).tauri: $(STAMP).skeleton $(TAURI_SRC)
+	$(DRIVER) tauri && touch $@
 
 # Individual phases (force re-run, ignore stamps).
 skeleton: ; $(DRIVER) skeleton
 runtime:  ; $(DRIVER) runtime
 app:      ; $(DRIVER) app
 ffmpeg:   ; $(DRIVER) ffmpeg
-launcher: ; $(DRIVER) launcher
+tauri:    ; $(DRIVER) tauri
 sign:     ; $(DRIVER) sign
 notarize: ; $(DRIVER) notarize
 dmg:      ; $(DRIVER) dmg

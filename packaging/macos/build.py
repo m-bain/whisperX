@@ -15,7 +15,7 @@ Subcommands (run via the Makefile, or directly):
     runtime    embed python-build-standalone + arm64 venv into Resources
     app        copy app/ source + built frontend + vendored diarizer into Resources
     ffmpeg     fetch/place a static arm64 ffmpeg at Resources/bin/ffmpeg
-    launcher   compile launcher.c -> Contents/MacOS/<App>
+    tauri      cargo build the WKWebView shell -> Contents/MacOS/<App>
     sign       deep, leaf-first codesign (IDENTITY env; default ad-hoc "-")
     notarize   notarytool submit + staple (needs a Developer ID Application cert)
     dmg        build a drag-to-Applications DMG
@@ -107,8 +107,21 @@ def cmd_skeleton(_args) -> None:
         "LSMinimumSystemVersion": "12.0",
         "LSArchitecturePriority": ["arm64"],
         "NSHighResolutionCapable": True,
-        # Server + browser; no docs. Keep a normal (non-agent) app for the PoC.
         "LSApplicationCategoryType": "public.app-category.productivity",
+        # The Tauri WKWebView loads the local Flask server over http://127.0.0.1.
+        # WKWebView is subject to App Transport Security, which blocks plain HTTP by
+        # default — without this exception the window renders a blank/blocked page.
+        # NSAllowsLocalNetworking covers loopback on modern macOS; the explicit
+        # 127.0.0.1 exception keeps older releases happy too.
+        "NSAppTransportSecurity": {
+            "NSAllowsLocalNetworking": True,
+            "NSExceptionDomains": {
+                "127.0.0.1": {
+                    "NSExceptionAllowsInsecureHTTPLoads": True,
+                    "NSIncludesSubdomains": False,
+                },
+            },
+        },
     }
     with open(CONTENTS / "Info.plist", "wb") as fh:
         plistlib.dump(info, fh)
@@ -260,16 +273,24 @@ def cmd_ffmpeg(_args) -> None:
         print("  ! WARNING: bundled ffmpeg is not arm64 — replace via FFMPEG_PATH/URL")
 
 
-# --- launcher --------------------------------------------------------------------
-def cmd_launcher(_args) -> None:
+# --- tauri -----------------------------------------------------------------------
+def cmd_tauri(_args) -> None:
+    """Compile the Tauri WKWebView shell and install it as CFBundleExecutable.
+
+    Plain `cargo build --release` (NOT `cargo tauri build`): build.py stays the
+    single owner of the .app tree + deep-sign, and we avoid the externalBin
+    notarization bug (landmine 6). The interpreter is spawned by the Rust shell
+    from Contents/Resources — no Tauri sidecar. See MACOS_INSTALLER.md (D)."""
+    crate = HERE / "tauri"
+    run(["cargo", "build", "--release"], cwd=crate)
+    binary = crate / "target" / "release" / "manuscript"
+    if not binary.exists():
+        sys.exit(f"cargo build produced no binary at {binary}")
     MACOS.mkdir(parents=True, exist_ok=True)
     out = MACOS / APP_NAME
-    # major.minor only (e.g. 3.12) -> pythonX.Y tag for the site-packages path.
-    pytag = "python" + ".".join(PYTHON_VERSION.split(".")[:2])
-    run(["clang", "-arch", "arm64", "-O2",
-         f'-DPYTAG="{pytag}"', "-o", out, HERE / "launcher.c"])
+    shutil.copy2(binary, out)
     out.chmod(0o755)
-    print(f"  built launcher -> {out} (PYTAG={pytag})")
+    print(f"  built tauri shell -> {out}")
 
 
 # --- sign ------------------------------------------------------------------------
@@ -379,7 +400,7 @@ def cmd_clean(_args) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
-    for name in ("skeleton", "runtime", "app", "ffmpeg", "launcher",
+    for name in ("skeleton", "runtime", "app", "ffmpeg", "tauri",
                  "sign", "notarize", "dmg", "clean"):
         sub.add_parser(name).set_defaults(fn=globals()[f"cmd_{name}"])
     args = parser.parse_args()

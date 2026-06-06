@@ -5,11 +5,12 @@ This document is design research for shipping the web frontend (`app/`) as a
 **updating that app without destroying user state** (the SQLite session DB,
 per-session audio/transcripts, and the Keychain secrets).
 
-It records the constraints, the packaging options with pros/cons, the
-recommended design, and the supporting code changes that have already landed.
-The macOS-specific build steps (Tauri shell, code signing, notarization, DMG)
-must be executed on a Mac with an Apple Developer ID — they are documented here
-but not yet implemented.
+It records the constraints, the packaging options with pros/cons, the recommended
+design, the supporting code changes, and the **build tooling** (`packaging/macos/`),
+which is implemented and validated end-to-end for local/internal use — see
+"Confirmed working" below. The remaining steps need an Apple Developer ID Account
+Holder: **notarization + stapling** (and later the **Tauri shell**); code signing
+itself already works with an Apple Development cert for testing.
 
 ### Frozen signing identity (do not ever change)
 Keychain ACLs bind to the signing identity, so these are frozen **forever** —
@@ -109,9 +110,22 @@ process spawned from the **in-bundle** interpreter (`Contents/Resources`).
   runtime (a known notarization bug, tauri-apps/tauri#11992); place the interpreter in
   `Contents/Resources` yourself and `spawn` it — the Rust shell and the whole Resources
   tree are signed in one pass (landmine 6).
-- **Sequencing**: ship a plain `webbrowser.open` launcher **first** as the bootstrap
-  PoC (the server already supports this via `WHISPERX_OPEN_BROWSER`), then add the
-  Tauri shell once the bundle + signing pipeline is proven.
+- **Build integration (decided, landed)**: the shell is a **plain `cargo build
+  --release` library-mode binary** (crate `packaging/macos/tauri/`), **not** built via
+  `cargo tauri build`'s bundler. `build.py` compiles it and copies the binary to
+  `Contents/MacOS/Manuscript` (exactly where `launcher.c`'s output went), so **`build.py`
+  remains the single owner of the `.app` tree and the leaf-first deep-sign** — no second,
+  competing `.app` and no duplicated signing logic. This is the natural consequence of
+  the no-`externalBin` rule (landmine 6): we already place + spawn the interpreter
+  ourselves, so we let the existing skeleton/runtime/app/ffmpeg/sign pipeline stand and
+  just swap the executable. The Rust shell folds in all of `launcher.c`'s logic
+  (path-resolve, env, ffmpeg-on-`PATH`, log redirect, `spawn`) and adds: pick a free
+  `127.0.0.1` port in Rust → pass as `PORT` (deterministic, no `runtime-port` file race),
+  poll `/healthz`, open the window on a bundled splash then navigate to the Flask URL,
+  and SIGTERM the child on quit (Cmd-Q / window close).
+- **Sequencing**: shipped a plain `webbrowser.open` launcher **first** as the bootstrap
+  PoC (the server supports this via `WHISPERX_OPEN_BROWSER`); the Tauri shell then
+  replaced it once the bundle + signing pipeline was proven. *(done — see step 4.)*
 
 ### Rejected outright
 - **(E) BeeWare Briefcase** — project restructure + still bundles the full ~3 GB torch stack.
@@ -177,21 +191,26 @@ accept an injected data dir and use the Keychain.
 
 ## Build tooling (`packaging/macos/`)
 
-The (B) pipeline is scaffolded and the **browser-open PoC builds + runs**:
+The (B) pipeline is complete and the **Tauri-shelled bundle builds + runs**:
 
 - **`build.py`** — phase driver: `skeleton` (`.app` tree + `Info.plist` + icon),
   `runtime` (embed interpreter + venv), `app` (copy source + frontend + diarizer +
-  bake `defaults.env`), `ffmpeg`, `launcher`, `sign` (leaf-first deep codesign),
-  `notarize`, `dmg`. Frozen `BUNDLE_ID`/`TEAM_ID` are env-overridable
-  (`MANUSCRIPT_BUNDLE_ID`/`MANUSCRIPT_TEAM_ID`) with the frozen values as defaults.
+  bake `defaults.env`), `ffmpeg`, `tauri` (compile + install the WKWebView shell),
+  `sign` (leaf-first deep codesign), `notarize`, `dmg`. Frozen `BUNDLE_ID`/`TEAM_ID`
+  are env-overridable (`MANUSCRIPT_BUNDLE_ID`/`MANUSCRIPT_TEAM_ID`) with the frozen
+  values as defaults.
 - **`Makefile`** — orchestrator; `make poc` (ad-hoc, local) and `make release`
   (`IDENTITY=…` + `NOTARY_PROFILE=…`). Per-phase targets avoid rebuilding the runtime.
   `NO_TIMESTAMP=1` skips the per-file secure timestamp for fast test signing.
-- **`launcher.c`** — tiny signed Mach-O `CFBundleExecutable`; resolves the bundle,
-  sets env (`WHISPERX_OPEN_BROWSER=1`, `PYTHONPATH`, bundled ffmpeg on `PATH`),
-  `exec`s the interpreter (`-m app.server`). When not attached to a terminal
-  (Finder/`open`) it redirects stdout/stderr to `<data dir>/manuscript.log` so logs
-  survive; a direct terminal run still streams (the `isatty` check).
+- **`tauri/`** — the native WKWebView shell (Rust), compiled with a plain
+  `cargo build --release` (**not** `cargo tauri build`) and copied in as the signed
+  `CFBundleExecutable`. `src/main.rs` resolves the bundle, picks a free `127.0.0.1`
+  port → passes it to Python as `PORT`, sets env (`PYTHONPATH`, bundled ffmpeg on
+  `PATH`), redirects the child's stdout/stderr to `<data dir>/manuscript.log`,
+  `spawn`s the interpreter (`-m app.server`), opens the window on a bundled splash,
+  polls `/healthz`, then navigates to the Flask UI; Cmd-Q / window-close SIGTERMs the
+  child for a graceful `_shutdown()`. (Replaced the original `launcher.c` browser-open
+  PoC, now removed.)
 - **`entitlements.plist`** — hardened-runtime: `disable-library-validation` (+ jit /
   unsigned-exec-mem / dyld-env).
 - **`bundle-defaults.env`** (gitignored) — ship-with-the-app config baked into the
@@ -225,6 +244,9 @@ local/internal testing (everything except notarized external distribution):
   the Drive OAuth link + refresh token live in the **Keychain** and persist across
   rebuilds, and a real backup runs/uploads.
 - **Logging** — Finder/`open` launches write `<data dir>/manuscript.log`.
+- **Update preservation** — a `make clean && make poc` rebuild reuses the
+  out-of-bundle state: DB, sessions, `~/.cache/huggingface` weights, and Keychain
+  secrets (incl. the Drive link) all survive. Confirms the design-(B) thesis.
 
 ### Findings from the PoC build
 
@@ -232,7 +254,7 @@ local/internal testing (everything except notarized external distribution):
    **absolute** `pyvenv.cfg home`, and CPython ignores a relative one — so invoking
    the venv's `bin/python` from a moved/renamed bundle fails with `No module named
    'encodings'`. The **base python-build-standalone interpreter relocates fine**, so
-   the launcher runs `Resources/python/bin/python3` directly with the venv's
+   the Tauri shell runs `Resources/python/bin/python3` directly with the venv's
    `site-packages` on `PYTHONPATH` (the venv is still where deps are installed; we
    just don't depend on its broken home resolution). Verified: relocated copy with the
    original hidden serves `/healthz` and transcribes.
@@ -273,6 +295,12 @@ local/internal testing (everything except notarized external distribution):
    currently buggy (tauri-apps/tauri#11992). The interpreter still lives **in** the
    bundle (`Contents/Resources`, per (B)) — just place + spawn it yourself rather than
    via the `externalBin` mechanism, and deep-sign Resources in one pass.
+7. **WKWebView + `http://127.0.0.1` needs an ATS exception** — the Tauri window loads
+   the local Flask server over plain HTTP, and WKWebView enforces App Transport
+   Security. Without an `NSAppTransportSecurity` entry in `Info.plist` the window shows
+   a **blank/blocked page** (no obvious error). `build.py cmd_skeleton` sets
+   `NSAllowsLocalNetworking = true` plus an explicit `127.0.0.1`
+   `NSExceptionAllowsInsecureHTTPLoads` exception (older-macOS belt-and-braces).
 
 ## Verification / proof-of-concept order
 
@@ -281,25 +309,39 @@ so validate in this order **before** investing in full Tauri integration:
 
 1. **Code changes** *(done)* — app runs from source with the relocated data dir;
    `127.0.0.1:<port>`, `/healthz`, and graceful SIGTERM all work; relevant tests pass.
-2. **Bundle + browser-open PoC (no Tauri yet)** *(done, ad-hoc; notarization pending
-   cert)* — `packaging/macos/make poc` builds the bundle (`python-build-standalone` +
-   venv with torch/whisperx/`whispercpp`/`mlx`/`gdrive`/Flask/keyring + signed ffmpeg),
-   deep-signs with hardened runtime + `disable-library-validation`, and ships an `.app`
-   that spawns Flask from the in-bundle interpreter and `webbrowser.open`s the UI.
-   **Verified ad-hoc:** a relocated copy (original hidden) serves `/healthz` and runs a
-   full ASR+align transcription — proving torch/ctranslate2/pyannote load under the
-   hardened runtime (landmine 1, indicative). **Still required (cert-blocked):** real
-   `Developer ID Application` sign + notarize, the **clean-VM quarantined run**, the
-   Developer-ID re-check of landmine 1, and confirming the `mlx` backend end-to-end.
-3. **Update preservation test** — create sessions + set an HF token + link Drive backup;
-   install a new DMG built with the **same Team/bundle ID**; confirm the DB, session
-   files, `~/.cache/huggingface` weights, and all three Keychain secrets survive.
-4. **Tauri shell** — only after (2)–(3) pass, replace the browser-open launcher with the
-   Tauri WKWebView window (health-check gate, native quit → SIGTERM). Verify SSE renders
-   in WKWebView; re-run the deep-sign/notarize with the Rust shell included.
-5. **Failure-path UX** — simulate low-disk and offline first transcription (model-weight
-   download fails); confirm the UI surfaces a clear, retryable error rather than a
-   silent hang.
+2. **Bundle + browser-open PoC (no Tauri yet)** *(done; notarization pending cert)* —
+   `packaging/macos/make poc` builds the bundle (`python-build-standalone` + venv with
+   torch/whisperx/`whispercpp`/`mlx`/`gdrive`/Flask/keyring + signed ffmpeg + baked
+   `defaults.env`), deep-signs with hardened runtime + `disable-library-validation`,
+   and ships an `.app` that spawns Flask from the in-bundle interpreter and opens the
+   UI. **Confirmed end-to-end:** relocated serve + `/healthz`; real **transcription**
+   (ASR+align) via the GUI; **cloud backup** via the GUI (backend from bundled defaults,
+   Keychain-linked, real upload); Apple-Development-signed run proved landmine 1 under a
+   real signature. **Still required (cert-blocked):** `Developer ID Application`
+   notarize + staple, the **clean-VM quarantined run**, the Developer-ID re-check of
+   landmine 1, and confirming the `mlx` backend end-to-end via the GUI.
+3. **Update preservation test** *(done)* — with sessions created + Drive backup linked,
+   a rebuild reuses the out-of-bundle state: DB, session files, `~/.cache/huggingface`
+   weights, and the Keychain secrets all survive a `make clean && make poc`. This
+   validates the core design-(B) thesis (state lives outside the replaced bundle).
+4. **Tauri shell** *(landed)* — the browser-open launcher is replaced by a native
+   Tauri 2 WKWebView window (crate `packaging/macos/tauri/`, `make tauri` phase). The
+   Rust binary is the `CFBundleExecutable`: it picks a free `127.0.0.1` port → passes
+   it to Python as `PORT`, spawns Flask from the in-bundle interpreter (env + ffmpeg
+   `PATH` + `<data dir>/manuscript.log` redirect folded in from `launcher.c`), opens
+   the window on a bundled splash, polls `/healthz`, then navigates to the Flask UI;
+   Cmd-Q / window-close SIGTERMs the child for a graceful `_shutdown()`. The shell is a
+   plain `cargo build` library-mode binary (no `cargo tauri build`), so `build.py` still
+   owns the bundle + deep-sign. `Info.plist` gained the ATS exception (landmine 7).
+5. **Failure-path UX** *(deferred — follow-up)* — simulate low-disk and offline first
+   transcription (model-weight download fails); confirm the UI surfaces a clear,
+   retryable error rather than a silent hang.
+
+**Still cert-blocked (deferred):** **notarization + stapling + the clean-VM
+quarantined Gatekeeper run** and the Developer-ID re-check of landmine 1 — held until
+the `Developer ID Application` cert exists. With the Tauri binary now the signed
+`CFBundleExecutable`, these are run on *this* bundle (no throwaway-launcher detour).
+Also still to confirm via the windowed GUI: the `mlx` backend end-to-end.
 
 ## Resolved decisions
 - **ffmpeg**: **bundle + sign** (+~60 MB) — offline-safe, no Gatekeeper-on-exec risk.
@@ -312,7 +354,11 @@ so validate in this order **before** investing in full Tauri integration:
   a self-contained, network-light, Gatekeeper-safe artifact.
 - **Mac ASR backends**: ship **both** `whispercpp` (default) and `mlx`.
 - **UI shell sequencing**: **browser-open PoC first**, Tauri after the bundle/signing
-  pipeline is proven.
+  pipeline is proven. *(Tauri has landed — verification step 4.)*
+- **Tauri build integration**: **plain `cargo build --release` library-mode binary**
+  copied in by `build.py`, **not** `cargo tauri build`'s bundler — `build.py` stays the
+  single owner of the `.app` tree + deep-sign. Direct consequence of the no-`externalBin`
+  rule (landmine 6).
 - **Identity**: bundle ID `com.anvil7.manuscript.transcription`, Team ID `Q8HKVK78G9`
   — frozen forever.
 

@@ -5,15 +5,17 @@ Build tooling for the signed, self-contained macOS `.app` described in
 arm64 Python runtime + ffmpeg ship *inside* the signed bundle; only ML model
 weights download on first run).
 
-This directory is the **browser-open PoC** stage (verification order step 2): a
-native launcher that spawns the embedded interpreter and opens the UI in the
-default browser. The Tauri WKWebView shell (step 4) replaces `launcher.c` later.
+The bundle's `CFBundleExecutable` is a native **Tauri 2 (WKWebView) shell**
+(`tauri/`, a plain `cargo build` library-mode binary — not `cargo tauri build`):
+it spawns the embedded interpreter, gates on `/healthz`, and opens the UI in a
+native desktop window. `build.py` copies the compiled binary into the bundle and
+remains the single owner of the `.app` tree + deep-sign.
 
 ## Layout produced
 
 ```
 build/Manuscript.app/Contents/
-├─ MacOS/Manuscript            native launcher (launcher.c)
+├─ MacOS/Manuscript            native Tauri WKWebView shell (tauri/src/main.rs)
 ├─ Info.plist                  CFBundleIdentifier = com.anvil7.manuscript.transcription
 └─ Resources/
    ├─ python/                  embedded python-build-standalone interpreter
@@ -30,8 +32,9 @@ Support/WhisperX/` (DB, sessions, refreshed models), `~/.cache/huggingface`
 
 ## Prerequisites
 
-- Apple Silicon Mac, Xcode command-line tools (`clang`, `codesign`, `ditto`,
-  `hdiutil`, and for release `notarytool`/`stapler`).
+- Apple Silicon Mac, Xcode command-line tools (`codesign`, `ditto`, `hdiutil`,
+  and for release `notarytool`/`stapler`).
+- A Rust toolchain (`cargo`) for the Tauri shell.
 - [`uv`](https://docs.astral.sh/uv/) and [`bun`](https://bun.sh) on `PATH`.
 
 ## Build
@@ -40,8 +43,7 @@ Support/WhisperX/` (DB, sessions, refreshed models), `~/.cache/huggingface`
 # Local PoC: ad-hoc signed, launches on THIS machine (not notarizable).
 make poc
 open build/Manuscript.app
-# For server logs, run the launcher directly:
-build/Manuscript.app/Contents/MacOS/Manuscript
+# Server logs land in ~/Library/Application Support/WhisperX/manuscript.log
 ```
 
 The first `make poc` resolves the ~3 GB runtime — slow. Per-phase targets

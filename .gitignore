@@ -189,6 +189,9 @@ packaging/macos/build/
 # (OAuth client id/secret + default backup backend). Contains a secret.
 packaging/macos/bundle-defaults.env
 
+# macOS packaging: Tauri shell Rust build artifacts
+packaging/macos/tauri/target/
+
 # playwright-cli scratch: per-session snapshots/console logs + driver config
 .playwright-cli/
 .playwright/
