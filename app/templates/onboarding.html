@@ -7,6 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vendor.css') }}">
   <script type="module" src="{{ url_for('static', filename='vendor/shoelace.js') }}"></script>
+  <script src="{{ url_for('static', filename='sse.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
 </head>
 <body>
@@ -293,23 +294,10 @@
   // Cloud-backup step. No htmx on this page, so POST the action and swap the
   // returned fragment back into #ob-backup. Connect is non-blocking: the server
   // runs the OAuth consent flow in the background and returns a "connecting…"
-  // fragment; watchBackupConnect opens an SSE stream and swaps in the final card
-  // when the user finishes signing in (so a closed/late tab still updates here).
+  // fragment; watchBackupConnect (static/sse.js, shared with base.html) opens an
+  // SSE stream and swaps in the final card when the user finishes signing in (so
+  // a closed/late tab still updates here).
   const obBackup = document.getElementById('ob-backup');
-  function watchBackupConnect(root) {
-    const el = root.querySelector('[data-backup-connecting]');
-    if (!el || el.dataset.backupWatching) return;
-    el.dataset.backupWatching = '1';
-    const target = el.dataset.backupTarget, swap = el.dataset.backupSwap;
-    const es = new EventSource('/backup/events');
-    es.onmessage = (e) => {
-      let d; try { d = JSON.parse(e.data); } catch { return; }
-      if (d.status !== 'linked' && d.status !== 'error') return;
-      es.close();
-      const dst = document.querySelector(target);
-      if (dst) { if (swap === 'outer') dst.outerHTML = d.html; else dst.innerHTML = d.html; }
-    };
-  }
   if (obBackup) {
     obBackup.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-ob-backup]');

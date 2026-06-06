@@ -8,10 +8,8 @@ Config: put HF_TOKEN (and optional WHISPERX_* overrides) in app/.env.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-import queue
 import re
 import threading
 import uuid
@@ -57,7 +55,7 @@ from app import backup as backup_pkg  # noqa: E402
 from app import diarize_model  # noqa: E402
 from app import pipeline  # noqa: E402
 from app import secret_store  # noqa: E402
-from app.events import Broker  # noqa: E402
+from app.sse import Broker, sse_response  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
 from app.render import render_markdown, render_transcript, resolve_label  # noqa: E402
 from app.store import SessionStore  # noqa: E402
@@ -465,25 +463,7 @@ def backup_status_events():
     Emits the current card on connect (correct for late/reconnecting clients), then
     a freshly-rendered card on every state transition. Long-lived — backup state has
     no terminal, so the browser keeps it open until navigation."""
-    def stream():
-        q = _broker.subscribe(BACKUP_STATUS_CHANNEL)
-        try:
-            yield _sse(_backup_status_event())  # current state on connect
-            while True:
-                try:
-                    event = q.get(timeout=15)
-                except queue.Empty:
-                    yield ": keepalive\n\n"
-                    continue
-                yield _sse(event)
-        finally:
-            _broker.unsubscribe(BACKUP_STATUS_CHANNEL, q)
-
-    return Response(
-        stream(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return sse_response(_broker, BACKUP_STATUS_CHANNEL, initial=_backup_status_event)
 
 
 # --- Non-blocking OAuth consent ------------------------------------------------
@@ -610,30 +590,15 @@ def backup_events():
     HTML. A late subscriber (the flow finished before its EventSource opened)
     gets the stored result immediately; otherwise it relays the live event.
     """
-    def stream():
-        q = _broker.subscribe(BACKUP_CHANNEL)
-        try:
-            with _backup_link_lock:
-                pending = _backup_link["result"]
-            if pending is not None:  # already finished — late subscriber
-                yield _sse(pending)
-                return
-            while True:
-                try:
-                    event = q.get(timeout=15)
-                except queue.Empty:
-                    yield ": keepalive\n\n"
-                    continue
-                yield _sse(event)
-                if event.get("status") in ("linked", "error"):
-                    return
-        finally:
-            _broker.unsubscribe(BACKUP_CHANNEL, q)
+    def pending():
+        with _backup_link_lock:
+            return _backup_link["result"]
 
-    return Response(
-        stream(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    return sse_response(
+        _broker,
+        BACKUP_CHANNEL,
+        pending=pending,
+        terminal=lambda e: e.get("status") in ("linked", "error"),
     )
 
 
@@ -1197,34 +1162,21 @@ def session_events(session_id: str):
     if _sessions.get(session_id) is None:
         abort(404)
 
-    def stream():
-        q = _broker.subscribe(session_id)
-        try:
-            # Re-read after subscribing so we can't miss a terminal event that
-            # fired in the gap between the existence check and the subscribe.
-            row = _sessions.get(session_id) or {}
-            status = row.get("status")
-            if status in ("done", "error"):
-                yield _sse({"status": status})
-                return
-            yield _sse(_stage_event(row["stage"], row.get("duration")) if row.get("stage")
-                       else {"status": status or "queued"})
-            while True:
-                try:
-                    event = q.get(timeout=15)
-                except queue.Empty:
-                    yield ": keepalive\n\n"  # comment frame keeps the connection warm
-                    continue
-                yield _sse(event)
-                if event.get("status") in ("done", "error"):
-                    return
-        finally:
-            _broker.unsubscribe(session_id, q)
+    def initial():
+        # Read inside the stream (after subscribe) so we can't miss a terminal
+        # event that fired in the gap between the existence check and subscribe.
+        row = _sessions.get(session_id) or {}
+        status = row.get("status")
+        if status in ("done", "error"):
+            return {"status": status}
+        return (_stage_event(row["stage"], row.get("duration")) if row.get("stage")
+                else {"status": status or "queued"})
 
-    return Response(
-        stream(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    return sse_response(
+        _broker,
+        session_id,
+        initial=initial,
+        terminal=lambda e: e.get("status") in ("done", "error"),
     )
 
 
@@ -1238,30 +1190,7 @@ def models_events():
     toast to a success state and refreshes model dropdowns. Long-lived: model
     state has no terminal, so the browser keeps the stream open until navigation.
     """
-
-    def stream():
-        q = _broker.subscribe(MODELS_CHANNEL)
-        try:
-            yield _sse(_models_event(_manager.status()))  # current state on connect
-            while True:
-                try:
-                    event = q.get(timeout=15)
-                except queue.Empty:
-                    yield ": keepalive\n\n"
-                    continue
-                yield _sse(event)
-        finally:
-            _broker.unsubscribe(MODELS_CHANNEL, q)
-
-    return Response(
-        stream(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
-def _sse(event: dict) -> str:
-    return f"data: {json.dumps(event)}\n\n"
+    return sse_response(_broker, MODELS_CHANNEL, initial=lambda: _models_event(_manager.status()))
 
 
 @app.get("/sessions")

@@ -85,8 +85,9 @@ The browser watches a job over **Server-Sent Events**, not polling. As the
 pipeline advances it pushes the current stage (`decoding` → `transcribing` →
 `loading_align` → `aligning` → `diarizing`) to any connected client:
 
-- `events.py::Broker` — in-process, per-`session_id` pub/sub. The background job
+- `sse.py::Broker` — in-process, per-`session_id` pub/sub. The background job
   thread `publish()`es; each open SSE request drains a `subscribe()`d queue.
+  `sse.py::sse_response()` wraps a channel as a streaming `text/event-stream`.
 - `run_job(progress=…)` reports each stage; `server.py::_on_stage` writes it to
   the session row **and** publishes it — the SQLite row stays the durable source
   of truth (used for the initial state on connect and after a reload), the broker
@@ -209,8 +210,8 @@ mirror to another disk or a mounted share (also what the tests use).
 - `store.py` — `SessionStore`: SQLite metadata (incl. live `stage`) + on-disk
   audio/artifacts, plus a `settings` key/value table (e.g. the persisted active
   model).
-- `events.py` — `Broker`: in-process per-session pub/sub bridging the job thread
-  to SSE clients.
+- `sse.py` — `Broker` (in-process per-channel pub/sub bridging the job thread to
+  SSE clients) + `sse_response()` (the shared `text/event-stream` helper).
 - `jobs.py` — `JobQueue`: single-worker background executor over the store; emits
   terminal status to the broker.
 - `server.py` — Flask routes; `GET /sessions/<id>/events` streams live progress
