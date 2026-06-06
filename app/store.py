@@ -395,15 +395,20 @@ class SessionStore:
         return row is not None
 
     # --- lifecycle ------------------------------------------------------
-    def reconcile_startup(self) -> int:
-        """Fail sessions left mid-flight by a crash/restart (executor is gone)."""
+    def reconcile_startup(self) -> list[str]:
+        """Reset sessions left mid-flight by a crash/restart; return IDs to requeue."""
         with self._lock, self._db:
-            cur = self._db.execute(
-                "UPDATE sessions SET status='error', error='interrupted by restart', "
-                "updated_at=? WHERE status IN ('queued','running')",
-                (_now(),),
-            )
-            return cur.rowcount
+            rows = self._db.execute(
+                "SELECT id FROM sessions WHERE status IN ('queued','running')"
+            ).fetchall()
+            ids = [r["id"] for r in rows]
+            if ids:
+                self._db.execute(
+                    "UPDATE sessions SET status='queued', stage=NULL, error=NULL, "
+                    "updated_at=? WHERE status IN ('queued','running')",
+                    (_now(),),
+                )
+            return ids
 
 
 def _row_to_dict(row: Optional[sqlite3.Row]) -> Optional[dict]:
