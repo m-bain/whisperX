@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Manuscript",
+  "version": "0.0.0",
+  "identifier": "com.anvil7.manuscript.transcription",
+  "build": {
+    "frontendDist": "./dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["../../../app/branding/Manuscript-1024.png"]
+  }
+}

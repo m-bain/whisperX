@@ -16,9 +16,8 @@ import uuid
 from pathlib import Path
 
 
-def _load_dotenv() -> None:
-    """Load KEY=VALUE pairs from app/.env. Real env vars take precedence."""
-    env_path = Path(__file__).with_name(".env")
+def _load_dotenv(env_path: Path) -> None:
+    """Load KEY=VALUE pairs from a .env file. Real env vars take precedence."""
     if not env_path.exists():
         return
     for raw in env_path.read_text().splitlines():
@@ -35,7 +34,20 @@ def _load_dotenv() -> None:
             os.environ[key] = value
 
 
-_load_dotenv()  # before anything reads os.environ
+from app import paths  # noqa: E402 - stdlib-only; safe to import before the .env load
+
+# Config precedence (highest first), since _load_dotenv never overrides an
+# already-set key:
+#   1. real environment variables
+#   2. app/.env            — dev/back-compat; may itself set WHISPERX_DATA_DIR
+#   3. <data_dir>/.env     — user/per-machine overrides for the packaged app
+#   4. app/defaults.env    — ship-with-the-app defaults baked into the bundle by
+#                            the macOS packager (e.g. OAuth client id/secret +
+#                            default backup backend). Loaded LAST = lowest priority,
+#                            so any of the above overrides it. Absent in dev/source.
+_load_dotenv(Path(__file__).with_name(".env"))
+_load_dotenv(paths.data_dir() / ".env")
+_load_dotenv(Path(__file__).with_name("defaults.env"))
 
 from datetime import datetime, timezone  # noqa: E402
 
@@ -69,7 +81,8 @@ logger = logging.getLogger("app")
 # spools the upload to a temp file (not RAM), so a large cap is safe on the dev
 # server. Override via WHISPERX_MAX_UPLOAD_MB.
 MAX_UPLOAD_MB = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "5000"))
-DATA_DIR = os.environ.get("WHISPERX_DATA_DIR", str(Path(__file__).with_name("data")))
+# paths.data_dir() already honors WHISPERX_DATA_DIR (see app/paths.py).
+DATA_DIR = str(paths.data_dir())
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
@@ -283,6 +296,14 @@ if _backup.is_linked():
 
 def models_ready() -> bool:
     return _manager.is_loaded(_manager.active)
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness/readiness probe the launcher (or Tauri shell) polls before loading
+    the UI: 200 as soon as Flask is serving; ``models_ready`` flips true once the
+    active model has warmed."""
+    return jsonify(status="ok", models_ready=models_ready())
 
 
 # --- Backup endpoints (thin: all logic lives in BackupService) ----------------
@@ -1336,5 +1357,54 @@ def delete_session(session_id: str):
 threading.Thread(target=_warm_models, name="warm-models", daemon=True).start()
 
 
+_shutdown_done = threading.Event()
+
+
+def _shutdown(*_args) -> None:
+    """Flush state on quit so a SIGTERM from the launcher doesn't strand WAL writes
+    or the job executor. Idempotent (signal handler + finally may both call it)."""
+    if _shutdown_done.is_set():
+        return
+    _shutdown_done.set()
+    try:
+        _queue.shutdown()
+    except Exception:  # noqa: BLE001 - best effort on the way out
+        pass
+    try:
+        _sessions.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _choose_port() -> int:
+    """Honour ``PORT`` (default 5000); if it's already bound, grab an ephemeral free
+    port so a relaunch (or a leftover process) never blocks startup."""
+    import socket
+
+    preferred = int(os.environ.get("PORT", "5000"))
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("127.0.0.1", preferred))
+            return preferred
+        except OSError:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), threaded=True)
+    import signal
+
+    signal.signal(signal.SIGTERM, lambda *_: (_shutdown(), os._exit(0)))
+    port = _choose_port()
+    # Publish the port we actually bound (PORT may have been taken) so a wrapping
+    # launcher/Tauri shell knows where to point the webview.
+    (paths.data_dir() / "runtime-port").write_text(str(port))
+    if os.environ.get("WHISPERX_OPEN_BROWSER") == "1":
+        import webbrowser
+
+        threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}/")).start()
+    logger.info("Serving on http://127.0.0.1:%d", port)
+    try:
+        app.run(host="127.0.0.1", port=port, threaded=True)
+    finally:
+        _shutdown()

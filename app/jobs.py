@@ -32,6 +32,12 @@ class JobQueue:
     def submit(self, session_id: str) -> None:
         self._executor.submit(self._run, session_id)
 
+    def shutdown(self) -> None:
+        """Stop accepting work on app quit. ``wait=False`` so a long-running job
+        doesn't block teardown; an interrupted job is reconciled to ``error`` by
+        ``SessionStore.reconcile_startup`` on the next boot."""
+        self._executor.shutdown(wait=False)
+
     def _publish(self, session_id: str, event: dict) -> None:
         if self._broker is not None:
             self._broker.publish(session_id, event)

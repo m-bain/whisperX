@@ -178,6 +178,20 @@ app/static/vendor/
 node_modules/
 app/node_modules/
 
+# Local sample / test media (large audio, not for the repo)
+samples/
+
+# macOS packaging build output (the ~3 GB .app/DMG; see packaging/macos/).
+# Covered by the generic `build/` rule above, but listed explicitly for clarity.
+packaging/macos/build/
+
+# macOS packaging: ship-with-the-app defaults baked into the bundle
+# (OAuth client id/secret + default backup backend). Contains a secret.
+packaging/macos/bundle-defaults.env
+
+# macOS packaging: Tauri shell Rust build artifacts
+packaging/macos/tauri/target/
+
 # playwright-cli scratch: per-session snapshots/console logs + driver config
 .playwright-cli/
 .playwright/

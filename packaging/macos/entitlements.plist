@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the embedded-interpreter bundle (design (B)).
+
+  disable-library-validation is MANDATORY here: the signed launcher/interpreter
+  loads hundreds of nested torch/ctranslate2 dylibs whose team signatures won't
+  match ours. Without it, the failure is a CRASH ON FIRST TORCH IMPORT, not at
+  launch — so smoke tests must run a real transcription (MACOS_INSTALLER.md
+  landmine 1). allow-jit / allow-unsigned-executable-memory cover JIT/codegen in
+  the ML stack (Metal/MLX/torch).
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+</dict>
+</plist>

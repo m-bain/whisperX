@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Minimal capability for the single window. The page is the remote Flask UI (127.0.0.1) and uses no Tauri IPC, so only core defaults are granted.","local":true,"windows":["main"],"permissions":["core:default"]}}

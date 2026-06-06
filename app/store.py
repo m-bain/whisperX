@@ -410,6 +410,11 @@ class SessionStore:
                 )
             return ids
 
+    def close(self) -> None:
+        """Close the SQLite connection so WAL changes checkpoint on shutdown."""
+        with self._lock:
+            self._db.close()
+
 
 def _row_to_dict(row: Optional[sqlite3.Row]) -> Optional[dict]:
     if row is None:
