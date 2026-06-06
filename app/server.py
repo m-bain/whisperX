@@ -968,6 +968,21 @@ def view_session(session_id: str):
     )
 
 
+@app.get("/sessions/<session_id>/inline")
+def inline_session(session_id: str):
+    """Transcript fragment for embedding in the new-recording modal."""
+    row = _sessions.get(session_id)
+    if row is None:
+        abort(404)
+    if row["status"] != "done":
+        abort(404)
+    return render_template(
+        "partials/_inline_transcript.html",
+        session=_card(row),
+        transcript=_render_body(session_id),
+    )
+
+
 def _render_body(session_id: str) -> str:
     """Render the transcript body from the current (edit-overlaid) segments."""
     result = _sessions.load_result(session_id) or {}
