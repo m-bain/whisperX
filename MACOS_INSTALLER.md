@@ -244,10 +244,14 @@ local/internal testing (everything except notarized external distribution):
    the warning is cosmetic; a full ASR+align transcription completes. Follow-up:
    suppress the warning, or bundle the FFmpeg dylibs + fix rpaths if any path ever
    needs torchcodec.
-4. **No `Developer ID Application` cert yet** — the installed certs (Apple Development,
-   iPhone Distribution) can't notarize a macOS app. Real sign + notarize + the
-   clean-VM Gatekeeper run + the Developer-ID re-check of landmine 1 are **blocked**
-   until that cert is created in team `Q8HKVK78G9`.
+4. **No `Developer ID Application` cert yet** — only Apple Development + iPhone
+   Distribution are installed, and **only the team Account Holder** can create a
+   Developer ID cert (Admin role can't; see `ZERTIFIKAT-ANLEITUNG.de.md`). Apple
+   Development signing already covers local/internal testing (and proved landmine 1
+   under a real signature), so the *only* things still blocked are **notarization +
+   stapling**, the **clean-VM quarantined Gatekeeper run**, and the Developer-ID
+   re-check of landmine 1. Interim option: notarize test builds under a personal
+   Developer ID via the env-overridable `MANUSCRIPT_TEAM_ID`/`MANUSCRIPT_BUNDLE_ID`.
 
 ## ML-on-macOS landmines
 
