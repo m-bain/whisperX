@@ -144,6 +144,20 @@ def _torch_device(device: str) -> str:
         pass
     return "cpu"
 
+
+def _align_device(device: str) -> str:
+    """Torch device for the wav2vec2 alignment stage specifically.
+
+    MPS (Apple Silicon) imposes a hard limit of output_channels <= 65536 on
+    conv layers. Large wav2vec2 models (e.g. wav2vec2-large-xlsr-53-*) exceed
+    this limit and crash with "Output channels > 65536 not supported at the MPS
+    device". Force CPU for alignment on the Apple Silicon paths (mlx/whispercpp)
+    while diarization continues on MPS where it runs without issue.
+    """
+    if device in ("mlx", "whispercpp"):
+        return "cpu"
+    return _torch_device(device)
+
 # Formats written to disk for download.
 OUTPUT_FORMATS = ("srt", "vtt", "txt", "json")
 # get_writer reads these keys directly (whisperx/utils.py).
@@ -184,7 +198,7 @@ class ModelBundle:
         if language_code not in self._align_cache:
             logger.info("Loading align model for language=%s", language_code)
             self._align_cache[language_code] = whisperx.load_align_model(
-                language_code=language_code, device=_torch_device(self.device)
+                language_code=language_code, device=_align_device(self.device)
             )
         return self._align_cache[language_code]
 
@@ -486,7 +500,7 @@ def run_job(
     _stage("aligning")
     logger.info("Aligning (language=%s)", lang)
     result = whisperx.align(
-        result["segments"], align_model, align_meta, audio, _torch_device(bundle.device)
+        result["segments"], align_model, align_meta, audio, _align_device(bundle.device)
     )
 
     if bundle.diarize is not None:
