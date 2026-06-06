@@ -213,6 +213,26 @@ class SessionStore:
             self._write_edits(session_id, new_segments, history)
             return new_segments
 
+    def save_turn_reassign(self, session_id: str, turn_index: int,
+                           new_speaker: str) -> list:
+        """Reassign a turn to ``new_speaker``, append the delta (history capped),
+        persist. Returns the new segment list — unchanged (and nothing written) when
+        the reassign is a no-op. Raises IndexError for an unknown turn."""
+        from app.edits import HISTORY_LIMIT, NoChange, apply_turn_reassign
+        with self._lock:
+            edits = self.load_edits(session_id)
+            segments = edits["segments"] if edits else self._baseline_segments(session_id)
+            history = list(edits["history"]) if edits else []
+            try:
+                new_segments, delta = apply_turn_reassign(segments, turn_index, new_speaker)
+            except NoChange:
+                return segments
+            history.append(delta)
+            if len(history) > HISTORY_LIMIT:
+                history = history[-HISTORY_LIMIT:]
+            self._write_edits(session_id, new_segments, history)
+            return new_segments
+
     def undo_turn_edit(self, session_id: str) -> list:
         """Reverse the most recent edit. Returns the resulting segment list. A no-op
         (returns original) when there is nothing to undo; drops the overlay file once

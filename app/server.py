@@ -57,6 +57,7 @@ from app import pipeline  # noqa: E402
 from app import secret_store  # noqa: E402
 from app.sse import Broker, sse_response  # noqa: E402
 from app.jobs import JobQueue  # noqa: E402
+from app.edits import distinct_speakers, next_speaker_key  # noqa: E402
 from app.render import render_markdown, render_transcript, resolve_label  # noqa: E402
 from app.store import SessionStore  # noqa: E402
 
@@ -1034,6 +1035,59 @@ def rename_speaker(session_id: str):
     name = request.form.get("name", "").strip()
     _sessions.set_speaker_name(session_id, speaker, name)
     return resolve_label(speaker, {speaker: name} if name else None)
+
+
+@app.get("/sessions/<session_id>/speakers")
+def list_speakers(session_id: str):
+    """The session's speakers (key + resolved label) for the reassign picker."""
+    if _sessions.get(session_id) is None:
+        abort(404)
+    result = _sessions.load_result(session_id) or {}
+    segments = _sessions.current_segments(session_id, result.get("segments", []))
+    names = _sessions.get_speaker_names(session_id)
+    return jsonify([
+        {"key": key, "label": resolve_label(key, names)}
+        for key in distinct_speakers(segments)
+    ])
+
+
+@app.post("/sessions/<session_id>/turns/<int:turn_index>/speaker")
+def reassign_turn(session_id: str, turn_index: int):
+    """Reassign one turn to a different speaker (non-destructive overlay edit).
+
+    Send ``speaker=<key>`` to reassign to an existing speaker, or ``name=<name>``
+    alone to enroll a brand-new speaker (a fresh key is minted, named, and assigned).
+    Returns the re-rendered body (full body, since a reassignment can merge turns and
+    shift indices) plus the X-Can-Undo header — same contract as edit_turn.
+    """
+    if _sessions.get(session_id) is None:
+        abort(404)
+    speaker = request.form.get("speaker", "").strip()
+    name = request.form.get("name", "").strip()
+    if not speaker:
+        if not name:
+            abort(400, "Provide a speaker key or a name for a new speaker.")
+        # Enroll a new speaker: mint the next key over everything already in use
+        # (segment keys + any named speakers), name it, then reassign to it.
+        result = _sessions.load_result(session_id) or {}
+        segments = _sessions.current_segments(session_id, result.get("segments", []))
+        names = _sessions.get_speaker_names(session_id)
+        # Reject duplicates: a new speaker can't reuse an existing speaker's label
+        # (custom name or default "Speaker N"), or we'd have two indistinguishable
+        # speakers. Compare case-insensitively on the trimmed name.
+        taken = {resolve_label(k, names).casefold() for k in distinct_speakers(segments)}
+        taken |= {v.casefold() for v in names.values()}
+        if name.casefold() in taken:
+            abort(409, f"A speaker named {name!r} already exists.")
+        existing = set(distinct_speakers(segments)) | set(names)
+        speaker = next_speaker_key(existing)
+    if name:
+        _sessions.set_speaker_name(session_id, speaker, name)
+    try:
+        _sessions.save_turn_reassign(session_id, turn_index, speaker)
+    except IndexError:
+        abort(400, "Unknown turn.")
+    return _body_response(session_id)
 
 
 @app.post("/sessions")

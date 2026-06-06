@@ -18,9 +18,13 @@ from app.edits import (
     HISTORY_LIMIT,
     MIN_WORD_WIDTH,
     SEGMENT_MIN_DURATION,
+    NoChange,
     apply_turn_edit,
+    apply_turn_reassign,
     coalesce_segments,
+    distinct_speakers,
     group_turns,
+    next_speaker_key,
     realign_words,
     undo_last,
 )
@@ -703,3 +707,135 @@ def test_end_to_end_delete_merges_then_undo_splits(tmp_path, diarized):
     store.undo_turn_edit(sid)
     assert turn_count() == 3
     assert store.load_edits(sid) is None    # fully reverted -> overlay dropped
+
+
+# --- speaker helpers: distinct_speakers / next_speaker_key -------------------
+
+def test_distinct_speakers_first_appearance_order(diarized):
+    # SPEAKER_00 appears first (twice), then SPEAKER_01; dedup keeps first order.
+    assert distinct_speakers(diarized) == ["SPEAKER_00", "SPEAKER_01"]
+
+
+def test_distinct_speakers_skips_undiarized():
+    segs = [_seg(0, 1, "a"), _seg(1, 2, "b", "SPEAKER_00"), _seg(2, 3, "c", "")]
+    assert distinct_speakers(segs) == ["SPEAKER_00"]
+
+
+def test_next_speaker_key_one_past_highest():
+    assert next_speaker_key(["SPEAKER_00", "SPEAKER_01"]) == "SPEAKER_02"
+
+
+def test_next_speaker_key_ignores_gaps_and_nonconforming():
+    # Highest index wins even with gaps; non-pyannote keys are ignored.
+    assert next_speaker_key(["SPEAKER_00", "SPEAKER_05", "Alice"]) == "SPEAKER_06"
+
+
+def test_next_speaker_key_empty_starts_at_zero():
+    assert next_speaker_key([]) == "SPEAKER_00"
+    assert next_speaker_key(["Alice", "Bob"]) == "SPEAKER_00"
+
+
+# --- apply_turn_reassign -----------------------------------------------------
+
+def test_reassign_rewrites_speaker_on_segment_range(diarized):
+    # Reassign turn 1 (the lone SPEAKER_01 segment) to a brand-new speaker.
+    new_segs, delta = apply_turn_reassign(diarized, 1, "SPEAKER_02")
+    assert new_segs[2]["speaker"] == "SPEAKER_02"
+    # Words carry the speaker too (export/JSON parity with diarization output).
+    assert all(w["speaker"] == "SPEAKER_02" for w in new_segs[2]["words"])
+    assert delta["seg_range"] == [2, 2]
+    assert delta["new_len"] == 1
+    # Text, timing and word timestamps are preserved.
+    assert new_segs[2]["text"] == "Fine thanks."
+    assert (new_segs[2]["start"], new_segs[2]["end"]) == (2.0, 3.0)
+
+
+def test_reassign_multi_segment_turn(diarized):
+    # Turn 0 spans segments [0, 1]; both get the new speaker.
+    new_segs, delta = apply_turn_reassign(diarized, 0, "SPEAKER_01")
+    assert new_segs[0]["speaker"] == "SPEAKER_01"
+    assert new_segs[1]["speaker"] == "SPEAKER_01"
+    assert delta["seg_range"] == [0, 1] and delta["new_len"] == 2
+
+
+def test_reassign_merges_with_adjacent_same_speaker_turn(diarized):
+    # diarized turns: A[0,1] B[2] A[3]. Reassigning B -> SPEAKER_00 makes all four
+    # segments SPEAKER_00, so group_turns now sees a single turn.
+    new_segs, _ = apply_turn_reassign(diarized, 1, "SPEAKER_00")
+    turns = group_turns(new_segs)
+    assert len(turns) == 1
+    assert turns[0].seg_indices == [0, 1, 2, 3]
+
+
+def test_reassign_does_not_mutate_input(diarized):
+    original = copy.deepcopy(diarized)
+    apply_turn_reassign(diarized, 1, "SPEAKER_02")
+    assert diarized == original
+
+
+def test_reassign_noop_when_same_speaker_raises(diarized):
+    with pytest.raises(NoChange):
+        apply_turn_reassign(diarized, 1, "SPEAKER_01")   # turn 1 is already SPEAKER_01
+
+
+def test_reassign_unknown_turn_raises(diarized):
+    with pytest.raises(IndexError):
+        apply_turn_reassign(diarized, 99, "SPEAKER_02")
+
+
+def test_reassign_negative_index_raises(diarized):
+    with pytest.raises(IndexError):
+        apply_turn_reassign(diarized, -1, "SPEAKER_02")
+
+
+def test_reassign_undo_roundtrips(diarized):
+    new_segs, delta = apply_turn_reassign(diarized, 0, "SPEAKER_01")
+    restored, history = undo_last(new_segs, [delta])
+    assert restored == diarized
+    assert history == []
+
+
+# --- store: reassign persistence + unified undo -----------------------------
+
+def test_store_save_turn_reassign_writes_overlay(tmp_path, diarized):
+    store, sid = _make_store(tmp_path, diarized)
+    store.save_turn_reassign(sid, 1, "SPEAKER_02")
+    cur = store.current_segments(sid, diarized)
+    assert cur[2]["speaker"] == "SPEAKER_02"
+    assert store.edit_history_len(sid) == 1
+    assert store.load_result(sid)["segments"] == diarized   # original untouched
+
+
+def test_store_reassign_noop_writes_no_history(tmp_path, diarized):
+    store, sid = _make_store(tmp_path, diarized)
+    # Reassigning turn 1 to the speaker it already has is a no-op.
+    cur = store.save_turn_reassign(sid, 1, "SPEAKER_01")
+    assert store.load_edits(sid) is None
+    assert store.edit_history_len(sid) == 0
+    assert cur == store.current_segments(sid, diarized)
+
+
+def test_store_reassign_then_undo_reverts(tmp_path, diarized):
+    store, sid = _make_store(tmp_path, diarized)
+    store.save_turn_reassign(sid, 0, "SPEAKER_01")
+    store.undo_turn_edit(sid)               # undo is unified across edit kinds
+    assert store.load_edits(sid) is None
+    assert store.current_segments(sid, diarized) == diarized
+
+
+def test_store_mixed_edit_and_reassign_undo_stack(tmp_path, diarized):
+    store, sid = _make_store(tmp_path, diarized)
+    store.save_turn_edit(sid, 0, "Hi there.")          # collapse turn 0
+    store.save_turn_reassign(sid, 1, "SPEAKER_00")     # reassign the SPEAKER_01 turn
+    assert store.edit_history_len(sid) == 2
+    store.undo_turn_edit(sid)                           # undo the reassign
+    assert "SPEAKER_01" in {s.get("speaker") for s in store.current_segments(sid, diarized)}
+    store.undo_turn_edit(sid)                           # undo the text edit
+    assert store.current_segments(sid, diarized) == diarized
+    assert store.load_edits(sid) is None
+
+
+def test_store_reassign_unknown_turn_raises(tmp_path, diarized):
+    store, sid = _make_store(tmp_path, diarized)
+    with pytest.raises(IndexError):
+        store.save_turn_reassign(sid, 99, "SPEAKER_02")

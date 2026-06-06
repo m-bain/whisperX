@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import copy
 import difflib
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -51,6 +52,11 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+class NoChange(Exception):
+    """Raised by an edit that would be a no-op, so callers skip a useless history
+    entry (e.g. reassigning a turn to the speaker it already has)."""
+
+
 def _seg_key(seg: dict) -> Optional[str]:
     """Grouping key: the raw speaker, with any falsy value (None/"") normalized to
     None so undiarized segments form their own run — matching render's ``raw or
@@ -81,6 +87,30 @@ def group_turns(segments: list[dict]) -> list[Turn]:
         parts = [(segments[k].get("text") or "").strip() for k in t.seg_indices]
         t.text = " ".join(p for p in parts if p)
     return turns
+
+
+def distinct_speakers(segments: list[dict]) -> list[str]:
+    """Ordered unique non-null speaker keys, in first-appearance order."""
+    seen: list[str] = []
+    for seg in segments:
+        key = _seg_key(seg)
+        if key is not None and key not in seen:
+            seen.append(key)
+    return seen
+
+
+def next_speaker_key(existing_keys) -> str:
+    """Mint the next ``SPEAKER_<n>`` key (zero-padded to 2, matching pyannote).
+
+    ``n`` is one past the highest ``SPEAKER_<n>`` index in ``existing_keys``;
+    non-conforming keys are ignored. Falls back to ``SPEAKER_00`` when none match.
+    """
+    highest = -1
+    for key in existing_keys or ():
+        m = re.fullmatch(r"SPEAKER_(\d+)", str(key))
+        if m:
+            highest = max(highest, int(m.group(1)))
+    return f"SPEAKER_{highest + 1:02d}"
 
 
 def _interpolate_gaps(words: list[dict], start: Optional[float],
@@ -278,19 +308,62 @@ def apply_turn_edit(segments: list[dict], turn_index: int, new_text: str):
     return new_segments, delta
 
 
+def apply_turn_reassign(segments: list[dict], turn_index: int, new_speaker: str):
+    """Reassign turn ``turn_index`` to ``new_speaker``, rewriting the ``speaker`` key
+    on its segment range (and on those segments' words, for export/JSON parity).
+
+    Timing, text and word timestamps are preserved. After reassignment the turn may
+    group with adjacent same-speaker turns (``group_turns`` regroups by speaker), so
+    callers re-render the whole body. Returns ``(new_segments, delta)``.
+
+    Raises ``IndexError`` for an unknown turn and :class:`NoChange` when the turn
+    already has ``new_speaker`` (nothing to record).
+    """
+    # Reject negatives explicitly — a stray -1 would silently reassign the last turn.
+    if turn_index < 0:
+        raise IndexError(f"turn_index out of range: {turn_index}")
+    turn = group_turns(segments)[turn_index]
+    if turn.speaker == new_speaker:
+        raise NoChange
+    i, j = turn.seg_indices[0], turn.seg_indices[-1]
+    old_segments = copy.deepcopy(segments[i:j + 1])
+
+    replacement: list[dict] = []
+    for seg in old_segments:
+        new_seg = copy.deepcopy(seg)
+        new_seg["speaker"] = new_speaker
+        for word in new_seg.get("words") or []:
+            word["speaker"] = new_speaker
+        replacement.append(new_seg)
+
+    new_segments = list(segments[:i]) + replacement + list(segments[j + 1:])
+    delta = {
+        "ts": _now(),
+        "turn_index": turn_index,
+        "seg_range": [i, j],
+        "old_segments": copy.deepcopy(old_segments),
+        "new_len": len(replacement),
+    }
+    return new_segments, delta
+
+
 def undo_last(segments: list[dict], history: list[dict]):
     """Reverse the most recent edit (strict LIFO).
 
     Returns ``(new_segments, new_history)``. Empty history is a no-op. The delta's
-    replacement currently occupies ``[i : i+repl_len]`` (``repl_len`` is 1, or 0 for a
-    deletion); its ``old_segments`` are spliced back in their place.
+    replacement currently occupies ``[i : i+repl_len]``; its ``old_segments`` are
+    spliced back in their place. ``repl_len`` comes from the delta's ``new_len`` when
+    present (a reassign replaces N segments with N), else falls back to the text-edit
+    shape (1 segment, or 0 for a deletion) for older deltas without ``new_len``.
     """
     if not history:
         return list(segments), list(history)
     history = list(history)
     delta = history.pop()
     i, _j = delta["seg_range"]
-    repl_len = 1 if delta.get("new_segment") is not None else 0
+    repl_len = delta.get("new_len")
+    if repl_len is None:
+        repl_len = 1 if delta.get("new_segment") is not None else 0
     restored = copy.deepcopy(delta["old_segments"])
     new_segments = list(segments[:i]) + restored + list(segments[i + repl_len:])
     return new_segments, history
