@@ -36,12 +36,18 @@ def _load_dotenv(env_path: Path) -> None:
 
 from app import paths  # noqa: E402 - stdlib-only; safe to import before the .env load
 
-# app/.env first (dev/back-compat; may itself set WHISPERX_DATA_DIR), then a .env
-# in the writable data dir, where a packaged launcher or user can drop overrides
-# without touching the read-only bundle. Real env vars (and the package file) win
-# on conflicts, since neither pass overrides an already-set key.
+# Config precedence (highest first), since _load_dotenv never overrides an
+# already-set key:
+#   1. real environment variables
+#   2. app/.env            — dev/back-compat; may itself set WHISPERX_DATA_DIR
+#   3. <data_dir>/.env     — user/per-machine overrides for the packaged app
+#   4. app/defaults.env    — ship-with-the-app defaults baked into the bundle by
+#                            the macOS packager (e.g. OAuth client id/secret +
+#                            default backup backend). Loaded LAST = lowest priority,
+#                            so any of the above overrides it. Absent in dev/source.
 _load_dotenv(Path(__file__).with_name(".env"))
 _load_dotenv(paths.data_dir() / ".env")
+_load_dotenv(Path(__file__).with_name("defaults.env"))
 
 from datetime import datetime, timezone  # noqa: E402
 

@@ -185,6 +185,10 @@ samples/
 # Covered by the generic `build/` rule above, but listed explicitly for clarity.
 packaging/macos/build/
 
+# macOS packaging: ship-with-the-app defaults baked into the bundle
+# (OAuth client id/secret + default backup backend). Contains a secret.
+packaging/macos/bundle-defaults.env
+
 # playwright-cli scratch: per-session snapshots/console logs + driver config
 .playwright-cli/
 .playwright/

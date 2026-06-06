@@ -7,9 +7,11 @@
 {% if st == 'disabled' %}
   <div class="pref__desc">
     Cloud backup isn't enabled on this server. Set
-    <span class="ob__code">WHISPERX_BACKUP_BACKEND</span> (and Google credentials
-    for Drive) in <span class="ob__code">app/.env</span> to turn it on — see
-    <span class="ob__code">app/.env.example</span>.
+    <span class="ob__code">WHISPERX_BACKUP_BACKEND</span> (and the Google credentials
+    for Drive) in your <span class="ob__code">.env</span>, then restart —
+    <span class="ob__code">app/.env</span> when running from source, or
+    <span class="ob__code">&lt;data dir&gt;/.env</span> for the packaged app. See
+    <span class="ob__code">app/.env.example</span> for the keys.
   </div>
 
 {% elif st == 'conflict' or (backup_remote and backup_remote.exists) %}

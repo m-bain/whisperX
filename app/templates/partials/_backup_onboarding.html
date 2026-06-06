@@ -5,9 +5,8 @@
 {% set st = backup.state %}
 {% if st == 'disabled' %}
   <div class="ob__hint">
-    Cloud backup isn't enabled on this server, so there's nothing to connect here —
-    your transcripts stay safely on this device. You can skip this step. To enable
-    backups later, set a backup backend in <span class="ob__code">app/.env</span>.
+    Cloud backup isn't enabled, so there's nothing to connect here — your transcripts
+    stay safely on this device. You can skip this step.
   </div>
 
 {% elif backup_remote and backup_remote.exists %}

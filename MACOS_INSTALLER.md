@@ -180,19 +180,53 @@ accept an injected data dir and use the Keychain.
 The (B) pipeline is scaffolded and the **browser-open PoC builds + runs**:
 
 - **`build.py`** — phase driver: `skeleton` (`.app` tree + `Info.plist` + icon),
-  `runtime` (embed interpreter + venv), `app` (copy source + frontend + diarizer),
-  `ffmpeg`, `launcher`, `sign` (leaf-first deep codesign), `notarize`, `dmg`.
+  `runtime` (embed interpreter + venv), `app` (copy source + frontend + diarizer +
+  bake `defaults.env`), `ffmpeg`, `launcher`, `sign` (leaf-first deep codesign),
+  `notarize`, `dmg`. Frozen `BUNDLE_ID`/`TEAM_ID` are env-overridable
+  (`MANUSCRIPT_BUNDLE_ID`/`MANUSCRIPT_TEAM_ID`) with the frozen values as defaults.
 - **`Makefile`** — orchestrator; `make poc` (ad-hoc, local) and `make release`
   (`IDENTITY=…` + `NOTARY_PROFILE=…`). Per-phase targets avoid rebuilding the runtime.
-- **`launcher.c`** — tiny signed Mach-O `CFBundleExecutable`; sets env + `exec`s the
-  interpreter (`-m app.server`, `WHISPERX_OPEN_BROWSER=1`).
+  `NO_TIMESTAMP=1` skips the per-file secure timestamp for fast test signing.
+- **`launcher.c`** — tiny signed Mach-O `CFBundleExecutable`; resolves the bundle,
+  sets env (`WHISPERX_OPEN_BROWSER=1`, `PYTHONPATH`, bundled ffmpeg on `PATH`),
+  `exec`s the interpreter (`-m app.server`). When not attached to a terminal
+  (Finder/`open`) it redirects stdout/stderr to `<data dir>/manuscript.log` so logs
+  survive; a direct terminal run still streams (the `isatty` check).
 - **`entitlements.plist`** — hardened-runtime: `disable-library-validation` (+ jit /
   unsigned-exec-mem / dyld-env).
+- **`bundle-defaults.env`** (gitignored) — ship-with-the-app config baked into the
+  bundle as `Resources/app/defaults.env`: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
+  (Drive OAuth app) + `WHISPERX_BACKUP_BACKEND=gdrive`. **Not** per-user secrets
+  (`HF_TOKEN` and the Drive refresh token stay in the Keychain). Loaded at lowest
+  precedence so a user's `<data dir>/.env` or real env vars override it.
+
+**Config precedence** (highest first; `server.py` loads each, never overriding an
+already-set key): real env → `app/.env` (dev) → `<data dir>/.env` (per-machine) →
+`app/defaults.env` (bundled ship-defaults).
 
 Resulting bundle: **~1.4 GB** (`python` 60 MB + `runtime` venv 1.3 GB + `app` 56 MB) —
 smaller than the ~3 GB estimate (the arm64 mac torch wheel is CPU/MPS-only).
 
-### Findings from the PoC build (validated on Apple Silicon, ad-hoc signed)
+### Confirmed working (validated on Apple Silicon)
+
+The PoC bundle has been exercised end-to-end and is **functionally complete** for
+local/internal testing (everything except notarized external distribution):
+
+- **Builds, signs, relocates, serves** — `make poc`; a relocated copy (original
+  hidden) serves `/healthz` and the UI.
+- **Real-signature signing** — also signed with an **Apple Development** cert under
+  the real `TeamIdentifier=Q8HKVK78G9` + hardened runtime. torch / ctranslate2 /
+  pyannote all import under it → **`disable-library-validation` confirmed under a
+  real (non-ad-hoc) signature** (landmine 1; still re-check on a Developer ID build).
+- **Transcription** — confirmed end-to-end via the GUI (ASR + alignment). whisper.cpp
+  (Metal) verified; MLX selectable.
+- **Cloud backup** — confirmed end-to-end via the GUI: the backend comes from the
+  **bundled `defaults.env`** alone (no `app/.env` in the bundle, no `<data dir>/.env`),
+  the Drive OAuth link + refresh token live in the **Keychain** and persist across
+  rebuilds, and a real backup runs/uploads.
+- **Logging** — Finder/`open` launches write `<data dir>/manuscript.log`.
+
+### Findings from the PoC build
 
 1. **The uv venv does NOT relocate.** `uv venv --relocatable` still writes an
    **absolute** `pyvenv.cfg home`, and CPython ignores a relative one — so invoking

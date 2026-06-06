@@ -24,6 +24,7 @@
 #define PYTAG "python3.12"
 #endif
 
+#include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
 #include <mach-o/dyld.h>
@@ -31,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
@@ -83,6 +85,30 @@ int main(int argc, char *argv[]) {
   char new_path[PATH_MAX * 2];
   snprintf(new_path, sizeof(new_path), "%s:%s", ffbin, old_path);
   setenv("PATH", new_path, 1);
+
+  // When launched from Finder/`open`, stdout/stderr are not a terminal and would
+  // be discarded — redirect them to <data dir>/manuscript.log so logs survive
+  // (great for tester bug reports). When run from a terminal, leave them be.
+  if (!isatty(STDERR_FILENO)) {
+    const char *datadir = getenv("WHISPERX_DATA_DIR");
+    char logdir[PATH_MAX];
+    if (datadir != NULL && datadir[0] != '\0') {
+      snprintf(logdir, sizeof(logdir), "%s", datadir);
+    } else {
+      const char *home = getenv("HOME");
+      snprintf(logdir, sizeof(logdir), "%s/Library/Application Support/WhisperX",
+               home != NULL ? home : "/tmp");
+    }
+    mkdir(logdir, 0755);  // best-effort; the parent dir already exists on macOS
+    char logpath[PATH_MAX];
+    snprintf(logpath, sizeof(logpath), "%s/manuscript.log", logdir);
+    int fd = open(logpath, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+      dup2(fd, STDOUT_FILENO);
+      dup2(fd, STDERR_FILENO);
+      if (fd > STDERR_FILENO) close(fd);
+    }
+  }
 
   char *const child_argv[] = {python, "-m", "app.server", NULL};
   execv(python, child_argv);

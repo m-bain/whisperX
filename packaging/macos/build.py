@@ -38,9 +38,11 @@ import zipfile
 from pathlib import Path
 
 # --- Frozen identity (see MACOS_INSTALLER.md → "Frozen signing identity") --------
-# Changing either of these loses every Keychain secret across updates. Do NOT edit.
-BUNDLE_ID = "com.anvil7.manuscript.transcription"
-TEAM_ID = "Q8HKVK78G9"
+# Changing either of these loses every Keychain secret across updates. The values
+# are FROZEN FOREVER; the env vars exist only to bootstrap them per-machine (e.g.
+# from .zshrc) — do not point them at a different team/bundle for a real release.
+BUNDLE_ID = os.environ.get("MANUSCRIPT_BUNDLE_ID", "com.anvil7.manuscript.transcription")
+TEAM_ID = os.environ.get("MANUSCRIPT_TEAM_ID", "Q8HKVK78G9")
 
 APP_NAME = "Manuscript"
 PYTHON_VERSION = os.environ.get("PYTHON_VERSION", "3.12")
@@ -208,8 +210,20 @@ def cmd_app(_args) -> None:
         "build.ts", "tsconfig.json",
     )
     shutil.copytree(REPO / "app", dest, ignore=ignore)
-    # Drop any committed .env so packaged runs start clean (data-dir .env still wins).
+    # Drop any committed dev .env so packaged runs don't ship a developer's config.
     (dest / ".env").unlink(missing_ok=True)
+
+    # Bake ship-with-the-app defaults (OAuth client id/secret + default backup
+    # backend) into the bundle as `app/defaults.env`, which server.py loads at
+    # LOWEST precedence — a user's <data_dir>/.env or real env vars still override.
+    # Kept in a gitignored file so the client secret stays out of git.
+    defaults_src = HERE / "bundle-defaults.env"
+    if defaults_src.exists():
+        shutil.copy2(defaults_src, dest / "defaults.env")
+        print(f"  baked bundle defaults <- {defaults_src.name}")
+    else:
+        print(f"  ! {defaults_src.name} absent — bundle ships with no backup/OAuth "
+              "defaults (users would configure via <data_dir>/.env)")
     print(f"  copied app/ -> {dest} (vendored diarizer + frontend included)")
 
 
@@ -295,13 +309,20 @@ def _macho_targets() -> list[Path]:
 def cmd_sign(_args) -> None:
     identity = os.environ.get("IDENTITY", "-")  # "-" = ad-hoc (local PoC)
     adhoc = identity == "-"
+    # A secure timestamp is required for NOTARIZATION but adds a network round-trip
+    # per file (slow across the torch dylibs). Skip it for fast test signing with
+    # NO_TIMESTAMP=1; it's auto-skipped for ad-hoc (which can't be timestamped).
+    timestamp = not adhoc and os.environ.get("NO_TIMESTAMP") != "1"
     base = ["codesign", "--force", "--options", "runtime",
             "--entitlements", str(ENTITLEMENTS), "--sign", identity]
-    if not adhoc:
-        base += ["--timestamp"]          # secure timestamp needs a real identity
-    else:
+    if timestamp:
+        base += ["--timestamp"]
+    if adhoc:
         print("  IDENTITY unset → ad-hoc signing (local smoke-test only; "
               "NOT notarizable). Set IDENTITY='Developer ID Application: …'.")
+    elif not timestamp:
+        print("  NO_TIMESTAMP=1 → signing without secure timestamp "
+              "(fast test build; NOT notarizable as-is).")
 
     targets = _macho_targets()
     print(f"  signing {len(targets)} Mach-O files leaf-first…")
