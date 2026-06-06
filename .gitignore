@@ -199,3 +199,8 @@ packaging/macos/tauri/target/
 # macOS Finder metadata
 .DS_Store
 **/.DS_Store
+# Tauri boot splash — hand-authored source, not a build artifact; the generic
+# `dist/` rule above would otherwise hide it. Track just this one file.
+!packaging/macos/tauri/dist/
+packaging/macos/tauri/dist/*
+!packaging/macos/tauri/dist/index.html

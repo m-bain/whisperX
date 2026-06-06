@@ -1,0 +1,144 @@
+<!doctype html>
+<!-- Splash shown while the embedded Python/Flask server boots. The Rust shell
+     (src/main.rs) creates the window on this local page, then navigates it to
+     http://127.0.0.1:<port>/ once /healthz returns 200. This file is NOT the app
+     UI — the real UI is served by Flask.
+
+     Design: "Loading Screen" option A · Parchment, from the Claude Design handoff
+     (SplashParchment). Borderless macOS launch window — parchment + charcoal ink,
+     Literata wordmark, JetBrains Mono tag, a quiet shimmer bar as progress. Fonts
+     load from Google Fonts when network is up and degrade to Georgia / system mono
+     offline (the splash is brief; the real UI self-hosts the fonts). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manuscript</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,500;1,7..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --serif: 'Literata', Georgia, 'Times New Roman', serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      }
+      html, body { margin: 0; height: 100%; }
+
+      /* Desktop backdrop — sells the borderless floating launch window. */
+      .sp-stage {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; overflow: hidden;
+        background: radial-gradient(135% 125% at 50% 20%, #cfcabd 0%, #b8b1a2 68%, #a59e8e 100%);
+      }
+      .sp-stage::after {
+        content: ""; position: absolute; inset: 0; pointer-events: none;
+        box-shadow: inset 0 0 170px rgba(58,52,40,0.24);
+      }
+
+      /* Borderless light window shell. */
+      .sp-win {
+        position: relative; width: 384px; height: 304px;
+        border-radius: 16px; -webkit-font-smoothing: antialiased;
+        background: linear-gradient(180deg, #fdfcf8 0%, #f4f1e9 100%);
+        border: 1px solid rgba(40,38,32,0.10);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.72),
+          0 36px 72px -26px rgba(38,34,26,0.55),
+          0 12px 28px -16px rgba(38,34,26,0.38);
+      }
+      .sp-sheen {
+        position: absolute; left: 0; right: 0; top: 0; height: 54%;
+        border-radius: 16px 16px 0 0; pointer-events: none;
+        background: radial-gradient(120% 92% at 50% 0%, rgba(255,255,255,0.7), rgba(255,255,255,0) 72%);
+      }
+
+      .sp-hero {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; padding-bottom: 26px;
+      }
+      .sp-mark { line-height: 0; }
+      .sp-wordmark {
+        font-family: var(--serif); font-weight: 700; letter-spacing: -0.02em;
+        line-height: 1; font-size: 27px; color: #1b1c19; margin-top: 22px;
+      }
+      .sp-tag {
+        font-family: var(--mono); text-transform: uppercase; line-height: 1;
+        white-space: nowrap; letter-spacing: 0.18em;
+        font-size: 10px; color: #9a988f; margin-top: 9px;
+      }
+
+      .sp-foot {
+        position: absolute; left: 0; right: 0; bottom: 30px;
+        display: flex; flex-direction: column; align-items: center; gap: 13px;
+      }
+      .sp-foot .sp-tag {
+        font-size: 9.5px; color: #b0aea4; letter-spacing: 0.14em; margin-top: 0;
+      }
+
+      /* Quiet shimmer progress bar. */
+      .sp-track {
+        position: relative; width: 196px; height: 2px;
+        border-radius: 2px; overflow: hidden; background: rgba(34,32,26,0.12);
+      }
+      .sp-shimmer {
+        position: absolute; top: 0; left: 0; height: 100%; width: 38%; border-radius: 2px;
+        background: linear-gradient(90deg, rgba(34,32,26,0) 0%, rgba(34,32,26,0.5) 50%, rgba(34,32,26,0) 100%);
+        animation: sp-sweep 1.95s cubic-bezier(.5,0,.5,1) infinite;
+      }
+      @keyframes sp-sweep { 0% { transform: translateX(-115%); } 100% { transform: translateX(380%); } }
+
+      /* Slow breath on the mark. */
+      .sp-breathe { animation: sp-breathe 3.4s ease-in-out infinite; }
+      @keyframes sp-breathe { 0%, 100% { opacity: 0.9; } 50% { opacity: 1; } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .sp-shimmer { animation: none; left: 31%; }
+        .sp-breathe { animation: none; opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sp-stage">
+      <div class="sp-win">
+        <div class="sp-sheen"></div>
+        <div class="sp-hero">
+          <!-- Monogram app icon (icons.jsx AppIcon, concept "monogram", finish "light",
+               italic 600 "M"). Squircle superellipse n≈5, baked to a static path. -->
+          <div class="sp-mark sp-breathe" style="filter: drop-shadow(0 3.9px 7.02px rgba(30,28,22,0.22));">
+            <svg viewBox="0 0 1000 1000" width="78" height="78" style="display:block;">
+              <defs>
+                <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#fcfbf6" />
+                  <stop offset="1" stop-color="#efece4" />
+                </linearGradient>
+                <clipPath id="clip">
+                  <path d="M1000.00 500.00 L999.88 630.65 L999.51 672.35 L998.90 702.61 L998.05 727.19 L996.95 748.22 L995.60 766.76 L994.01 783.43 L992.16 798.61 L990.06 812.58 L987.71 825.53 L985.11 837.60 L982.24 848.90 L979.11 859.51 L975.71 869.50 L972.04 878.93 L968.10 887.84 L963.87 896.27 L959.36 904.26 L954.55 911.82 L949.44 918.98 L944.02 925.77 L938.27 932.19 L932.19 938.27 L925.77 944.02 L918.98 949.44 L911.82 954.55 L904.26 959.36 L896.27 963.87 L887.84 968.10 L878.93 972.04 L869.50 975.71 L859.51 979.11 L848.90 982.24 L837.60 985.11 L825.53 987.71 L812.58 990.06 L798.61 992.16 L783.43 994.01 L766.76 995.60 L748.22 996.95 L727.19 998.05 L702.61 998.90 L672.35 999.51 L630.65 999.88 L500.00 1000.00 L369.35 999.88 L327.65 999.51 L297.39 998.90 L272.81 998.05 L251.78 996.95 L233.24 995.60 L216.57 994.01 L201.39 992.16 L187.42 990.06 L174.47 987.71 L162.40 985.11 L151.10 982.24 L140.49 979.11 L130.50 975.71 L121.07 972.04 L112.16 968.10 L103.73 963.87 L95.74 959.36 L88.18 954.55 L81.02 949.44 L74.23 944.02 L67.81 938.27 L61.73 932.19 L55.98 925.77 L50.56 918.98 L45.45 911.82 L40.64 904.26 L36.13 896.27 L31.90 887.84 L27.96 878.93 L24.29 869.50 L20.89 859.51 L17.76 848.90 L14.89 837.60 L12.29 825.53 L9.94 812.58 L7.84 798.61 L5.99 783.43 L4.40 766.76 L3.05 748.22 L1.95 727.19 L1.10 702.61 L0.49 672.35 L0.12 630.65 L0.00 500.00 L0.12 369.35 L0.49 327.65 L1.10 297.39 L1.95 272.81 L3.05 251.78 L4.40 233.24 L5.99 216.57 L7.84 201.39 L9.94 187.42 L12.29 174.47 L14.89 162.40 L17.76 151.10 L20.89 140.49 L24.29 130.50 L27.96 121.07 L31.90 112.16 L36.13 103.73 L40.64 95.74 L45.45 88.18 L50.56 81.02 L55.98 74.23 L61.73 67.81 L67.81 61.73 L74.23 55.98 L81.02 50.56 L88.18 45.45 L95.74 40.64 L103.73 36.13 L112.16 31.90 L121.07 27.96 L130.50 24.29 L140.49 20.89 L151.10 17.76 L162.40 14.89 L174.47 12.29 L187.42 9.94 L201.39 7.84 L216.57 5.99 L233.24 4.40 L251.78 3.05 L272.81 1.95 L297.39 1.10 L327.65 0.49 L369.35 0.12 L500.00 0.00 L630.65 0.12 L672.35 0.49 L702.61 1.10 L727.19 1.95 L748.22 3.05 L766.76 4.40 L783.43 5.99 L798.61 7.84 L812.58 9.94 L825.53 12.29 L837.60 14.89 L848.90 17.76 L859.51 20.89 L869.50 24.29 L878.93 27.96 L887.84 31.90 L896.27 36.13 L904.26 40.64 L911.82 45.45 L918.98 50.56 L925.77 55.98 L932.19 61.73 L938.27 67.81 L944.02 74.23 L949.44 81.02 L954.55 88.18 L959.36 95.74 L963.87 103.73 L968.10 112.16 L972.04 121.07 L975.71 130.50 L979.11 140.49 L982.24 151.10 L985.11 162.40 L987.71 174.47 L990.06 187.42 L992.16 201.39 L994.01 216.57 L995.60 233.24 L996.95 251.78 L998.05 272.81 L998.90 297.39 L999.51 327.65 L999.88 369.35 L1000.00 500.00 Z" />
+                </clipPath>
+                <radialGradient id="sheen" cx="0.5" cy="0.04" r="0.62">
+                  <stop offset="0" stop-color="rgba(255,255,255,0.85)" stop-opacity="0.95" />
+                  <stop offset="0.55" stop-color="rgba(255,255,255,0.85)" stop-opacity="0.35" />
+                  <stop offset="1" stop-color="rgba(255,255,255,0.85)" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <path d="M1000.00 500.00 L999.88 630.65 L999.51 672.35 L998.90 702.61 L998.05 727.19 L996.95 748.22 L995.60 766.76 L994.01 783.43 L992.16 798.61 L990.06 812.58 L987.71 825.53 L985.11 837.60 L982.24 848.90 L979.11 859.51 L975.71 869.50 L972.04 878.93 L968.10 887.84 L963.87 896.27 L959.36 904.26 L954.55 911.82 L949.44 918.98 L944.02 925.77 L938.27 932.19 L932.19 938.27 L925.77 944.02 L918.98 949.44 L911.82 954.55 L904.26 959.36 L896.27 963.87 L887.84 968.10 L878.93 972.04 L869.50 975.71 L859.51 979.11 L848.90 982.24 L837.60 985.11 L825.53 987.71 L812.58 990.06 L798.61 992.16 L783.43 994.01 L766.76 995.60 L748.22 996.95 L727.19 998.05 L702.61 998.90 L672.35 999.51 L630.65 999.88 L500.00 1000.00 L369.35 999.88 L327.65 999.51 L297.39 998.90 L272.81 998.05 L251.78 996.95 L233.24 995.60 L216.57 994.01 L201.39 992.16 L187.42 990.06 L174.47 987.71 L162.40 985.11 L151.10 982.24 L140.49 979.11 L130.50 975.71 L121.07 972.04 L112.16 968.10 L103.73 963.87 L95.74 959.36 L88.18 954.55 L81.02 949.44 L74.23 944.02 L67.81 938.27 L61.73 932.19 L55.98 925.77 L50.56 918.98 L45.45 911.82 L40.64 904.26 L36.13 896.27 L31.90 887.84 L27.96 878.93 L24.29 869.50 L20.89 859.51 L17.76 848.90 L14.89 837.60 L12.29 825.53 L9.94 812.58 L7.84 798.61 L5.99 783.43 L4.40 766.76 L3.05 748.22 L1.95 727.19 L1.10 702.61 L0.49 672.35 L0.12 630.65 L0.00 500.00 L0.12 369.35 L0.49 327.65 L1.10 297.39 L1.95 272.81 L3.05 251.78 L4.40 233.24 L5.99 216.57 L7.84 201.39 L9.94 187.42 L12.29 174.47 L14.89 162.40 L17.76 151.10 L20.89 140.49 L24.29 130.50 L27.96 121.07 L31.90 112.16 L36.13 103.73 L40.64 95.74 L45.45 88.18 L50.56 81.02 L55.98 74.23 L61.73 67.81 L67.81 61.73 L74.23 55.98 L81.02 50.56 L88.18 45.45 L95.74 40.64 L103.73 36.13 L112.16 31.90 L121.07 27.96 L130.50 24.29 L140.49 20.89 L151.10 17.76 L162.40 14.89 L174.47 12.29 L187.42 9.94 L201.39 7.84 L216.57 5.99 L233.24 4.40 L251.78 3.05 L272.81 1.95 L297.39 1.10 L327.65 0.49 L369.35 0.12 L500.00 0.00 L630.65 0.12 L672.35 0.49 L702.61 1.10 L727.19 1.95 L748.22 3.05 L766.76 4.40 L783.43 5.99 L798.61 7.84 L812.58 9.94 L825.53 12.29 L837.60 14.89 L848.90 17.76 L859.51 20.89 L869.50 24.29 L878.93 27.96 L887.84 31.90 L896.27 36.13 L904.26 40.64 L911.82 45.45 L918.98 50.56 L925.77 55.98 L932.19 61.73 L938.27 67.81 L944.02 74.23 L949.44 81.02 L954.55 88.18 L959.36 95.74 L963.87 103.73 L968.10 112.16 L972.04 121.07 L975.71 130.50 L979.11 140.49 L982.24 151.10 L985.11 162.40 L987.71 174.47 L990.06 187.42 L992.16 201.39 L994.01 216.57 L995.60 233.24 L996.95 251.78 L998.05 272.81 L998.90 297.39 L999.51 327.65 L999.88 369.35 L1000.00 500.00 Z" fill="url(#body)" />
+              <g clip-path="url(#clip)">
+                <rect x="0" y="0" width="1000" height="620" fill="url(#sheen)" />
+              </g>
+              <text x="500" y="566" text-anchor="middle" dominant-baseline="central"
+                font-family="Literata, Georgia, serif" font-weight="600" font-style="italic"
+                font-size="660" fill="#1a1a18">M</text>
+              <path d="M1000.00 500.00 L999.88 630.65 L999.51 672.35 L998.90 702.61 L998.05 727.19 L996.95 748.22 L995.60 766.76 L994.01 783.43 L992.16 798.61 L990.06 812.58 L987.71 825.53 L985.11 837.60 L982.24 848.90 L979.11 859.51 L975.71 869.50 L972.04 878.93 L968.10 887.84 L963.87 896.27 L959.36 904.26 L954.55 911.82 L949.44 918.98 L944.02 925.77 L938.27 932.19 L932.19 938.27 L925.77 944.02 L918.98 949.44 L911.82 954.55 L904.26 959.36 L896.27 963.87 L887.84 968.10 L878.93 972.04 L869.50 975.71 L859.51 979.11 L848.90 982.24 L837.60 985.11 L825.53 987.71 L812.58 990.06 L798.61 992.16 L783.43 994.01 L766.76 995.60 L748.22 996.95 L727.19 998.05 L702.61 998.90 L672.35 999.51 L630.65 999.88 L500.00 1000.00 L369.35 999.88 L327.65 999.51 L297.39 998.90 L272.81 998.05 L251.78 996.95 L233.24 995.60 L216.57 994.01 L201.39 992.16 L187.42 990.06 L174.47 987.71 L162.40 985.11 L151.10 982.24 L140.49 979.11 L130.50 975.71 L121.07 972.04 L112.16 968.10 L103.73 963.87 L95.74 959.36 L88.18 954.55 L81.02 949.44 L74.23 944.02 L67.81 938.27 L61.73 932.19 L55.98 925.77 L50.56 918.98 L45.45 911.82 L40.64 904.26 L36.13 896.27 L31.90 887.84 L27.96 878.93 L24.29 869.50 L20.89 859.51 L17.76 848.90 L14.89 837.60 L12.29 825.53 L9.94 812.58 L7.84 798.61 L5.99 783.43 L4.40 766.76 L3.05 748.22 L1.95 727.19 L1.10 702.61 L0.49 672.35 L0.12 630.65 L0.00 500.00 L0.12 369.35 L0.49 327.65 L1.10 297.39 L1.95 272.81 L3.05 251.78 L4.40 233.24 L5.99 216.57 L7.84 201.39 L9.94 187.42 L12.29 174.47 L14.89 162.40 L17.76 151.10 L20.89 140.49 L24.29 130.50 L27.96 121.07 L31.90 112.16 L36.13 103.73 L40.64 95.74 L45.45 88.18 L50.56 81.02 L55.98 74.23 L61.73 67.81 L67.81 61.73 L74.23 55.98 L81.02 50.56 L88.18 45.45 L95.74 40.64 L103.73 36.13 L112.16 31.90 L121.07 27.96 L130.50 24.29 L140.49 20.89 L151.10 17.76 L162.40 14.89 L174.47 12.29 L187.42 9.94 L201.39 7.84 L216.57 5.99 L233.24 4.40 L251.78 3.05 L272.81 1.95 L297.39 1.10 L327.65 0.49 L369.35 0.12 L500.00 0.00 L630.65 0.12 L672.35 0.49 L702.61 1.10 L727.19 1.95 L748.22 3.05 L766.76 4.40 L783.43 5.99 L798.61 7.84 L812.58 9.94 L825.53 12.29 L837.60 14.89 L848.90 17.76 L859.51 20.89 L869.50 24.29 L878.93 27.96 L887.84 31.90 L896.27 36.13 L904.26 40.64 L911.82 45.45 L918.98 50.56 L925.77 55.98 L932.19 61.73 L938.27 67.81 L944.02 74.23 L949.44 81.02 L954.55 88.18 L959.36 95.74 L963.87 103.73 L968.10 112.16 L972.04 121.07 L975.71 130.50 L979.11 140.49 L982.24 151.10 L985.11 162.40 L987.71 174.47 L990.06 187.42 L992.16 201.39 L994.01 216.57 L995.60 233.24 L996.95 251.78 L998.05 272.81 L998.90 297.39 L999.51 327.65 L999.88 369.35 L1000.00 500.00 Z" fill="none" stroke="rgba(40,38,32,0.13)" stroke-width="3" />
+            </svg>
+          </div>
+          <div class="sp-wordmark">Manuscript</div>
+          <div class="sp-tag">Local-first transcription</div>
+        </div>
+        <div class="sp-foot">
+          <div class="sp-track"><div class="sp-shimmer"></div></div>
+          <div class="sp-tag">Preparing your library</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
