@@ -137,8 +137,11 @@ HTTP API:
 | `WHISPERX_BACKUP_BACKEND` | — | Cloud backup target: `gdrive`, `local`, or unset (off). See *Cloud backup* |
 | `WHISPERX_BACKUP_INTERVAL` | `900` | Periodic auto-backup seconds (`0` disables; runs only when local data changed) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | OAuth client for the `gdrive` backend (see *Cloud backup*) |
-| `WHISPERX_BACKUP_FOLDER` | `WhisperX Backup` | Drive folder name (`gdrive` backend) |
 | `WHISPERX_BACKUP_DIR` | — | Target directory for the `local` backend |
+
+> The Drive **folder name** is chosen in the app UI (onboarding **Backups** step or
+> **Settings → Backup**), default `Manuscript Backup`. It's stored in the OS keyring,
+> not an env var — it must not live in the data dir, which is itself mirrored to Drive.
 
 ## Cloud backup (Google Drive)
 
@@ -174,7 +177,6 @@ Then enable the backend in `app/.env`:
 WHISPERX_BACKUP_BACKEND=gdrive
 GOOGLE_CLIENT_ID=<your client id>
 GOOGLE_CLIENT_SECRET=<your client secret>
-# WHISPERX_BACKUP_FOLDER=WhisperX Backup   # optional, Drive folder name
 ```
 
 Install the extra and restart, then click **Connect** in onboarding/Settings:

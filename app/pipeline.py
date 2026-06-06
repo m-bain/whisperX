@@ -29,7 +29,21 @@ logger = logging.getLogger(__name__)
 # is derived from the device (float32 on CPU, float16 on CUDA; ignored for mlx) —
 # see _compute_for. "mlx" runs ASR on the Apple Silicon GPU via mlx-whisper and the
 # torch stages (VAD/align/diarize) on mps — see _torch_device.
-DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE", "cpu")
+
+
+def _mac_metal() -> bool:
+    """Apple Silicon with the whisper.cpp (Metal) backend installed — the fastest
+    out-of-the-box path on a Mac, used to pick smarter platform defaults below."""
+    return (
+        sys.platform == "darwin"
+        and platform.machine() == "arm64"
+        and importlib.util.find_spec("pywhispercpp") is not None
+    )
+
+
+# On Apple Silicon, whisper.cpp/Metal is the fast default backend; CPU elsewhere.
+# An explicit WHISPERX_DEVICE always wins.
+DEFAULT_DEVICE = os.environ.get("WHISPERX_DEVICE") or ("whispercpp" if _mac_metal() else "cpu")
 DEVICES = ("cpu", "cuda", "mlx", "whispercpp")
 # Human-readable device names for the UI (status fragment, switcher).
 DEVICE_LABELS = {
@@ -80,7 +94,11 @@ class WhisperModel(str, Enum):
 
 
 def _default_model() -> WhisperModel:
-    return WhisperModel.coerce(os.environ.get("WHISPERX_MODEL", "small"), WhisperModel.SMALL)
+    # large-v3-turbo is near-large accuracy but much faster, and whisper.cpp/Metal
+    # handles it comfortably on Apple Silicon — so it's the Mac default. Lighter
+    # 'small' elsewhere. An explicit WHISPERX_MODEL always wins.
+    default = "large-v3-turbo" if _mac_metal() else "small"
+    return WhisperModel.coerce(os.environ.get("WHISPERX_MODEL") or default, WhisperModel.SMALL)
 
 
 # Seeds the initial active model; clients can switch at runtime (persisted by the store).

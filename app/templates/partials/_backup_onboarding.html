@@ -37,6 +37,7 @@
       <div class="backup__name">{{ backup_provider }}</div>
       <div class="backup__sub">
         {% if backup.dirty %}Connected · a backup will run shortly{% else %}Connected · up to date{% endif %}
+        {% if backup_folder %}· folder <strong>{{ backup_folder }}</strong>{% endif %}
       </div>
     </div>
     <span class="chip chip--ok">● CONNECTED</span>
@@ -51,6 +52,9 @@
     <div class="backup__meta">
       <div class="backup__name">{{ backup_provider }}</div>
       <div class="backup__sub">Not connected · transcripts stay on this device only</div>
+      <sl-input name="backup_folder" value="{{ backup_folder }}" size="small"
+                label="Folder name" help-text="Where backups live in your Drive"
+                style="margin-top:10px; max-width:320px"></sl-input>
     </div>
     <sl-button variant="primary" data-ob-backup="connect">
       <sl-icon slot="prefix" name="cloud-upload"></sl-icon> Connect {{ backup_provider }}

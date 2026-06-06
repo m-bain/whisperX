@@ -18,12 +18,15 @@ All the policy lives here; the backend just moves bytes. Design notes:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Callable
 
 from app.backup import manifest as mf
 from app.backup.backend import StorageBackend
@@ -39,8 +42,9 @@ class BackupState(str, Enum):
     tests) have a single source of truth. Transitions:
 
         DISABLED  --configure backend (construction)--> UNLINKED
-        UNLINKED  --link()+bootstrap-->               IDLE | DIRTY
+        UNLINKED  --link()+assess_link-->  IDLE | DIRTY | CONFLICT
         LINKED    --unlink()-->                        UNLINKED
+        CONFLICT  --adopt/overwrite-->                 IDLE
         IDLE      --local mutation-->                  DIRTY
         DIRTY     --backup ok-->                       IDLE
         IDLE|DIRTY--backup_now()-->   BACKING_UP --ok-->IDLE / --raise-->ERROR
@@ -51,6 +55,7 @@ class BackupState(str, Enum):
     UNLINKED = "unlinked"      # backend configured, not linked
     IDLE = "idle"              # linked, in sync, nothing running
     DIRTY = "dirty"            # linked, local changed since last push
+    CONFLICT = "conflict"      # linked, remote differs — awaiting the user's choice
     BACKING_UP = "backing_up"  # a push is in progress
     RESTORING = "restoring"    # a pull/restore is in progress
     ERROR = "error"            # last operation failed (sticky until next success)
@@ -71,6 +76,24 @@ class RemoteState:
     created_at: str = ""
 
 
+class LinkOutcome(str, Enum):
+    """What linking found, comparing the remote against local data.
+
+    Drives the connect flow: only DIVERGED needs the user to choose; the rest act
+    automatically (see :meth:`BackupService.assess_link`).
+    """
+    FRESH = "fresh"              # no remote backup -> seed the first push
+    REMOTE_ONLY = "remote_only"  # remote has data, local empty -> auto-adopt
+    IN_SYNC = "in_sync"         # remote == local -> nothing to do
+    DIVERGED = "diverged"       # both have data and differ -> ASK the user
+
+
+@dataclass
+class LinkAssessment:
+    outcome: LinkOutcome
+    remote: RemoteState
+
+
 @dataclass
 class BackupResult:
     uploaded: int          # blobs newly pushed this run
@@ -81,22 +104,72 @@ class BackupResult:
 
 class BackupService:
     def __init__(self, store, backend: StorageBackend | None, *,
-                 interval: int = 0, gc: bool = True):
+                 interval: int = 0, gc: bool = True,
+                 on_change: Callable[[], None] | None = None):
         self._store = store
         self._backend = backend
         self._interval = interval
         self._gc = gc
+        self._on_change = on_change
         self._data_dir = store.data_dir
         self._snapshot_dir = os.path.join(self._data_dir, ".backup")
+        self._state_path = os.path.join(self._snapshot_dir, "state.json")
         self._sync_lock = threading.Lock()      # one backup at a time
         self._last_signature: str | None = None  # cheap dirty fingerprint
         self._last_root: str | None = None
+        self.last_backup_at: str | None = None    # ISO time of the last successful push
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         # Activity dimension of the state machine (idle/backing_up/restoring/error).
         self._activity = BackupState.IDLE
         self._activity_lock = threading.Lock()
+        # Set on a connect-time conflict (remote differs); pauses periodic auto-backup
+        # until the user resolves it via adopt_remote()/overwrite_remote().
+        self._awaiting_decision = False
         self.last_error: str | None = None
+        self._load_state()  # restore per-device dirty signature + last-backup time
+
+    # --- notify + per-device state persistence -----------------------------
+    def _notify(self) -> None:
+        """Best-effort fire of the on_change hook (listeners re-read status())."""
+        cb = self._on_change
+        if cb is None:
+            return
+        try:
+            cb()
+        except Exception:  # noqa: BLE001 - a flaky listener must not break a backup
+            logger.exception("backup on_change callback failed")
+
+    def _load_state(self) -> None:
+        """Load the per-device sidecar (dirty signature + last-backup time).
+
+        Lives in ``.backup/state.json`` which the manifest never includes (build only
+        walks ``sessions/`` + the DB snapshot), so it's per-machine and not mirrored.
+        Tolerates a missing/corrupt file."""
+        try:
+            with open(self._state_path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            return
+        self._last_signature = data.get("last_signature")
+        self._last_root = data.get("last_root")
+        self.last_backup_at = data.get("last_backup_at")
+
+    def _save_state(self) -> None:
+        """Persist the dirty signature + last-backup time (atomic write)."""
+        os.makedirs(self._snapshot_dir, exist_ok=True)
+        payload = {
+            "last_signature": self._last_signature,
+            "last_root": self._last_root,
+            "last_backup_at": self.last_backup_at,
+        }
+        tmp = f"{self._state_path}.tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
+            os.replace(tmp, self._state_path)
+        except OSError:
+            logger.warning("could not persist backup state to %s", self._state_path)
 
     # --- status ------------------------------------------------------------
     @property
@@ -125,12 +198,20 @@ class BackupService:
         if activity in (BackupState.BACKING_UP, BackupState.RESTORING,
                         BackupState.ERROR):
             return activity
+        if self._awaiting_decision:
+            return BackupState.CONFLICT
         return BackupState.DIRTY if self.is_dirty() else BackupState.IDLE
 
     def _set_activity(self, activity: BackupState, error: str | None = None) -> None:
         with self._activity_lock:
             self._activity = activity
             self.last_error = error if activity is BackupState.ERROR else None
+        self._notify()
+
+    def _set_awaiting_decision(self, value: bool) -> None:
+        if self._awaiting_decision != value:
+            self._awaiting_decision = value
+            self._notify()
 
     def status(self) -> dict:
         return {
@@ -139,6 +220,7 @@ class BackupService:
             "backend": self._backend.name if self._backend else None,
             "dirty": self.is_dirty() if self.is_linked() else None,
             "last_root": self._last_root,
+            "last_backup_at": self.last_backup_at,
             "last_error": self.last_error,
             "interval": self._interval,
         }
@@ -209,6 +291,8 @@ class BackupService:
         root = mf.merkle_root(local)
         self._last_signature = signature
         self._last_root = root
+        self.last_backup_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        self._save_state()
         try:
             os.remove(snapshot_path)
         except OSError:
@@ -278,6 +362,9 @@ class BackupService:
 
         self._last_signature = mf.cheap_signature(self._data_dir)
         self._last_root = mf.merkle_root(remote)
+        # Local now mirrors the remote; surface when that backup was made.
+        self.last_backup_at = remote.created_at or self.last_backup_at
+        self._save_state()
         logger.info("restore done: gen=%d files=%d", remote.generation, restored)
         return restored
 
@@ -319,12 +406,62 @@ class BackupService:
             created_at=remote.created_at,
         )
 
+    def assess_link(self) -> LinkAssessment:
+        """Classify a freshly-linked remote against local data (see LinkOutcome).
+
+        Cheap when local is empty (no hashing) or the remote is fresh; only hashes
+        the local tree when both sides have data — the genuine conflict check. On
+        IN_SYNC it records the current root/signature so the status reads idle
+        ("up to date") without a redundant push.
+        """
+        if not self.is_linked():
+            raise RuntimeError("backup backend is not linked")
+        remote_m = self._backend.probe()
+        if remote_m is None:
+            return LinkAssessment(LinkOutcome.FRESH, RemoteState(exists=False))
+        remote = RemoteState(
+            exists=True,
+            generation=remote_m.generation,
+            entries=len(remote_m.entries),
+            total_size=sum(e.size for e in remote_m.entries.values()),
+            created_at=remote_m.created_at,
+        )
+        if not self._store.list():  # local has no sessions -> nothing to lose
+            return LinkAssessment(LinkOutcome.REMOTE_ONLY, remote)
+        local_root = self._local_root()
+        if local_root == mf.merkle_root(remote_m):
+            self._last_root = local_root
+            self._last_signature = mf.cheap_signature(self._data_dir)
+            self.last_backup_at = remote_m.created_at or self.last_backup_at
+            self._save_state()
+            self._set_awaiting_decision(False)
+            return LinkAssessment(LinkOutcome.IN_SYNC, remote)
+        # Real conflict: pause periodic auto-backup until the user picks a side.
+        self._set_awaiting_decision(True)
+        return LinkAssessment(LinkOutcome.DIVERGED, remote)
+
+    def _local_root(self) -> str:
+        """Merkle root of the current local tree (DB snapshot + artifacts)."""
+        os.makedirs(self._snapshot_dir, exist_ok=True)
+        snap = os.path.join(self._snapshot_dir, "assess.db")
+        self._store.snapshot_db(snap)
+        try:
+            local = mf.build_local_manifest(snap, self._data_dir)
+        finally:
+            try:
+                os.remove(snap)
+            except OSError:
+                pass
+        return mf.merkle_root(local)
+
     def adopt_remote(self) -> int:
         """Bootstrap choice 'load existing': pull the remote down."""
+        self._set_awaiting_decision(False)  # conflict resolved
         return self.restore()
 
     def overwrite_remote(self) -> BackupResult:
         """Bootstrap choice 'start fresh': push local over the remote (GC old blobs)."""
+        self._set_awaiting_decision(False)  # conflict resolved
         return self.backup_now(gc=True)
 
     # --- periodic trigger --------------------------------------------------
@@ -342,7 +479,10 @@ class BackupService:
     def _periodic_loop(self) -> None:
         while not self._stop.wait(self._interval):
             try:
-                if self.is_linked() and self.is_dirty():
+                # Skip while a connect-time conflict is unresolved — auto-pushing
+                # would silently overwrite a remote the user hasn't chosen to replace.
+                if (self.is_linked() and not self._awaiting_decision
+                        and self.is_dirty()):
                     self.backup_now()
             except Exception:  # noqa: BLE001 - never let the daemon die
                 logger.exception("periodic backup failed")

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Set up Manuscript — WhisperX</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23ffffff'/%3E%3Cg transform='translate(3 3) scale(0.625)' fill='%231a1a18'%3E%3Cpath fill-rule='evenodd' d='M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vendor.css') }}">
   <script type="module" src="{{ url_for('static', filename='vendor/shoelace.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='manuscript.css') }}">
@@ -14,7 +14,7 @@
   {# --- Cover panel (dark colophon): brand, progress, step list --- #}
   <div class="ob__cover">
     <div class="ob__brand">
-      <div class="ob__logo"><sl-icon name="soundwave"></sl-icon></div>
+      <div class="ob__logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="Manuscript" /></div>
       <div>
         <div class="ob__wordmark">Manuscript</div>
         <div class="ob__coverTag">FIRST-RUN SETUP</div>
@@ -291,17 +291,42 @@
   }
 
   // Cloud-backup step. No htmx on this page, so POST the action and swap the
-  // returned fragment back into #ob-backup. Connect blocks on the server-side
-  // OAuth consent flow; the button's loading state covers the wait.
+  // returned fragment back into #ob-backup. Connect is non-blocking: the server
+  // runs the OAuth consent flow in the background and returns a "connecting…"
+  // fragment; watchBackupConnect opens an SSE stream and swaps in the final card
+  // when the user finishes signing in (so a closed/late tab still updates here).
   const obBackup = document.getElementById('ob-backup');
+  function watchBackupConnect(root) {
+    const el = root.querySelector('[data-backup-connecting]');
+    if (!el || el.dataset.backupWatching) return;
+    el.dataset.backupWatching = '1';
+    const target = el.dataset.backupTarget, swap = el.dataset.backupSwap;
+    const es = new EventSource('/backup/events');
+    es.onmessage = (e) => {
+      let d; try { d = JSON.parse(e.data); } catch { return; }
+      if (d.status !== 'linked' && d.status !== 'error') return;
+      es.close();
+      const dst = document.querySelector(target);
+      if (dst) { if (swap === 'outer') dst.outerHTML = d.html; else dst.innerHTML = d.html; }
+    };
+  }
   if (obBackup) {
     obBackup.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-ob-backup]');
       if (!btn || btn.hasAttribute('loading')) return;
       btn.setAttribute('loading', '');
       try {
-        const res = await fetch('/onboarding/backup/' + btn.dataset.obBackup, { method: 'POST' });
+        // Connect carries the chosen Drive folder; URLSearchParams body posts as
+        // form-urlencoded so the server reads it via request.form.
+        const body = new URLSearchParams();
+        if (btn.dataset.obBackup === 'connect') {
+          const f = obBackup.querySelector('[name=backup_folder]');
+          if (f && f.value.trim()) body.set('backup_folder', f.value.trim());
+        }
+        const res = await fetch('/onboarding/backup/' + btn.dataset.obBackup,
+          { method: 'POST', body });
         obBackup.innerHTML = await res.text();
+        watchBackupConnect(obBackup);
       } catch (err) {
         btn.removeAttribute('loading');
       }

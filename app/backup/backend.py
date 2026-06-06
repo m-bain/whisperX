@@ -60,3 +60,11 @@ class StorageBackend(ABC):
     @abstractmethod
     def list_objects(self) -> set[str]:
         """Every stored blob key — so GC can find orphans the manifest dropped."""
+
+    def set_folder(self, name: str) -> None:
+        """Re-target the backend at a different destination folder/name.
+
+        No-op by default; backends with a user-chosen destination (Drive) override
+        this. Lets the UI switch destinations on a live backend without a restart.
+        """
+        return None

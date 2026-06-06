@@ -36,11 +36,21 @@ def _escape(name: str) -> str:
 class GDriveBackend(StorageBackend):
     name = "gdrive"
 
-    def __init__(self, folder_name: str = "WhisperX Backup"):
+    def __init__(self, folder_name: str = "Manuscript Backup"):
         self._folder_name = folder_name
         self._service = None
         self._root_id: str | None = None
         self._objects_id: str | None = None
+
+    def set_folder(self, name: str) -> None:
+        """Point at a different root folder; drop the cached folder-id lookups so
+        the next op re-resolves (or creates) under the new name."""
+        name = (name or "").strip()
+        if not name or name == self._folder_name:
+            return
+        self._folder_name = name
+        self._root_id = None
+        self._objects_id = None
 
     # --- linkage / lazy service -------------------------------------------
     def is_linked(self) -> bool:

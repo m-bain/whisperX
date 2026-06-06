@@ -93,14 +93,8 @@ body, body * { font-kerning: normal; }
   min-height: 100vh;
 }
 .sb__brand { display: flex; align-items: center; gap: 14px; padding: 4px 2px 0; text-decoration: none; color: inherit; }
-.sb__logo {
-  width: 44px; height: 44px; flex: 0 0 44px;
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface-container-low);
-  font-size: 22px;
-}
+.sb__logo { width: 46px; height: 46px; flex: 0 0 46px; }
+.sb__logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .sb__name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .sb__tag { font-family: var(--mono); font-size: 11px; color: var(--on-surface-variant); letter-spacing: 0.04em; margin-top: 5px; }
 
@@ -461,8 +455,8 @@ sl-button::part(base) { font-family: var(--mono); font-weight: 600; }
 /* Left "cover" panel — dark, like a hardcover colophon */
 .ob__cover { width: 480px; flex: 0 0 480px; background: var(--inverse-surface); color: var(--inverse-on-surface); padding: 56px 52px 46px; display: flex; flex-direction: column; }
 .ob__brand { display: flex; align-items: center; gap: 14px; }
-.ob__logo { width: 46px; height: 46px; border: 1px solid rgba(242,241,236,0.22); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
-.ob__logo sl-icon { font-size: 23px; color: var(--inverse-on-surface); }
+.ob__logo { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; }
+.ob__logo img { width: 100%; height: 100%; display: block; }
 .ob__wordmark { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .ob__coverTag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: rgba(242,241,236,0.55); margin-top: 5px; }
 .ob__prog { margin-top: 38px; height: 3px; background: rgba(242,241,236,0.16); border-radius: 2px; overflow: hidden; }
