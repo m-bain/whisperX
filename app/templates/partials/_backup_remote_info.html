@@ -1,0 +1,19 @@
+{# Detail rows for the restore modal. Fetched on modal open via
+   GET /settings/backup/remote-info (probes the remote). Numbers are reported
+   honestly — files + bytes, not "transcripts / download size". #}
+{% if backup_error %}
+  <div class="frag frag--err"><sl-icon name="exclamation-triangle"></sl-icon> {{ backup_error }}</div>
+{% elif backup_remote and backup_remote.exists %}
+  <div class="backup__detail">
+    <div class="backup__detail-row"><span>Source</span><strong>{{ backup_provider }}</strong></div>
+    {% if backup_remote.created_at %}
+    <div class="backup__detail-row"><span>Last backup</span><strong>{{ backup_remote.created_at }}</strong></div>
+    {% endif %}
+    <div class="backup__detail-row"><span>Contents</span><strong>{{ backup_remote.entries }} item{{ '' if backup_remote.entries == 1 else 's' }}</strong></div>
+    {% if backup_remote_size %}
+    <div class="backup__detail-row"><span>Download size</span><strong>{{ backup_remote_size }}</strong></div>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="frag"><sl-icon name="info-circle"></sl-icon> This account has no backup yet — nothing to restore.</div>
+{% endif %}

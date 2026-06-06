@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import uuid
 from pathlib import Path
@@ -28,14 +29,17 @@ def _load_dotenv() -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if value[:1] not in ('"', "'"):  # strip unquoted inline comment
+            value = re.split(r"\s+#", value, maxsplit=1)[0].rstrip()
+        value = value.strip('"').strip("'")
         if key and key not in os.environ:  # don't override an already-set var
             os.environ[key] = value
 
 
 _load_dotenv()  # before anything reads os.environ
 
-from datetime import datetime  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
 
 from flask import (  # noqa: E402 - load .env first
     Flask,
@@ -49,6 +53,7 @@ from flask import (  # noqa: E402 - load .env first
 )
 from werkzeug.utils import secure_filename  # noqa: E402
 
+from app import backup as backup_pkg  # noqa: E402
 from app import diarize_model  # noqa: E402
 from app import pipeline  # noqa: E402
 from app import secret_store  # noqa: E402
@@ -164,6 +169,8 @@ if _interrupted:
 # finishes (flip the "loading models" toast to a success state, refresh dropdowns).
 _broker = Broker()
 MODELS_CHANNEL = "__models__"
+BACKUP_CHANNEL = "__backup__"                 # one-shot OAuth consent flow
+BACKUP_STATUS_CHANNEL = "__backup_status__"   # persistent sync-status stream
 
 
 def _models_event(status: dict) -> dict:
@@ -264,9 +271,482 @@ def _on_stage(session_id: str, stage: str) -> None:
 
 _queue = JobQueue(_sessions, run_session, broker=_broker)
 
+# --- Cloud backup: mirror the data dir (DB + artifacts) to a swappable backend.
+#     Disabled unless WHISPERX_BACKUP_BACKEND is set. Snapshot-under-lock keeps
+#     the DB copy consistent; periodic push runs only when local state changed. ---
+_backup = backup_pkg.build_service(_sessions, on_change=lambda: _publish_backup())
+if _backup.is_linked():
+    _backup.start_periodic()
+
 
 def models_ready() -> bool:
     return _manager.is_loaded(_manager.active)
+
+
+# --- Backup endpoints (thin: all logic lives in BackupService) ----------------
+@app.get("/backup/status")
+def backup_status():
+    return jsonify(_backup.status())
+
+
+@app.post("/backup/link")
+def backup_link():
+    """Run the OAuth consent flow (loopback) then report what's on the remote."""
+    from app.backup import LinkOutcome, oauth
+    try:
+        oauth.link_interactive()
+    except Exception as exc:  # noqa: BLE001 - surface to caller
+        return jsonify({"error": str(exc)}), 400
+    if _backup.interval and _backup.is_linked():
+        _backup.start_periodic()
+    a = _backup.assess_link()
+    # Fresh remote -> seed; empty local -> auto-restore; in-sync -> nothing. A
+    # DIVERGED remote is left for the client to resolve via /backup/bootstrap/*.
+    if a.outcome == LinkOutcome.FRESH:
+        _seed_initial_backup()
+    elif a.outcome == LinkOutcome.REMOTE_ONLY:
+        _seed_initial_restore()
+    return jsonify({"linked": True, "outcome": a.outcome.value,
+                    "remote": a.remote.__dict__})
+
+
+@app.post("/backup/unlink")
+def backup_unlink():
+    from app.backup import oauth
+    oauth.unlink()
+    return jsonify({"linked": False})
+
+
+@app.post("/backup/now")
+def backup_now():
+    if not _backup.is_linked():
+        return jsonify({"error": "backup backend is not linked"}), 409
+    _run_backup_async()  # progress + result land on /backup/status/events
+    return jsonify(_backup.status()), 202
+
+
+@app.post("/backup/restore")
+def backup_restore():
+    try:
+        restored = _backup.restore()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"restored": restored})
+
+
+@app.post("/backup/bootstrap/adopt")
+def backup_adopt():
+    """Bootstrap choice 'load existing': pull the remote down."""
+    try:
+        restored = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"restored": restored})
+
+
+@app.post("/backup/bootstrap/overwrite")
+def backup_overwrite():
+    """Bootstrap choice 'start fresh': push local over the remote."""
+    try:
+        result = _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(result.__dict__)
+
+
+# --- Backup UI (partial-rendering, htmx-swapped — mirrors the HF-token card) ---
+# These power the Settings "Backup & Restore" card and the onboarding step. They
+# reuse the same BackupService as the JSON routes above, but render HTML
+# fragments so the UI follows the app's server-rendered-partial convention.
+_PROVIDER_LABELS = {"gdrive": "Google Drive", "local": "Local folder"}
+
+
+def _human_size(n: int) -> str:
+    size = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def _human_ago(iso: str | None) -> str | None:
+    """A loose "5m ago" / "2h ago" for the last-backup time; date for older."""
+    if not iso:
+        return None
+    try:
+        when = datetime.fromisoformat(iso)
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    secs = (datetime.now(timezone.utc) - when).total_seconds()
+    if secs < 45:
+        return "just now"
+    if secs < 3600:
+        return f"{round(secs / 60)}m ago"
+    if secs < 86400:
+        return f"{round(secs / 3600)}h ago"
+    return when.astimezone().strftime("%b %-d, %H:%M")
+
+
+def _backup_ctx(notice: str | None = None, notice_ok: bool = True,
+                remote=None, error: str | None = None) -> dict:
+    """Template context shared by the Settings card and the onboarding step."""
+    status = _backup.status()
+    backend = status.get("backend")
+    return {
+        "backup": status,
+        "backup_provider": _PROVIDER_LABELS.get(backend, backend or "Cloud backup"),
+        "backup_notice": notice,
+        "backup_notice_ok": notice_ok,
+        "backup_remote": remote,
+        "backup_remote_size": _human_size(remote.total_size) if remote else None,
+        "backup_error": error,
+        "backup_last_human": _human_ago(status.get("last_backup_at")),
+        # User-chosen Drive folder (gdrive only): prefills the connect field and
+        # labels the connected card. Stored in the keyring, never in the data dir.
+        "backup_folder": backup_pkg.gdrive_folder() if backend == "gdrive" else None,
+    }
+
+
+def _render_backup(template: str, **ctx_overrides):
+    return render_template(template, **_backup_ctx(**ctx_overrides))
+
+
+# --- Live sync status (persistent SSE; mirrors the model-load stream) ----------
+# Every BackupService state transition fires on_change -> _publish_backup, which
+# re-renders the Settings card and pushes it to the persistent BACKUP_STATUS_CHANNEL
+# stream. The browser swaps #backup-card in place, so auto/periodic/manual pushes,
+# failures, and "last backup at X" all show live without a reload.
+def _backup_status_event() -> dict:
+    """Re-render the Settings backup card for the persistent status stream.
+
+    Renders inside an app context (publish may run on a background job thread). In
+    the CONFLICT state it re-probes the remote and passes it through so the
+    Load/Start-fresh prompt is preserved rather than overwritten by a status push.
+    """
+    state = _backup.status().get("state")
+    remote = None
+    if state == "conflict":
+        try:
+            rs = _backup.bootstrap()
+            remote = rs if rs.exists else None
+        except Exception:  # noqa: BLE001 - fall back to the plain card
+            remote = None
+    with app.app_context():
+        html = _render_backup("partials/_backup_card.html", remote=remote)
+    return {"type": "backup", "state": state, "html": html}
+
+
+def _publish_backup() -> None:
+    """BackupService on_change hook: broadcast the re-rendered card to listeners."""
+    try:
+        _broker.publish(BACKUP_STATUS_CHANNEL, _backup_status_event())
+    except Exception:  # noqa: BLE001 - a render hiccup must not break a backup op
+        logger.exception("backup status publish failed")
+
+
+def _run_backup_async() -> None:
+    """Kick a push on a background thread so the request returns immediately and the
+    UI shows live "Syncing…" -> "Up to date" via the status stream (on_change)."""
+    def run():
+        try:
+            _backup.backup_now()
+        except Exception:  # noqa: BLE001 - state machine records ERROR; surfaced via SSE
+            logger.exception("manual backup failed")
+    threading.Thread(target=run, name="backup-manual", daemon=True).start()
+
+
+@app.get("/backup/status/events")
+def backup_status_events():
+    """Persistent Server-Sent Events stream of backup sync state.
+
+    Emits the current card on connect (correct for late/reconnecting clients), then
+    a freshly-rendered card on every state transition. Long-lived — backup state has
+    no terminal, so the browser keeps it open until navigation."""
+    def stream():
+        q = _broker.subscribe(BACKUP_STATUS_CHANNEL)
+        try:
+            yield _sse(_backup_status_event())  # current state on connect
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse(event)
+        finally:
+            _broker.unsubscribe(BACKUP_STATUS_CHANNEL, q)
+
+    return Response(
+        stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# --- Non-blocking OAuth consent ------------------------------------------------
+# The Google consent flow runs a loopback HTTP server and blocks until the user
+# finishes in the browser, which can take a while. Rather than hold a Flask
+# worker (and the originating fetch) open for the whole consent, we run it on a
+# background thread and notify the page over SSE (BACKUP_CHANNEL) when it lands.
+# The connect routes return a "connecting…" fragment immediately; the page opens
+# an EventSource and swaps in the final card on the terminal event.
+_backup_link_lock = threading.Lock()
+_backup_link = {"active": False, "result": None}  # result: last terminal SSE event
+
+
+def _start_backup_link(template: str) -> None:
+    """Begin the consent flow in the background (idempotent while one runs).
+
+    ``template`` is the partial rendered into the terminal SSE event so the page
+    that started the link gets a fragment shaped for its own container.
+    """
+    with _backup_link_lock:
+        if _backup_link["active"]:
+            return
+        _backup_link["active"] = True
+        _backup_link["result"] = None
+    threading.Thread(target=_run_backup_link, args=(template,), daemon=True).start()
+
+
+def _run_backup_link(template: str) -> None:
+    from app.backup import LinkOutcome, oauth
+    after = None  # "seed" | "restore" — a background op to kick AFTER publishing
+    try:
+        oauth.link_interactive()
+        if _backup.interval and _backup.is_linked():
+            _backup.start_periodic()
+        a = _backup.assess_link()
+        # Only a real conflict (remote has data AND local differs) prompts the user;
+        # everything else acts automatically (see LinkOutcome). The adopt/overwrite
+        # choice only renders when we pass a truthy `remote`.
+        if a.outcome == LinkOutcome.FRESH:
+            after = "seed"       # empty remote: push the first backup
+        elif a.outcome == LinkOutcome.REMOTE_ONLY:
+            after = "restore"    # empty local: pull the existing backup down
+        with app.app_context():
+            html = _render_backup(
+                template,
+                remote=a.remote if a.outcome == LinkOutcome.DIVERGED else None,
+            )
+        event = {"status": "linked", "html": html}
+    except Exception as exc:  # noqa: BLE001 - report to the page over SSE
+        with app.app_context():
+            html = _render_backup(template, notice=str(exc), notice_ok=False)
+        event = {"status": "error", "html": html, "message": str(exc)}
+    with _backup_link_lock:
+        _backup_link["active"] = False
+        _backup_link["result"] = event
+    _broker.publish(BACKUP_CHANNEL, event)
+    # Kick the auto op AFTER publishing "connected" so the UI updates first.
+    if after == "seed":
+        _seed_initial_backup()
+    elif after == "restore":
+        _seed_initial_restore()
+
+
+def _seed_initial_backup() -> None:
+    """Push the first backup to a freshly-linked, empty remote — in a background
+    thread so neither the link flow nor a request blocks on the upload. (Probing a
+    fresh remote on link creates the folder but uploads nothing; without this the
+    first push would wait for the periodic loop, up to one interval later.)"""
+    def run():
+        try:
+            result = _backup.backup_now()
+            logger.info("initial backup after link: uploaded=%d skipped=%d",
+                        result.uploaded, result.skipped)
+        except Exception:  # noqa: BLE001 - periodic loop will retry; surface in logs
+            logger.exception("initial backup after link failed")
+    threading.Thread(target=run, name="backup-initial", daemon=True).start()
+
+
+def _seed_initial_restore() -> None:
+    """Auto-pull a backup onto a freshly-linked, empty device (background thread).
+
+    Only invoked when local has zero sessions (LinkOutcome.REMOTE_ONLY), so there is
+    nothing local to lose. Runs off-thread so the connected card flips in first."""
+    def run():
+        try:
+            n = _backup.adopt_remote()
+            logger.info("auto-restore after link: restored=%d", n)
+        except Exception:  # noqa: BLE001 - surface in logs; user can retry from Settings
+            logger.exception("auto-restore after link failed")
+    threading.Thread(target=run, name="backup-restore", daemon=True).start()
+
+
+def _apply_backup_folder(name: str | None) -> None:
+    """Persist a user-chosen Drive folder and re-target the live backend.
+
+    Called on connect, before the consent flow runs, so the background bootstrap
+    reads the right folder. Blank = keep whatever's stored (default if none).
+    """
+    name = (name or "").strip()
+    if not name:
+        return
+    try:
+        backup_pkg.set_gdrive_folder(name)
+    except Exception:  # noqa: BLE001 - keyring missing: still target it this run;
+        pass           #   the link itself will surface the real keyring error
+    if _backup.backend is not None:
+        _backup.backend.set_folder(backup_pkg.gdrive_folder())
+
+
+def _backup_connecting(card_id: str | None, target: str, swap: str) -> str:
+    """Render the 'waiting for sign-in' fragment for a given page container."""
+    return render_template(
+        "partials/_backup_connecting.html",
+        backup_card_id=card_id, backup_target=target, backup_swap=swap,
+        **_backup_ctx(),
+    )
+
+
+@app.get("/backup/events")
+def backup_events():
+    """Server-Sent Events stream for the OAuth consent flow.
+
+    Carries one terminal event (``linked`` / ``error``) with the rendered card
+    HTML. A late subscriber (the flow finished before its EventSource opened)
+    gets the stored result immediately; otherwise it relays the live event.
+    """
+    def stream():
+        q = _broker.subscribe(BACKUP_CHANNEL)
+        try:
+            with _backup_link_lock:
+                pending = _backup_link["result"]
+            if pending is not None:  # already finished — late subscriber
+                yield _sse(pending)
+                return
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse(event)
+                if event.get("status") in ("linked", "error"):
+                    return
+        finally:
+            _broker.unsubscribe(BACKUP_CHANNEL, q)
+
+    return Response(
+        stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/settings/backup/connect")
+def settings_backup_connect():
+    """Kick off the OAuth consent flow (non-blocking) and return a waiting
+    fragment; the final card arrives over SSE (see /backup/events)."""
+    if _backup.is_linked():
+        return _render_backup("partials/_backup_card.html")
+    _apply_backup_folder(request.form.get("backup_folder"))
+    _start_backup_link("partials/_backup_card.html")
+    return _backup_connecting("backup-card", "#backup-card", "outer")
+
+
+@app.post("/settings/backup/adopt")
+def settings_backup_adopt():
+    try:
+        n = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Loaded {n} file{'' if n == 1 else 's'} from the backup.")
+
+
+@app.post("/settings/backup/overwrite")
+def settings_backup_overwrite():
+    try:
+        r = _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Backed up — {r.uploaded} uploaded, {r.skipped} unchanged.")
+
+
+@app.post("/settings/backup/now")
+def settings_backup_now():
+    if not _backup.is_linked():
+        return _render_backup("partials/_backup_card.html",
+                              notice="Backup backend is not linked.", notice_ok=False)
+    # Run off-thread so the request returns a "Syncing…" card immediately; the
+    # persistent status stream then flips it to "Up to date · last backup …".
+    _run_backup_async()
+    return _render_backup("partials/_backup_card.html")
+
+
+@app.post("/settings/backup/restore")
+def settings_backup_restore():
+    try:
+        n = _backup.restore()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Restored {n} file{'' if n == 1 else 's'} from the backup.")
+
+
+@app.post("/settings/backup/disconnect")
+def settings_backup_disconnect():
+    from app.backup import oauth
+    oauth.unlink()
+    return _render_backup("partials/_backup_card.html",
+                          notice="Disconnected. Local data is untouched.")
+
+
+@app.get("/settings/backup/remote-info")
+def settings_backup_remote_info():
+    """Detail fragment for the restore modal — probes the remote on open."""
+    try:
+        remote = _backup.bootstrap()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_remote_info.html", error=str(exc))
+    return _render_backup("partials/_backup_remote_info.html", remote=remote)
+
+
+@app.post("/onboarding/backup/connect")
+def onboarding_backup_connect():
+    """Non-blocking consent kickoff; the final step fragment arrives over SSE."""
+    if _backup.is_linked():
+        return _render_backup("partials/_backup_onboarding.html")
+    _apply_backup_folder(request.form.get("backup_folder"))
+    _start_backup_link("partials/_backup_onboarding.html")
+    return _backup_connecting(None, "#ob-backup", "inner")
+
+
+@app.post("/onboarding/backup/adopt")
+def onboarding_backup_adopt():
+    try:
+        n = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_onboarding.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_onboarding.html",
+                          notice=f"Loaded {n} file{'' if n == 1 else 's'} from your backup.")
+
+
+@app.post("/onboarding/backup/overwrite")
+def onboarding_backup_overwrite():
+    try:
+        _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_onboarding.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_onboarding.html",
+                          notice="Started a fresh backup on this account.")
+
+
+@app.post("/onboarding/backup/disconnect")
+def onboarding_backup_disconnect():
+    from app.backup import oauth
+    oauth.unlink()
+    return _render_backup("partials/_backup_onboarding.html")
 
 
 @app.route("/")
@@ -313,6 +793,7 @@ def settings():
         default_language=_sessions.get_setting("default_language", ""),
         models=_manager.status(),
         **_diarize_card_ctx(),
+        **_backup_ctx(),
     )
 
 
@@ -339,13 +820,18 @@ ONBOARDING_SIZES = [
      "note": "<b>Strong accuracy, slower.</b> Reliable for interviews and accented speech."},
     {"id": "large-v3", "name": "Large-v3", "meta": "1.5B · 10GB",
      "note": "<b>Best accuracy, multilingual.</b> Recommended for research-grade transcripts. Slowest."},
+    {"id": "large-v3-turbo", "name": "Large Turbo", "meta": "809M · 6GB",
+     "note": "<b>Near-large accuracy, much faster.</b> Recommended on Apple Silicon (whisper.cpp / Metal). Multilingual."},
 ]
 
 
 def _onboarding_size(active: str) -> str:
-    """The preselected size card: the active model if it's one of the five, else 'small'."""
+    """The preselected size card: the active model if it's one of the cards, else
+    the platform default (large-v3-turbo on Apple Silicon, small elsewhere)."""
     ids = {s["id"] for s in ONBOARDING_SIZES}
-    return active if active in ids else "small"
+    if active in ids:
+        return active
+    return pipeline.DEFAULT_MODEL if pipeline.DEFAULT_MODEL in ids else "small"
 
 
 @app.get("/onboarding")
@@ -358,6 +844,7 @@ def onboarding():
         selected_size=_onboarding_size(status["active"]),
         models=status,
         diarize_model=secret_store.DIARIZE_MODEL,
+        **_backup_ctx(),
     )
 
 
@@ -391,6 +878,7 @@ def _onboarding_store_error(token: str, model: str, exc: Exception):
         token=token, sizes=ONBOARDING_SIZES,
         selected_size=_onboarding_size(model), models=_manager.status(),
         diarize_model=secret_store.DIARIZE_MODEL, store_error=str(exc),
+        **_backup_ctx(),
     ), 500
 
 

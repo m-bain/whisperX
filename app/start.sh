@@ -29,10 +29,10 @@ ARCH="$(uname -m)"
 # --- Pick backend + uv extras per platform ----------------------------------
 # Arrays (not strings) so empty == no extra flags. The ${arr[@]+...} guard keeps
 # expanding an empty array safe under `set -u` on bash 3.2 (macOS's default).
-EXTRA=()
+EXTRA=(--extra gdrive)  # cloud-backup deps; build cross-platform, no markers
 BACKEND="CPU"
 if [[ "$OS" == "Darwin" && "$ARCH" == "arm64" ]]; then
-  EXTRA=(--extra mlx --extra whispercpp)  # mlx-whisper + pywhispercpp (Metal)
+  EXTRA+=(--extra mlx --extra whispercpp)  # mlx-whisper + pywhispercpp (Metal)
   BACKEND="whisper.cpp (Metal) + Apple GPU (MLX)"
 elif [[ "$OS" == "Linux" ]]; then
   BACKEND="CUDA GPU (if present, else CPU)"
