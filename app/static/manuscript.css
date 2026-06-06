@@ -381,7 +381,7 @@ body, body * { font-kerning: normal; }
   font-family: var(--serif); font-size: 16px; background: var(--surface); color: var(--on-surface);
 }
 .card__foot { display: flex; align-items: center; gap: 16px; justify-content: flex-end; margin-top: 28px; }
-.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--outline-soft); }
+.pref-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--outline-soft); }
 .pref-row:last-child { border-bottom: 0; }
 .pref-row:first-of-type { padding-top: 6px; }
 .pref__title { font-size: 17px; font-weight: 500; }
