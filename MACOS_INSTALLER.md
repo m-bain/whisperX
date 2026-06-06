@@ -175,6 +175,46 @@ These are the approach-independent repo edits the installer depends on:
 `app/store.py` and `app/secret_store.py` need no further logic change — they already
 accept an injected data dir and use the Keychain.
 
+## Build tooling (`packaging/macos/`)
+
+The (B) pipeline is scaffolded and the **browser-open PoC builds + runs**:
+
+- **`build.py`** — phase driver: `skeleton` (`.app` tree + `Info.plist` + icon),
+  `runtime` (embed interpreter + venv), `app` (copy source + frontend + diarizer),
+  `ffmpeg`, `launcher`, `sign` (leaf-first deep codesign), `notarize`, `dmg`.
+- **`Makefile`** — orchestrator; `make poc` (ad-hoc, local) and `make release`
+  (`IDENTITY=…` + `NOTARY_PROFILE=…`). Per-phase targets avoid rebuilding the runtime.
+- **`launcher.c`** — tiny signed Mach-O `CFBundleExecutable`; sets env + `exec`s the
+  interpreter (`-m app.server`, `WHISPERX_OPEN_BROWSER=1`).
+- **`entitlements.plist`** — hardened-runtime: `disable-library-validation` (+ jit /
+  unsigned-exec-mem / dyld-env).
+
+Resulting bundle: **~1.4 GB** (`python` 60 MB + `runtime` venv 1.3 GB + `app` 56 MB) —
+smaller than the ~3 GB estimate (the arm64 mac torch wheel is CPU/MPS-only).
+
+### Findings from the PoC build (validated on Apple Silicon, ad-hoc signed)
+
+1. **The uv venv does NOT relocate.** `uv venv --relocatable` still writes an
+   **absolute** `pyvenv.cfg home`, and CPython ignores a relative one — so invoking
+   the venv's `bin/python` from a moved/renamed bundle fails with `No module named
+   'encodings'`. The **base python-build-standalone interpreter relocates fine**, so
+   the launcher runs `Resources/python/bin/python3` directly with the venv's
+   `site-packages` on `PYTHONPATH` (the venv is still where deps are installed; we
+   just don't depend on its broken home resolution). Verified: relocated copy with the
+   original hidden serves `/healthz` and transcribes.
+2. **`codesign` rejects absolute symlinks in the bundle.** `build.py` relativizes all
+   in-bundle symlinks (and hard-fails on any that escape the bundle) before signing.
+3. **torchcodec dylibs fail to load** — `libtorchcodec_core*.dylib` want
+   `@rpath/libavutil.*.dylib` (FFmpeg *shared libs*, which we don't bundle — we bundle
+   the ffmpeg *binary*). **Non-fatal:** whisperx decodes audio via the ffmpeg CLI, so
+   the warning is cosmetic; a full ASR+align transcription completes. Follow-up:
+   suppress the warning, or bundle the FFmpeg dylibs + fix rpaths if any path ever
+   needs torchcodec.
+4. **No `Developer ID Application` cert yet** — the installed certs (Apple Development,
+   iPhone Distribution) can't notarize a macOS app. Real sign + notarize + the
+   clean-VM Gatekeeper run + the Developer-ID re-check of landmine 1 are **blocked**
+   until that cert is created in team `Q8HKVK78G9`.
+
 ## ML-on-macOS landmines
 
 1. **`disable-library-validation` is mandatory** — the chosen (B) design bundles the
@@ -203,14 +243,16 @@ so validate in this order **before** investing in full Tauri integration:
 
 1. **Code changes** *(done)* — app runs from source with the relocated data dir;
    `127.0.0.1:<port>`, `/healthz`, and graceful SIGTERM all work; relevant tests pass.
-2. **Bundle + browser-open PoC (no Tauri yet)** — build the `Contents/Resources` venv
-   (`python-build-standalone` + torch/whisperx/`whispercpp`/`mlx` + signed ffmpeg),
-   deep-sign with hardened runtime + `disable-library-validation`, notarize, and ship a
-   minimal `.app` that spawns Flask from the in-bundle interpreter and
-   `webbrowser.open`s the UI. **Run a real transcription** on a **clean macOS VM** with
-   the DMG fetched via a browser (so the `.app` is quarantined) — this proves the
-   signed bundle survives Gatekeeper *and* that torch imports under the hardened runtime
-   (landmine 1). Confirm both `whispercpp` and `mlx` backends run.
+2. **Bundle + browser-open PoC (no Tauri yet)** *(done, ad-hoc; notarization pending
+   cert)* — `packaging/macos/make poc` builds the bundle (`python-build-standalone` +
+   venv with torch/whisperx/`whispercpp`/`mlx`/`gdrive`/Flask/keyring + signed ffmpeg),
+   deep-signs with hardened runtime + `disable-library-validation`, and ships an `.app`
+   that spawns Flask from the in-bundle interpreter and `webbrowser.open`s the UI.
+   **Verified ad-hoc:** a relocated copy (original hidden) serves `/healthz` and runs a
+   full ASR+align transcription — proving torch/ctranslate2/pyannote load under the
+   hardened runtime (landmine 1, indicative). **Still required (cert-blocked):** real
+   `Developer ID Application` sign + notarize, the **clean-VM quarantined run**, the
+   Developer-ID re-check of landmine 1, and confirming the `mlx` backend end-to-end.
 3. **Update preservation test** — create sessions + set an HF token + link Drive backup;
    install a new DMG built with the **same Team/bundle ID**; confirm the DB, session
    files, `~/.cache/huggingface` weights, and all three Keychain secrets survive.

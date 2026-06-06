@@ -178,6 +178,13 @@ app/static/vendor/
 node_modules/
 app/node_modules/
 
+# Local sample / test media (large audio, not for the repo)
+samples/
+
+# macOS packaging build output (the ~3 GB .app/DMG; see packaging/macos/).
+# Covered by the generic `build/` rule above, but listed explicitly for clarity.
+packaging/macos/build/
+
 # playwright-cli scratch: per-session snapshots/console logs + driver config
 .playwright-cli/
 .playwright/
