@@ -6,7 +6,10 @@
     {% if diarized %}speakers labelled{% else %}no diarization{% endif %}.
   </p>
   <div class="downloads">
-    <a class="dl" href="/sessions/{{ job_id }}/view"><sl-icon name="journal-text"></sl-icon> Open Transcript</a>
+    <button class="dl" type="button"
+            onclick="(window.openTranscriptModal||function(id){location.href='/sessions/'+id+'/view';})('{{ job_id }}')">
+      <sl-icon name="journal-text"></sl-icon> Open Transcript
+    </button>
     {% for fmt in formats %}
       <a class="dl" hx-boost="false" href="/sessions/{{ job_id }}/download/{{ fmt }}">{{ fmt }}</a>
     {% endfor %}

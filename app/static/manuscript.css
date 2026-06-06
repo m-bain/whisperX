@@ -385,6 +385,22 @@ body, body * { font-kerning: normal; }
   transform: translate(calc(-50% - 3px), -50%) rotate(-90deg); transform-origin: center;
 }
 
+/* ===== TRANSCRIPT MODAL (inline view inside new-recording dialog) ===== */
+.tr-modal { display: flex; flex-direction: column; gap: 0; }
+.tr-modal__head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tr-modal__open {
+  margin-left: auto; font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em;
+  text-decoration: none; color: var(--on-surface-variant);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tr-modal__open:hover { color: var(--primary); }
+.tr-modal__sub { font-size: 14px; color: var(--on-surface-variant); margin: 6px 0 0; }
+.tr-modal__scroll {
+  max-height: 420px; overflow-y: auto;
+  margin: 0; padding: 8px 0;
+}
+.tr-modal__player.player { padding: 0 12px; flex: 0 0 auto; }
+
 /* ===== SETTINGS ===== */
 .set { padding: 48px 64px; }
 @media (max-width: 900px) { .set { padding: 36px 32px; } }

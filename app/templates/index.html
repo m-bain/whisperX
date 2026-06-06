@@ -174,9 +174,28 @@
     }
     resetFooter();
 
+    // Open the transcript inside the modal instead of navigating away.
+    function openTranscriptModal(sessionId) {
+      const dlg = document.getElementById('new-recording');
+      if (!dlg) { location.href = '/sessions/' + sessionId + '/view'; return; }
+      dlg.style.setProperty('--width', '900px');
+      dlg.label = 'Transcript';
+      const statusEl = document.getElementById('dialog-status');
+      statusEl.innerHTML = '<div style="padding:40px 0;text-align:center"><sl-spinner style="font-size:2rem"></sl-spinner></div>';
+      window.htmx?.ajax('GET', '/sessions/' + sessionId + '/inline', {
+        target: '#dialog-status',
+        swap: 'innerHTML',
+      });
+      startBtn.dataset.mode = 'fullview';
+      startBtn.dataset.viewUrl = '/sessions/' + sessionId + '/view';
+      startLabel.textContent = 'Open full view';
+    }
+    window.openTranscriptModal = openTranscriptModal;
+
     // The submit <sl-button> isn't a native submit; trigger the htmx form explicitly.
     startBtn.addEventListener('click', () => {
-      if (startBtn.dataset.mode === 'done') { location.href = startBtn.dataset.viewUrl; return; }
+      if (startBtn.dataset.mode === 'done') { openTranscriptModal(startBtn.dataset.sessionId); return; }
+      if (startBtn.dataset.mode === 'fullview') { location.href = startBtn.dataset.viewUrl; return; }
       if (!input.files.length) {
         notify({ variant: 'danger', duration: 4000, closable: true,
           html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Choose an audio file first.' });
@@ -196,6 +215,7 @@
     document.addEventListener('job:terminal', (e) => {
       if (e.detail.status === 'error') { startBtn.removeAttribute('loading'); return; }
       startBtn.dataset.mode = 'done';
+      startBtn.dataset.sessionId = e.detail.id;
       startBtn.dataset.viewUrl = `/sessions/${e.detail.id}/view`;
       startBtn.removeAttribute('loading');
       startLabel.textContent = 'View transcript';
@@ -219,6 +239,8 @@
       document.getElementById('dialog-status').innerHTML = '';
       input.value = '';
       label.hidden = true;
+      dialog.style.removeProperty('--width');
+      dialog.label = 'New Recording Session';
     });
   })();
 
