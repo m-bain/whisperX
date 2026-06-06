@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import shutil
 from datetime import date
@@ -46,13 +45,16 @@ def bundled_root() -> Path:
 
 
 def data_root() -> Path:
-    """Writable root for refreshed copies: ``<WHISPERX_DATA_DIR>/models``.
+    """Writable root for refreshed copies: ``<data_dir>/models``.
 
-    Mirrors ``server.DATA_DIR`` (default ``app/data``, which is gitignored) so a
-    refresh never writes into the package dir or dirties the work tree.
+    Shares :func:`app.paths.data_dir` with ``server.DATA_DIR`` so a refresh never
+    writes into the package dir or dirties the work tree, and so relocating the
+    data dir (e.g. the packaged macOS app's Application Support) relocates
+    refreshed models too.
     """
-    data_dir = os.environ.get("WHISPERX_DATA_DIR", str(Path(__file__).with_name("data")))
-    return Path(data_dir) / "models"
+    from app import paths
+
+    return paths.data_dir() / "models"
 
 
 def _candidates(root: Path) -> list[Path]:
