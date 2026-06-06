@@ -203,6 +203,16 @@
       cancelBtn.textContent = 'Back to recordings';
     });
 
+    // htmx won't swap non-2xx responses, so error bodies (413 too-large,
+    // 400 bad upload, 503 models-loading) never reach #dialog-status on their
+    // own. Relay them in and un-stick the spinner so the user can retry.
+    document.getElementById('upload-form').addEventListener('htmx:responseError', (e) => {
+      const xhr = e.detail.xhr;
+      document.getElementById('dialog-status').innerHTML =
+        xhr.responseText || `<div class="dialog-error" role="alert">Upload failed (${xhr.status}).</div>`;
+      startBtn.removeAttribute('loading');
+    });
+
     // Reopening the dialog (any path → sl-show) starts a fresh upload.
     dialog?.addEventListener('sl-show', () => {
       resetFooter();

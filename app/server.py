@@ -60,11 +60,24 @@ from app.store import SessionStore  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("app")
 
-MAX_UPLOAD_MB = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "200"))
+# Sized for ~4h of WAV: 48 kHz / 16-bit / stereo ≈ 0.7 GB/h → 4h ≈ 2.8 GB, and
+# 24-bit stereo ≈ 4.2 GB. Default 5 GB covers those with headroom. Werkzeug
+# spools the upload to a temp file (not RAM), so a large cap is safe on the dev
+# server. Override via WHISPERX_MAX_UPLOAD_MB.
+MAX_UPLOAD_MB = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "5000"))
 DATA_DIR = os.environ.get("WHISPERX_DATA_DIR", str(Path(__file__).with_name("data")))
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+
+@app.errorhandler(413)
+def _too_large(_e):
+    # Flask aborts the request before create_session() runs, so render a clean
+    # message into the upload dialog's #dialog-status (htmx innerHTML swap)
+    # instead of leaking werkzeug's default HTML / a bare console 413.
+    msg = f"File too large. The maximum upload size is {MAX_UPLOAD_MB / 1000:.1f} GB."
+    return f'<div class="dialog-error" role="alert">{msg}</div>', 413
 
 
 # --- View formatting (dashboard cards + transcript header) -------------------
