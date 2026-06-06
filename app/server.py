@@ -159,9 +159,6 @@ def _summary(rows: list[dict]) -> dict:
 # --- Models: a manager caches multiple Whisper checkpoints; the active one is
 #     warmed in a background thread so the server can boot before it is ready. ---
 _sessions = SessionStore(DATA_DIR)
-_interrupted = _sessions.reconcile_startup()
-if _interrupted:
-    logger.warning("Marked %d interrupted session(s) as error on startup", _interrupted)
 
 # SSE pub/sub. Per-session keys carry job progress; one reserved key carries
 # global model-load state so the dashboard can react when the background warm
@@ -269,6 +266,12 @@ def _on_stage(session_id: str, stage: str) -> None:
 
 
 _queue = JobQueue(_sessions, run_session, broker=_broker)
+
+_requeue_ids = _sessions.reconcile_startup()
+if _requeue_ids:
+    logger.info("Requeuing %d session(s) from before restart", len(_requeue_ids))
+    for _sid in _requeue_ids:
+        _queue.submit(_sid)
 
 # --- Cloud backup: mirror the data dir (DB + artifacts) to a swappable backend.
 #     Disabled unless WHISPERX_BACKUP_BACKEND is set. Snapshot-under-lock keeps
