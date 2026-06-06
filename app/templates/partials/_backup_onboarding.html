@@ -1,0 +1,69 @@
+{# Cloud-backup step body for onboarding. The onboarding page does NOT load
+   htmx, so actions are plain sl-buttons carrying data-ob-backup="<action>"; the
+   inline script in onboarding.html POSTs /onboarding/backup/<action> and swaps
+   this fragment back into #ob-backup. Branches on backup.state. #}
+{% set st = backup.state %}
+{% if st == 'disabled' %}
+  <div class="ob__hint">
+    Cloud backup isn't enabled on this server, so there's nothing to connect here —
+    your transcripts stay safely on this device. You can skip this step. To enable
+    backups later, set a backup backend in <span class="ob__code">app/.env</span>.
+  </div>
+
+{% elif backup_remote and backup_remote.exists %}
+  <div class="ob__label">A backup was found on this account</div>
+  <div class="ob__hint" style="margin-top:6px">
+    {{ backup_remote.entries }} item{{ '' if backup_remote.entries == 1 else 's' }}
+    {% if backup_remote_size %}· {{ backup_remote_size }}{% endif %}
+    {% if backup_remote.created_at %}· saved {{ backup_remote.created_at }}{% endif %}.
+  </div>
+  <div class="backup__choice" style="margin-top:16px">
+    <sl-button variant="primary" data-ob-backup="adopt">
+      <sl-icon slot="prefix" name="cloud-download"></sl-icon> Load existing backup
+    </sl-button>
+    <sl-button variant="default" data-ob-backup="overwrite">
+      <sl-icon slot="prefix" name="cloud-upload"></sl-icon> Start fresh
+    </sl-button>
+  </div>
+  <div class="ob__hint backup__warn" style="margin-top:12px">
+    <strong>Load existing</strong> brings those transcripts onto this device.
+    <strong>Start fresh</strong> replaces the backup with this device's data.
+  </div>
+
+{% elif backup.linked %}
+  <div class="backup__provider backup__provider--on">
+    <div class="backup__ico"><sl-icon name="cloud-check"></sl-icon></div>
+    <div class="backup__meta">
+      <div class="backup__name">{{ backup_provider }}</div>
+      <div class="backup__sub">
+        {% if backup.dirty %}Connected · a backup will run shortly{% else %}Connected · up to date{% endif %}
+        {% if backup_folder %}· folder <strong>{{ backup_folder }}</strong>{% endif %}
+      </div>
+    </div>
+    <span class="chip chip--ok">● CONNECTED</span>
+  </div>
+  <div class="backup__actions" style="margin-top:16px">
+    <sl-button size="small" variant="default" data-ob-backup="disconnect">Disconnect</sl-button>
+  </div>
+
+{% else %}
+  <div class="backup__provider">
+    <div class="backup__ico"><sl-icon name="cloud"></sl-icon></div>
+    <div class="backup__meta">
+      <div class="backup__name">{{ backup_provider }}</div>
+      <div class="backup__sub">Not connected · transcripts stay on this device only</div>
+      <sl-input name="backup_folder" value="{{ backup_folder }}" size="small"
+                label="Folder name" help-text="Where backups live in your Drive"
+                style="margin-top:10px; max-width:320px"></sl-input>
+    </div>
+    <sl-button variant="primary" data-ob-backup="connect">
+      <sl-icon slot="prefix" name="cloud-upload"></sl-icon> Connect {{ backup_provider }}
+    </sl-button>
+  </div>
+{% endif %}
+
+{% if backup_notice %}
+<div class="frag {{ 'frag--ok' if backup_notice_ok else 'frag--err' }}" style="margin-top:14px">
+  <sl-icon name="{{ 'check-circle' if backup_notice_ok else 'exclamation-triangle' }}"></sl-icon> {{ backup_notice }}
+</div>
+{% endif %}

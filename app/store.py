@@ -85,6 +85,49 @@ class SessionStore:
         if "stage" not in cols:
             self._db.execute("ALTER TABLE sessions ADD COLUMN stage TEXT")
 
+    @property
+    def db_path(self) -> str:
+        return os.path.join(self.data_dir, "sessions.db")
+
+    # --- backup / restore support --------------------------------------
+    def snapshot_db(self, dest_path: str) -> None:
+        """Write a WAL-safe, internally-consistent copy of the live DB to
+        ``dest_path`` using the SQLite Online Backup API.
+
+        The same ``self._lock`` that every mutation holds is taken here, so a
+        snapshot can never capture a half-applied write — even while a job is
+        mid-transaction or the WAL has uncheckpointed frames. The copy is local
+        and fast; callers upload it after the lock is released.
+        """
+        os.makedirs(os.path.dirname(os.path.abspath(dest_path)), exist_ok=True)
+        with self._lock:
+            dst = sqlite3.connect(dest_path)
+            try:
+                self._db.backup(dst)
+            finally:
+                dst.close()
+
+    def swap_db(self, new_db_path: str) -> None:
+        """Replace the live DB file with ``new_db_path`` and reopen the connection.
+
+        Used by restore. Holds the write lock so no mutation runs across the swap;
+        closes the connection (checkpointing WAL), moves the new file into place,
+        drops any stale -wal/-shm sidecars, then reopens + re-migrates. Callers
+        must ensure no jobs are running (see SessionStore.has_active_jobs)."""
+        with self._lock:
+            self._db.close()
+            target = self.db_path
+            for sidecar in (f"{target}-wal", f"{target}-shm"):
+                if os.path.exists(sidecar):
+                    os.remove(sidecar)
+            os.replace(new_db_path, target)
+            self._db = sqlite3.connect(target, check_same_thread=False)
+            self._db.row_factory = sqlite3.Row
+            with self._db:
+                self._db.execute("PRAGMA journal_mode=WAL")
+                self._db.executescript(_SCHEMA)
+                self._migrate()
+
     # --- path helpers ---------------------------------------------------
     def session_dir(self, session_id: str) -> str:
         return os.path.join(self.sessions_root, session_id)

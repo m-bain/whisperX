@@ -1,0 +1,63 @@
+{# Restore confirmation modal for Settings. Opened by tapping the connected
+   provider row ([data-backup-restore]); the detail rows are fetched on open.
+   Fixed-URL form, so it can use hx-post (unlike the per-row rename modal). #}
+<sl-dialog id="backup-restore-modal" label="Restore from {{ backup_provider }}?" style="--width:520px">
+  <p class="modal__sub">
+    This downloads the backup and makes this device an exact copy of it.
+  </p>
+
+  <div id="backup-restore-detail">
+    <div class="frag"><sl-spinner></sl-spinner> Checking the backup…</div>
+  </div>
+
+  <div class="frag frag--err backup__warn" style="margin-top:16px">
+    <sl-icon name="exclamation-triangle"></sl-icon>
+    Restore mirrors the backup: it <strong>replaces this device's transcripts</strong>
+    and removes local recordings that aren't in the backup. This can't be undone.
+  </div>
+
+  <form id="backup-restore-form" slot="footer"
+        hx-post="/settings/backup/restore" hx-target="#backup-card" hx-swap="outerHTML"
+        style="display:flex;gap:14px;justify-content:flex-end;width:100%">
+    <sl-button variant="default" type="button"
+               onclick="document.getElementById('backup-restore-modal').hide()">Cancel</sl-button>
+    <sl-button variant="danger" id="backup-restore-go">
+      <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon> Restore now
+    </sl-button>
+  </form>
+</sl-dialog>
+
+<script>
+(function () {
+  const modal = document.getElementById('backup-restore-modal');
+  if (!modal) return;
+  const detail = document.getElementById('backup-restore-detail');
+  const form = document.getElementById('backup-restore-form');
+  const goBtn = document.getElementById('backup-restore-go');
+  const SPINNER = '<div class="frag"><sl-spinner></sl-spinner> Checking the backup…</div>';
+
+  // Open from the connected provider row. Delegated so it survives card swaps.
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-backup-restore]')) return;
+    detail.innerHTML = SPINNER;
+    modal.show();
+    fetch('/settings/backup/remote-info')
+      .then((r) => r.text())
+      .then((html) => { detail.innerHTML = html; })
+      .catch(() => {
+        detail.innerHTML = '<div class="frag frag--err">Couldn\'t reach the backup.</div>';
+      });
+  });
+
+  // "Restore now": sl-button isn't a native submit — trigger the htmx form.
+  goBtn.addEventListener('click', () => {
+    goBtn.setAttribute('loading', '');
+    window.htmx?.trigger(form, 'submit');
+  });
+  // After the card swaps in, clear loading and close the dialog.
+  form.addEventListener('htmx:afterRequest', () => {
+    goBtn.removeAttribute('loading');
+    modal.hide();
+  });
+})();
+</script>

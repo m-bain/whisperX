@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Manuscript — WhisperX{% endblock %}</title>
 
-  {# Favicon: same Bootstrap Icons "soundwave" glyph as the sidebar logo, inlined as an SVG data URI #}
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23ffffff'/%3E%3Cg transform='translate(3 3) scale(0.625)' fill='%231a1a18'%3E%3Cpath fill-rule='evenodd' d='M8.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5m-2 2a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5m-6 1.5A.5.5 0 0 1 5 6v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m8 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m-10 1A.5.5 0 0 1 3 7v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5m12 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5'/%3E%3C/g%3E%3C/svg%3E">
+  {# Favicon / app icon: Manuscript editorial-italic "M" monogram on a parchment squircle #}
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
 
   {# Vendored frontend deps — no CDNs. Built with `cd app && bun run build`
      into static/vendor/ (gitignored). vendor.css bundles the Shoelace light
@@ -86,13 +87,106 @@
       });
     }
 
-    // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the icon).
+    // Cloud-backup OAuth: the consent flow runs server-side and is non-blocking,
+    // so the "Connect" action swaps in a [data-backup-connecting] fragment. Open
+    // a one-shot EventSource to /backup/events and, on the terminal event, swap
+    // the rendered card into place (settings = outerHTML, onboarding = innerHTML).
+    document.addEventListener('htmx:load', (evt) => watchBackupConnect(evt.target));
+    function watchBackupConnect(root) {
+      const el = root.matches?.('[data-backup-connecting]') ? root
+        : root.querySelector?.('[data-backup-connecting]');
+      if (!el || el.dataset.backupWatching) return;
+      el.dataset.backupWatching = '1';
+      const target = el.dataset.backupTarget, swap = el.dataset.backupSwap;
+      const es = new EventSource('/backup/events');
+      es.onmessage = (e) => {
+        let d; try { d = JSON.parse(e.data); } catch { return; }
+        if (d.status !== 'linked' && d.status !== 'error') return;
+        es.close();
+        const dst = document.querySelector(target);
+        if (!dst) return;
+        if (swap === 'outer') dst.outerHTML = d.html; else dst.innerHTML = d.html;
+        window.htmx?.process(document.querySelector(target) || document.body);
+      };
+      // Browser auto-reconnects on transient errors; the terminal event ends it.
+    }
+
+    // Fire a Shoelace toast. Pass raw inner HTML (use a slot="icon" child for the
+    // icon). Returns the <sl-alert> so callers can keep/replace a sticky toast.
     function notify({ variant = 'primary', closable = false, duration = 4000, html = '' }) {
       const alert = Object.assign(document.createElement('sl-alert'), { variant, closable, duration });
       alert.innerHTML = html;
       document.body.append(alert);
       customElements.whenDefined('sl-alert').then(() => alert.toast());
+      return alert;
     }
+
+    // Global model-load state over Server-Sent Events. The active Whisper model
+    // warms in a background thread after boot, so the first page render shows it
+    // "loading…". This stream pushes the live state (broadcast by the server's
+    // ModelManager.on_change hook) so the "loading models" toast flips to a
+    // success state and every model <sl-select> refreshes its loaded/loading
+    // badge — no polling, no reload. The EventSource lives in <head> so it opens
+    // once and survives hx-boost navigations (head scripts don't re-run).
+    (function () {
+      let loadingToast = null;  // the sticky "loading models" alert, if shown
+      let sawLoading = false;   // gate the success toast to a real loading→ready edge
+
+      function refreshModelSelects(models) {
+        const byName = Object.fromEntries((models || []).map((m) => [m.name, m]));
+        document.querySelectorAll('sl-select[data-model-select] sl-option').forEach((opt) => {
+          const m = byName[opt.value];
+          if (!m) return;
+          const badge = m.loaded ? ' · cached' : m.loading ? ' · loading…' : m.error ? ' · failed' : '';
+          const next = opt.value + badge;
+          // Setting textContent makes sl-option emit sl-label-change, which
+          // sl-select listens for to refresh its displayed value.
+          if (opt.textContent.trim() !== next) opt.textContent = next;
+        });
+      }
+
+      function onState(d) {
+        refreshModelSelects(d.models);
+        if (d.bundle_error) return;  // a load failure surfaces via its own toast
+        if (!d.models_ready) {
+          sawLoading = true;
+          if (!loadingToast || !loadingToast.isConnected) {
+            loadingToast = notify({ variant: 'primary', duration: Infinity, closable: true,
+              html: '<sl-spinner slot="icon"></sl-spinner> Loading models — your first upload will wait until they are ready.' });
+          }
+          return;
+        }
+        if (loadingToast && loadingToast.isConnected) loadingToast.hide();
+        loadingToast = null;
+        if (sawLoading) {  // only celebrate an actual transition, not a ready-on-connect
+          sawLoading = false;
+          notify({ variant: 'success', duration: 5000, closable: true,
+            html: '<sl-icon slot="icon" name="check-circle"></sl-icon> Models ready — you can start transcribing now.' });
+        }
+      }
+
+      const es = new EventSource('/models/events');
+      es.onmessage = (e) => { try { onState(JSON.parse(e.data)); } catch (_) { /* ignore */ } };
+      // Browser auto-reconnects on transient errors; nothing to do here.
+    })();
+
+    // Live backup sync status over Server-Sent Events. Every BackupService state
+    // transition (auto push on connect, periodic, manual "Back up now", failures)
+    // re-renders the Settings card server-side and pushes it here; we swap
+    // #backup-card in place so it never goes stale. No-op on pages without the card
+    // (index/onboarding). Lives in <head> so it opens once and survives hx-boost.
+    (function () {
+      const es = new EventSource('/backup/status/events');
+      es.onmessage = (e) => {
+        let d; try { d = JSON.parse(e.data); } catch { return; }
+        if (!d.html) return;
+        const card = document.getElementById('backup-card');
+        if (!card) return;  // not on the Settings page
+        card.outerHTML = d.html;
+        window.htmx?.process(document.getElementById('backup-card') || document.body);
+      };
+      // Browser auto-reconnects on transient errors; nothing to do here.
+    })();
 
     // The New Recording dialog only lives on the index page. From other pages
     // (settings, transcript) there's nothing to open, so send the user home
@@ -109,7 +203,7 @@
 <div class="screen">
   <aside class="sb">
     <a class="sb__brand" href="/">
-      <div class="sb__logo"><sl-icon name="soundwave"></sl-icon></div>
+      <div class="sb__logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="Manuscript" /></div>
       <div>
         <div class="sb__name">Manuscript</div>
         <div class="sb__tag">WHISPERX · LOCAL</div>

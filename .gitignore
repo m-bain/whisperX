@@ -181,3 +181,7 @@ app/node_modules/
 # playwright-cli scratch: per-session snapshots/console logs + driver config
 .playwright-cli/
 .playwright/
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store

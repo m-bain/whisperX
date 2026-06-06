@@ -4,7 +4,7 @@
    - selected:   currently-selected model value (default: models.active) #}
 {% set field_name = field_name|default('model') %}
 {% set selected = selected|default(models.active) %}
-<sl-select name="{{ field_name }}" value="{{ selected }}" hoist>
+<sl-select name="{{ field_name }}" value="{{ selected }}" data-model-select hoist>
   {% for m in models.models %}
   <sl-option value="{{ m.name }}">
     {{ m.name }}{% if m.loaded %} · cached{% elif m.loading %} · loading…{% endif %}

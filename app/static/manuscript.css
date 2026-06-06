@@ -93,14 +93,8 @@ body, body * { font-kerning: normal; }
   min-height: 100vh;
 }
 .sb__brand { display: flex; align-items: center; gap: 14px; padding: 4px 2px 0; text-decoration: none; color: inherit; }
-.sb__logo {
-  width: 44px; height: 44px; flex: 0 0 44px;
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface-container-low);
-  font-size: 22px;
-}
+.sb__logo { width: 46px; height: 46px; flex: 0 0 46px; }
+.sb__logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .sb__name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .sb__tag { font-family: var(--mono); font-size: 11px; color: var(--on-surface-variant); letter-spacing: 0.04em; margin-top: 5px; }
 
@@ -190,6 +184,11 @@ body, body * { font-kerning: normal; }
 .chip--ok { color: var(--ok); }
 .chip--run { color: var(--on-surface); }
 .chip--err { color: var(--error); }
+.dialog-error {
+  color: var(--error); font-size: 14px; margin-top: 10px;
+  padding: 10px 12px; border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
 .mono { font-family: var(--mono); }
 .rule { height: 1px; background: var(--outline-variant); border: 0; }
 
@@ -218,6 +217,40 @@ body, body * { font-kerning: normal; }
 }
 .btn-outline[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 .btn-outline sl-icon { font-size: 15px; }
+
+/* ===== BACKUP & RESTORE (settings card + onboarding step) ===== */
+.backup__provider {
+  display: flex; align-items: center; gap: 18px;
+  border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+  background: var(--surface-container-lowest); padding: 18px 20px;
+}
+.backup__provider--on { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.backup__provider--on:hover { border-color: var(--outline); background: var(--surface-container); }
+.backup__provider--on:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.backup__ico {
+  display: grid; place-items: center; flex: none;
+  width: 44px; height: 44px; border-radius: var(--radius-md);
+  background: var(--surface-container-high); color: var(--on-surface); font-size: 22px;
+}
+.backup__meta { flex: 1; min-width: 0; }
+.backup__name { font-size: 17px; font-weight: 600; }
+.backup__sub { font-family: var(--mono); font-size: 12px; color: var(--on-surface-variant); margin-top: 4px; }
+.backup__chev { font-size: 18px; color: var(--on-surface-faint); flex: none; }
+.backup__actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px; }
+.backup__choice { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.backup__warn { margin-top: 14px; }
+.backup__detail {
+  border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+  background: var(--surface-container); overflow: hidden;
+}
+.backup__detail-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; border-bottom: 1px solid var(--outline-soft);
+  font-family: var(--mono); font-size: 13px;
+}
+.backup__detail-row:last-child { border-bottom: 0; }
+.backup__detail-row span { color: var(--on-surface-variant); }
+.ob__backupBox { margin-top: 8px; }
 
 /* empty-state dropzone in the feature slot */
 .feature--empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 64px 38px; }
@@ -381,7 +414,7 @@ body, body * { font-kerning: normal; }
   font-family: var(--serif); font-size: 16px; background: var(--surface); color: var(--on-surface);
 }
 .card__foot { display: flex; align-items: center; gap: 16px; justify-content: flex-end; margin-top: 28px; }
-.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--outline-soft); }
+.pref-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--outline-soft); }
 .pref-row:last-child { border-bottom: 0; }
 .pref-row:first-of-type { padding-top: 6px; }
 .pref__title { font-size: 17px; font-weight: 500; }
@@ -422,8 +455,8 @@ sl-button::part(base) { font-family: var(--mono); font-weight: 600; }
 /* Left "cover" panel — dark, like a hardcover colophon */
 .ob__cover { width: 480px; flex: 0 0 480px; background: var(--inverse-surface); color: var(--inverse-on-surface); padding: 56px 52px 46px; display: flex; flex-direction: column; }
 .ob__brand { display: flex; align-items: center; gap: 14px; }
-.ob__logo { width: 46px; height: 46px; border: 1px solid rgba(242,241,236,0.22); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
-.ob__logo sl-icon { font-size: 23px; color: var(--inverse-on-surface); }
+.ob__logo { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; }
+.ob__logo img { width: 100%; height: 100%; display: block; }
 .ob__wordmark { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .ob__coverTag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: rgba(242,241,236,0.55); margin-top: 5px; }
 .ob__prog { margin-top: 38px; height: 3px; background: rgba(242,241,236,0.16); border-radius: 2px; overflow: hidden; }

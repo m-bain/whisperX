@@ -134,6 +134,73 @@ HTTP API:
 | `WHISPERX_BATCH_SIZE` | `8` | Transcription batch size |
 | `WHISPERX_MAX_UPLOAD_MB` | `200` | Upload size cap |
 | `PORT` | `5000` | Server port |
+| `WHISPERX_BACKUP_BACKEND` | — | Cloud backup target: `gdrive`, `local`, or unset (off). See *Cloud backup* |
+| `WHISPERX_BACKUP_INTERVAL` | `900` | Periodic auto-backup seconds (`0` disables; runs only when local data changed) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | OAuth client for the `gdrive` backend (see *Cloud backup*) |
+| `WHISPERX_BACKUP_DIR` | — | Target directory for the `local` backend |
+
+> The Drive **folder name** is chosen in the app UI (onboarding **Backups** step or
+> **Settings → Backup**), default `Manuscript Backup`. It's stored in the OS keyring,
+> not an env var — it must not live in the data dir, which is itself mirrored to Drive.
+
+## Cloud backup (Google Drive)
+
+Optionally mirror your data (the `sessions.db` + per-session audio/transcripts)
+to cloud storage so it survives a lost machine and can be pulled onto another.
+It's off by default; everything stays local first and the backup is an extra copy
+you control. Manage it from the onboarding **Backups** step or **Settings →
+Backup & Restore**.
+
+The Google Drive backend uses **your own** OAuth client (the app ships no shared
+credentials). Uploads use the least-privilege `drive.file` scope, so the app can
+only see files it created — never the rest of your Drive.
+
+### Getting a Google client ID + secret
+
+Do this once, in the [Google Cloud Console](https://console.cloud.google.com):
+
+1. **Create / pick a project** (top bar → project dropdown → *New Project*).
+2. **Enable the Drive API** — *APIs & Services → Library*, search **Google Drive
+   API**, click **Enable**.
+3. **Configure the OAuth consent screen** — *APIs & Services → OAuth consent
+   screen*. Choose **External** (or **Internal** on a Google Workspace), fill in
+   an app name + your email. Add the scope
+   `.../auth/drive.file`. While the app stays in **Testing** mode, add your
+   Google account under **Test users** (otherwise consent is refused).
+4. **Create the credentials** — *APIs & Services → Credentials → Create
+   credentials → OAuth client ID*. Application type **Desktop app**. Copy the
+   generated **Client ID** and **Client secret**.
+
+Then enable the backend in `app/.env`:
+
+```bash
+WHISPERX_BACKUP_BACKEND=gdrive
+GOOGLE_CLIENT_ID=<your client id>
+GOOGLE_CLIENT_SECRET=<your client secret>
+```
+
+Install the extra and restart, then click **Connect** in onboarding/Settings:
+
+```bash
+uv sync --extra gdrive        # or: pip install google-api-python-client google-auth-oauthlib google-auth
+```
+
+**Connect runs on the server host.** The Desktop-app flow spins up a temporary
+`http://localhost` listener and opens a browser to complete consent, so trigger
+**Connect** from a browser **on the same machine** that runs the app (fine for a
+local/desktop deployment; not suited to a remote headless server). Your refresh
+token is stored in the OS keyring (never in the DB or a plaintext file); the
+client ID/secret stay in `app/.env`. The folder layout in Drive is
+`<folder>/manifest.json` + `<folder>/objects/<hash>`.
+
+> **Restore replaces local data.** Restoring makes this device an exact mirror of
+> the backup: recordings present locally but absent from the backup are removed,
+> and the whole `sessions.db` is swapped. It's blocked while a transcription is
+> running.
+
+No client of your own? The **`local`** backend needs no OAuth — set
+`WHISPERX_BACKUP_BACKEND=local` and `WHISPERX_BACKUP_DIR=/path/to/backup` to
+mirror to another disk or a mounted share (also what the tests use).
 
 ## Layout
 

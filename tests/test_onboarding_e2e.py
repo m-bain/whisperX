@@ -1,8 +1,10 @@
 """End-to-end test of the web-app first-run onboarding flow.
 
 Runs the real Flask app (``app.server``) in a background thread and drives it
-with Playwright through Welcome -> Access -> Engine -> Done, asserting the gate,
-the live token verification, and that the choices persist.
+with Playwright through Welcome -> Access -> Backups -> Engine -> Done, asserting
+the gate, the live token verification, and that the choices persist. The Backups
+step is optional and (with no backup backend configured in the test) renders a
+"not enabled" hint, so the flow just continues past it.
 
 The Hugging Face network is **mocked** at the ``huggingface_hub.HfApi`` layer so
 ``secret_store.verify_token``'s real branching (valid / invalid / gated) is
@@ -186,16 +188,20 @@ def test_onboarding_full_flow(live_server, browser):
     assert "conditions" in page.locator("#ob-verify").inner_text().lower()
     assert page.locator("[data-panel='2']").get_attribute("class").find("is-active") == -1
 
-    # 5) Good token: verification passes and advances to Engine.
+    # 5) Good token: verification passes and advances to Backups (step 3).
     _set_token(page, GOOD)
     page.click("#ob-verify-btn")
     page.wait_for_selector("[data-panel='2'].is-active", timeout=5000)
 
-    # 6) Pick a model size + CPU backend, finish to the Done summary.
+    # 6) Backups step is optional (no backend configured here) — continue to Engine.
+    page.click("[data-panel='2'].is-active [data-go='3']")
+    page.wait_for_selector("[data-panel='3'].is-active")
+
+    # 7) Pick a model size + CPU backend, finish to the Done summary (step 5).
     page.click("[data-size='small']")
     page.click("[data-backend='cpu']")
-    page.click("[data-go='3']")
-    page.wait_for_selector("[data-panel='3'].is-active")
+    page.click("[data-go='4']")
+    page.wait_for_selector("[data-panel='4'].is-active")
     summary = page.locator(".ob__summary").inner_text()
     assert "Small" in summary and "CPU" in summary
     assert GOOD[-4:] in summary  # masked token shows last 4 chars
@@ -240,17 +246,21 @@ def test_onboarding_completes_without_token(live_server, browser):
     page.goto(base + "/")
     assert page.url.rstrip("/").endswith("/onboarding")
 
-    # Welcome -> Access, leave the token blank, Continue advances straight to Engine.
+    # Welcome -> Access, leave the token blank, Continue advances to Backups.
     page.click("[data-go='1']")
     page.wait_for_selector("[data-panel='1'].is-active")
     page.click("#ob-verify-btn")  # blank token -> skip verification
     page.wait_for_selector("[data-panel='2'].is-active", timeout=5000)
 
+    # Backups (optional) -> Engine.
+    page.click("[data-panel='2'].is-active [data-go='3']")
+    page.wait_for_selector("[data-panel='3'].is-active")
+
     # Pick a model + backend, finish, enter.
     page.click("[data-size='base']")
     page.click("[data-backend='cpu']")
-    page.click("[data-go='3']")
-    page.wait_for_selector("[data-panel='3'].is-active")
+    page.click("[data-go='4']")
+    page.wait_for_selector("[data-panel='4'].is-active")
     assert "Bundled model" in page.locator(".ob__summary").inner_text()
 
     page.click("#ob-enter")
