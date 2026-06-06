@@ -20,7 +20,7 @@
         <div class="ob__coverTag">FIRST-RUN SETUP</div>
       </div>
     </div>
-    <div class="ob__prog"><i id="ob-prog" style="width:33.33%"></i></div>
+    <div class="ob__prog"><i id="ob-prog" style="width:25%"></i></div>
 
     <div class="ob__steps" id="ob-steps">
       <div class="ob__step ob__step--active" data-step="0">
@@ -35,6 +35,11 @@
       </div>
       <div class="ob__step" data-step="2">
         <div class="ob__stepNum">03</div>
+        <div class="ob__stepBody"><div class="t">Backups</div><div class="d">Cloud backup · optional</div></div>
+        <div class="ob__stepDone"><sl-icon name="check-lg"></sl-icon></div>
+      </div>
+      <div class="ob__step" data-step="3">
+        <div class="ob__stepNum">04</div>
         <div class="ob__stepBody"><div class="t">Engine</div><div class="d">Model &amp; backend</div></div>
         <div class="ob__stepDone"><sl-icon name="check-lg"></sl-icon></div>
       </div>
@@ -46,7 +51,7 @@
   <div class="ob__pane">
     {# STEP 0 — Welcome #}
     <section class="ob__step-panel is-active" data-panel="0">
-      <div class="ob__kicker">STEP 01 / 03 · WELCOME</div>
+      <div class="ob__kicker">STEP 01 / 04 · WELCOME</div>
       <h1 class="ob__title">A quieter way to<br>turn talk into text.</h1>
       <p class="ob__lede">Manuscript transcribes, separates speakers, and lets you annotate long-form audio — built for researchers, journalists, and anyone who reads closely. Three quick steps and you're set.</p>
       <div class="ob__content">
@@ -64,7 +69,7 @@
 
     {# STEP 1 — Hugging Face token (required + live-verified) #}
     <section class="ob__step-panel" data-panel="1">
-      <div class="ob__kicker">STEP 02 / 03 · ACCESS</div>
+      <div class="ob__kicker">STEP 02 / 04 · ACCESS</div>
       <h1 class="ob__title">Connect Hugging Face.<br><span style="font-weight:400;opacity:.6">Optional.</span></h1>
       <p class="ob__lede">Speaker diarization works out of the box — the pyannote model is bundled with Manuscript. Adding a free Hugging Face token is <strong>optional</strong>; it only lets you fetch model updates later. Paste one to verify and save it, or just continue.</p>
       <div class="ob__content">
@@ -96,9 +101,27 @@
       </div>
     </section>
 
-    {# STEP 2 — Model size + backend #}
+    {# STEP 2 — Cloud backup (optional) #}
     <section class="ob__step-panel" data-panel="2">
-      <div class="ob__kicker">STEP 03 / 03 · ENGINE</div>
+      <div class="ob__kicker">STEP 03 / 04 · BACKUPS</div>
+      <h1 class="ob__title">Back up to the cloud.<br><span style="font-weight:400;opacity:.6">Optional.</span></h1>
+      <p class="ob__lede">Sync finished transcripts to a cloud account so they're safe and available across devices. Everything stays local first — backups are an extra copy you control.</p>
+      <div class="ob__content">
+        <div id="ob-backup" class="ob__backupBox">
+          {% include 'partials/_backup_onboarding.html' %}
+        </div>
+      </div>
+      <div class="ob__foot">
+        <button type="button" class="btn-text lg" data-go="1">Back</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn-text lg" data-go="3">Skip for now</button>
+        <button type="button" class="btn-primary lg" data-go="3">Continue <sl-icon name="arrow-right"></sl-icon></button>
+      </div>
+    </section>
+
+    {# STEP 3 — Model size + backend #}
+    <section class="ob__step-panel" data-panel="3">
+      <div class="ob__kicker">STEP 04 / 04 · ENGINE</div>
       <h1 class="ob__title">Pick your engine.</h1>
       <p class="ob__lede">Choose a model size and the backend that matches your hardware. You can change both later in Settings.</p>
       <div class="ob__content">
@@ -137,14 +160,14 @@
         </div>
       </div>
       <div class="ob__foot">
-        <button type="button" class="btn-text lg" data-go="1">Back</button>
+        <button type="button" class="btn-text lg" data-go="2">Back</button>
         <div class="spacer"></div>
-        <button type="button" class="btn-primary lg" data-go="3">Finish setup <sl-icon name="check-lg"></sl-icon></button>
+        <button type="button" class="btn-primary lg" data-go="4">Finish setup <sl-icon name="check-lg"></sl-icon></button>
       </div>
     </section>
 
-    {# STEP 3 — Done summary #}
-    <section class="ob__step-panel" data-panel="3">
+    {# STEP 4 — Done summary #}
+    <section class="ob__step-panel" data-panel="4">
       <div class="ob__done">
         <div class="ob__check"><sl-icon name="check-lg"></sl-icon></div>
         <h1 class="ob__doneTitle">You're all set.</h1>
@@ -186,13 +209,13 @@
   function show(n) {
     step = n;
     panels.forEach((p) => p.classList.toggle('is-active', +p.dataset.panel === n));
-    const disp = Math.min(n, 2);              // cover shows the 3 named steps
-    prog.style.width = (n >= 3 ? 100 : ((disp + 1) / 3) * 100) + '%';
+    const disp = Math.min(n, 3);              // cover shows the 4 named steps
+    prog.style.width = (n >= 4 ? 100 : ((disp + 1) / 4) * 100) + '%';
     stepEls.forEach((el, i) => {
-      el.classList.toggle('ob__step--active', i === disp && n < 3);
+      el.classList.toggle('ob__step--active', i === disp && n < 4);
       el.classList.toggle('ob__step--done', i < n);
     });
-    if (n === 3) fillSummary();
+    if (n === 4) fillSummary();
   }
 
   // Step navigation. The token is optional, so advancing is never blocked here.
@@ -265,6 +288,24 @@
     document.getElementById('ob-sum-model').textContent = sizeCard ? sizeCard.textContent : modelInput.value;
     const beCard = document.querySelector('.ob__backend--on .ob__beName');
     document.getElementById('ob-sum-backend').textContent = beCard ? beCard.textContent : deviceInput.value;
+  }
+
+  // Cloud-backup step. No htmx on this page, so POST the action and swap the
+  // returned fragment back into #ob-backup. Connect blocks on the server-side
+  // OAuth consent flow; the button's loading state covers the wait.
+  const obBackup = document.getElementById('ob-backup');
+  if (obBackup) {
+    obBackup.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-ob-backup]');
+      if (!btn || btn.hasAttribute('loading')) return;
+      btn.setAttribute('loading', '');
+      try {
+        const res = await fetch('/onboarding/backup/' + btn.dataset.obBackup, { method: 'POST' });
+        obBackup.innerHTML = await res.text();
+      } catch (err) {
+        btn.removeAttribute('loading');
+      }
+    });
   }
 
   updateSizeNote();

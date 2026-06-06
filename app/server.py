@@ -300,6 +300,165 @@ def backup_overwrite():
     return jsonify(result.__dict__)
 
 
+# --- Backup UI (partial-rendering, htmx-swapped — mirrors the HF-token card) ---
+# These power the Settings "Backup & Restore" card and the onboarding step. They
+# reuse the same BackupService as the JSON routes above, but render HTML
+# fragments so the UI follows the app's server-rendered-partial convention.
+_PROVIDER_LABELS = {"gdrive": "Google Drive", "local": "Local folder"}
+
+
+def _human_size(n: int) -> str:
+    size = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def _backup_ctx(notice: str | None = None, notice_ok: bool = True,
+                remote=None, error: str | None = None) -> dict:
+    """Template context shared by the Settings card and the onboarding step."""
+    status = _backup.status()
+    backend = status.get("backend")
+    return {
+        "backup": status,
+        "backup_provider": _PROVIDER_LABELS.get(backend, backend or "Cloud backup"),
+        "backup_notice": notice,
+        "backup_notice_ok": notice_ok,
+        "backup_remote": remote,
+        "backup_remote_size": _human_size(remote.total_size) if remote else None,
+        "backup_error": error,
+    }
+
+
+def _render_backup(template: str, **ctx_overrides):
+    return render_template(template, **_backup_ctx(**ctx_overrides))
+
+
+@app.post("/settings/backup/connect")
+def settings_backup_connect():
+    """Link a backup account (blocking OAuth), then either show the connected
+    state or — if a backup already exists — the adopt/overwrite choice."""
+    from app.backup import oauth
+    try:
+        oauth.link_interactive()
+    except Exception as exc:  # noqa: BLE001 - surface to the card
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    if _backup.interval and _backup.is_linked():
+        _backup.start_periodic()
+    remote = _backup.bootstrap()
+    return _render_backup("partials/_backup_card.html",
+                          remote=remote if remote.exists else None)
+
+
+@app.post("/settings/backup/adopt")
+def settings_backup_adopt():
+    try:
+        n = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Loaded {n} file{'' if n == 1 else 's'} from the backup.")
+
+
+@app.post("/settings/backup/overwrite")
+def settings_backup_overwrite():
+    try:
+        r = _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Backed up — {r.uploaded} uploaded, {r.skipped} unchanged.")
+
+
+@app.post("/settings/backup/now")
+def settings_backup_now():
+    try:
+        r = _backup.backup_now()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Backed up — {r.uploaded} uploaded, {r.skipped} unchanged.")
+
+
+@app.post("/settings/backup/restore")
+def settings_backup_restore():
+    try:
+        n = _backup.restore()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_card.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_card.html",
+                          notice=f"Restored {n} file{'' if n == 1 else 's'} from the backup.")
+
+
+@app.post("/settings/backup/disconnect")
+def settings_backup_disconnect():
+    from app.backup import oauth
+    oauth.unlink()
+    return _render_backup("partials/_backup_card.html",
+                          notice="Disconnected. Local data is untouched.")
+
+
+@app.get("/settings/backup/remote-info")
+def settings_backup_remote_info():
+    """Detail fragment for the restore modal — probes the remote on open."""
+    try:
+        remote = _backup.bootstrap()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_remote_info.html", error=str(exc))
+    return _render_backup("partials/_backup_remote_info.html", remote=remote)
+
+
+@app.post("/onboarding/backup/connect")
+def onboarding_backup_connect():
+    from app.backup import oauth
+    try:
+        oauth.link_interactive()
+    except Exception as exc:  # noqa: BLE001 - surface to the step
+        return _render_backup("partials/_backup_onboarding.html",
+                              notice=str(exc), notice_ok=False)
+    if _backup.interval and _backup.is_linked():
+        _backup.start_periodic()
+    remote = _backup.bootstrap()
+    return _render_backup("partials/_backup_onboarding.html",
+                          remote=remote if remote.exists else None)
+
+
+@app.post("/onboarding/backup/adopt")
+def onboarding_backup_adopt():
+    try:
+        n = _backup.adopt_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_onboarding.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_onboarding.html",
+                          notice=f"Loaded {n} file{'' if n == 1 else 's'} from your backup.")
+
+
+@app.post("/onboarding/backup/overwrite")
+def onboarding_backup_overwrite():
+    try:
+        _backup.overwrite_remote()
+    except RuntimeError as exc:
+        return _render_backup("partials/_backup_onboarding.html",
+                              notice=str(exc), notice_ok=False)
+    return _render_backup("partials/_backup_onboarding.html",
+                          notice="Started a fresh backup on this account.")
+
+
+@app.post("/onboarding/backup/disconnect")
+def onboarding_backup_disconnect():
+    from app.backup import oauth
+    oauth.unlink()
+    return _render_backup("partials/_backup_onboarding.html")
+
+
 @app.route("/")
 def index():
     if _sessions.get_setting("onboarded") != "1":
@@ -344,6 +503,7 @@ def settings():
         default_language=_sessions.get_setting("default_language", ""),
         models=_manager.status(),
         **_diarize_card_ctx(),
+        **_backup_ctx(),
     )
 
 
@@ -389,6 +549,7 @@ def onboarding():
         selected_size=_onboarding_size(status["active"]),
         models=status,
         diarize_model=secret_store.DIARIZE_MODEL,
+        **_backup_ctx(),
     )
 
 
@@ -422,6 +583,7 @@ def _onboarding_store_error(token: str, model: str, exc: Exception):
         token=token, sizes=ONBOARDING_SIZES,
         selected_size=_onboarding_size(model), models=_manager.status(),
         diarize_model=secret_store.DIARIZE_MODEL, store_error=str(exc),
+        **_backup_ctx(),
     ), 500
 
 
