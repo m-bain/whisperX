@@ -61,11 +61,24 @@ from app.store import SessionStore  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("app")
 
-MAX_UPLOAD_MB = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "200"))
+# Sized for ~4h of WAV: 48 kHz / 16-bit / stereo ≈ 0.7 GB/h → 4h ≈ 2.8 GB, and
+# 24-bit stereo ≈ 4.2 GB. Default 5 GB covers those with headroom. Werkzeug
+# spools the upload to a temp file (not RAM), so a large cap is safe on the dev
+# server. Override via WHISPERX_MAX_UPLOAD_MB.
+MAX_UPLOAD_MB = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "5000"))
 DATA_DIR = os.environ.get("WHISPERX_DATA_DIR", str(Path(__file__).with_name("data")))
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+
+@app.errorhandler(413)
+def _too_large(_e):
+    # Flask aborts the request before create_session() runs, so render a clean
+    # message into the upload dialog's #dialog-status (htmx innerHTML swap)
+    # instead of leaking werkzeug's default HTML / a bare console 413.
+    msg = f"File too large. The maximum upload size is {MAX_UPLOAD_MB / 1000:.1f} GB."
+    return f'<div class="dialog-error" role="alert">{msg}</div>', 413
 
 
 # --- View formatting (dashboard cards + transcript header) -------------------
@@ -147,12 +160,44 @@ _interrupted = _sessions.reconcile_startup()
 if _interrupted:
     logger.warning("Marked %d interrupted session(s) as error on startup", _interrupted)
 
+# SSE pub/sub. Per-session keys carry job progress; one reserved key carries
+# global model-load state so the dashboard can react when the background warm
+# finishes (flip the "loading models" toast to a success state, refresh dropdowns).
+_broker = Broker()
+MODELS_CHANNEL = "__models__"
+
+
+def _models_event(status: dict) -> dict:
+    """SSE payload describing global model-load state.
+
+    Drives the dashboard "loading models" → "ready" toast and refreshes the
+    loaded/loading/failed badges on every model <sl-select>. ``models_ready``
+    reflects the *active* model (the one a default upload would use)."""
+    active = status.get("active")
+    active_meta = next((m for m in status["models"] if m["name"] == active), None)
+    return {
+        "type": "models",
+        "models_ready": bool(active_meta and active_meta["loaded"]),
+        "active": active,
+        "bundle_error": active_meta.get("error") if active_meta else None,
+        "diarize_available": status.get("diarize_available"),
+        "diarize_error": status.get("diarize_error"),
+        "models": status.get("models", []),
+    }
+
+
+def _publish_models(status: dict) -> None:
+    """ModelManager on_change hook: broadcast model state to SSE listeners."""
+    _broker.publish(MODELS_CHANNEL, _models_event(status))
+
+
 # Seed the active model + compute device from persisted settings (switches survive
 # restart); fall back to the WHISPERX_* defaults if a stored value is no longer valid
 # (an unavailable cuda device is downgraded to cpu inside ModelManager).
 _manager = pipeline.ModelManager(
     active=_sessions.get_setting("active_model", pipeline.DEFAULT_MODEL),
     device=_sessions.get_setting("device", pipeline.DEFAULT_DEVICE),
+    on_change=_publish_models,
 )
 
 
@@ -200,9 +245,6 @@ def run_session(session_id: str) -> None:
         num_segments=result.get("num_segments", len(result.get("segments", []))),
         duration=result.get("duration", 0.0),
     )
-
-
-_broker = Broker()
 
 
 def _stage_event(stage: str, duration) -> dict:
@@ -925,6 +967,38 @@ def session_events(session_id: str):
                     return
         finally:
             _broker.unsubscribe(session_id, q)
+
+    return Response(
+        stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/models/events")
+def models_events():
+    """Server-Sent Events stream of global model-load state.
+
+    Emits the current state immediately on connect (so a late/reconnecting
+    client is correct), then a fresh payload each time a model finishes loading
+    or the active model / device changes. The client flips the "loading models"
+    toast to a success state and refreshes model dropdowns. Long-lived: model
+    state has no terminal, so the browser keeps the stream open until navigation.
+    """
+
+    def stream():
+        q = _broker.subscribe(MODELS_CHANNEL)
+        try:
+            yield _sse(_models_event(_manager.status()))  # current state on connect
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse(event)
+        finally:
+            _broker.unsubscribe(MODELS_CHANNEL, q)
 
     return Response(
         stream(),

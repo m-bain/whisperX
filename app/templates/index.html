@@ -136,9 +136,6 @@
   {% elif diarize_error %}
     notify({ variant: 'danger', duration: Infinity, closable: true,
       html: '<sl-icon slot="icon" name="exclamation-octagon"></sl-icon> Diarization failed to load (transcription + alignment still work): ' + {{ diarize_error|tojson }} });
-  {% elif not models_ready %}
-    notify({ variant: 'primary', duration: Infinity, closable: true,
-      html: '<sl-spinner slot="icon"></sl-spinner> Loading models — your first upload will wait until they are ready.' });
   {% elif not diarize_enabled %}
     notify({ variant: 'neutral', duration: 5000,
       html: '<sl-icon slot="icon" name="info-circle"></sl-icon> Diarization disabled (no HF_TOKEN). Transcription + alignment only.' });
@@ -204,6 +201,16 @@
       startLabel.textContent = 'View transcript';
       cancelBtn.dataset.mode = 'done';
       cancelBtn.textContent = 'Back to recordings';
+    });
+
+    // htmx won't swap non-2xx responses, so error bodies (413 too-large,
+    // 400 bad upload, 503 models-loading) never reach #dialog-status on their
+    // own. Relay them in and un-stick the spinner so the user can retry.
+    document.getElementById('upload-form').addEventListener('htmx:responseError', (e) => {
+      const xhr = e.detail.xhr;
+      document.getElementById('dialog-status').innerHTML =
+        xhr.responseText || `<div class="dialog-error" role="alert">Upload failed (${xhr.status}).</div>`;
+      startBtn.removeAttribute('loading');
     });
 
     // Reopening the dialog (any path → sl-show) starts a fresh upload.

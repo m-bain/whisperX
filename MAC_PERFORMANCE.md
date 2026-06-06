@@ -47,8 +47,7 @@ backend initializes). `pywhispercpp`'s `Model.__del__` logs a harmless
 2.0× faster than MLX turbo and 2.5× faster than whisper.cpp large-v3, while
 staying **multilingual** with near-large-v3 quality (turbo is a pruned large-v3).
 This is the fast lane `distil-large-v3` could not be — distil is English-only and
-mis-transcribed the Russian clip. (Note: `large-v3-turbo` is not yet in the app's
-`WhisperModel` enum, so it's CLI-only until added — see `app/pipeline.py`.)
+mis-transcribed the Russian clip.
 
 - **MLX is genuinely used when selected** — the pipeline class is
   `MLXWhisperPipeline` and the resolved device is `mlx`. No silent CPU fallback.
@@ -84,6 +83,14 @@ isn't installed. `distil-large-v3` is English-only — avoid for multilingual.
 - The app already routes diarization to MPS on the `--device mlx` path. So under
   `mlx`, diarization is already at RTF ≈ 0.075. The slow case is `--device cpu`
   (the Mac CLI default), where diarization stays on CPU.
+
+### MPS alignment limitation
+
+MPS enforces `output_channels <= 65536` for conv layers. Large wav2vec2 models
+(`wav2vec2-large-xlsr-53-*`, used for Russian, French, and most non-English
+languages) exceed this and crash with "Output channels > 65536 not supported at
+the MPS device". The app's alignment stage is pinned to **CPU** for the `mlx`
+and `whispercpp` device paths to avoid this — diarization continues on MPS.
 
 **Recommendation:** ensure diarization runs on MPS (use `--device mlx`; in the
 web app, select the Apple GPU device). A possible enhancement is to decouple the
