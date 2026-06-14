@@ -1,4 +1,5 @@
 import AVFoundation
+import AppKit
 import Foundation
 import Observation
 import TranscriptViewerCore
@@ -45,6 +46,7 @@ final class LibraryViewModel {
     @ObservationIgnored private var currentPlayerURL: URL?
     @ObservationIgnored private let lastLibraryKey = "TranscriptViewer.lastLibraryPath"
     @ObservationIgnored private let recentLibrariesKey = "TranscriptViewer.recentLibraries"
+    @ObservationIgnored private var boundaryObserver: Any?
 
     var libraryURL: URL?
     var recentLibraries: [String] = []
@@ -66,6 +68,7 @@ final class LibraryViewModel {
     var draftNotes = ""
     var draftStart = ""
     var draftEnd = ""
+    var autoAdvanceAfterMark = true
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -130,6 +133,15 @@ final class LibraryViewModel {
     var selectedDurationText: String {
         guard let selectedSegment else { return "No segment selected" }
         return "\(formatTime(selectedSegment.start)) - \(formatTime(selectedSegment.end))"
+    }
+
+    var selectedSourcePath: String {
+        selectedSegment?.sourceURL.path ?? ""
+    }
+
+    var hasSelectedSelect: Bool {
+        guard let selectedSegment else { return false }
+        return select(for: selectedSegment) != nil
     }
 
     var filteredSegments: [TranscriptSegment] {
@@ -219,6 +231,7 @@ final class LibraryViewModel {
         selectedSegmentID = segment.id
         preparePlayer(for: segment)
         player.seek(to: CMTime(seconds: segment.start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        installBoundaryObserver(end: segment.end)
         if autoplay {
             player.play()
         }
@@ -269,25 +282,32 @@ final class LibraryViewModel {
     }
 
     func mark(status: SelectStatus, hookStrength: Int? = nil, advance: Bool = false) {
+        let nextSegment = advance ? nextSegmentAfterCurrent() : nil
         draftStatus = status
         if let hookStrength {
             draftHookStrength = hookStrength
         }
-        saveDraft()
-        if advance {
-            focusNext(autoplay: true)
+        if saveDraft(), advance {
+            if let nextSegment {
+                focus(nextSegment, autoplay: true)
+            } else {
+                settleSelectionAfterFilterChange()
+            }
         }
     }
 
     func setHookStrength(_ value: Int) {
         draftHookStrength = min(max(value, 1), 5)
-        if selectedSegment != nil {
+        if hasSelectedSelect {
             saveDraft()
+        } else {
+            statusMessage = "Hook strength set to \(draftHookStrength)"
         }
     }
 
-    func saveDraft(status overrideStatus: SelectStatus? = nil, hookStrength overrideHook: Int? = nil) {
-        guard let libraryURL, let segment = selectedSegment else { return }
+    @discardableResult
+    func saveDraft(status overrideStatus: SelectStatus? = nil, hookStrength overrideHook: Int? = nil) -> Bool {
+        guard let libraryURL, let segment = selectedSegment else { return false }
         let existing = select(for: segment)
         let now = Date()
         let start = Double(draftStart) ?? segment.start
@@ -323,8 +343,10 @@ final class LibraryViewModel {
             try store.save(selects: selects, libraryURL: libraryURL)
             loadDraft(for: segment)
             statusMessage = "Saved \(moment.status.title.lowercased()) select at \(formatTime(moment.start))"
+            return true
         } catch {
             statusMessage = error.localizedDescription
+            return false
         }
     }
 
@@ -350,6 +372,31 @@ final class LibraryViewModel {
         }
     }
 
+    func revealSourceInFinder() {
+        guard let segment = selectedSegment else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([segment.sourceURL])
+    }
+
+    func revealExportInFinder() {
+        guard let libraryURL else { return }
+        let url = libraryURL.appendingPathComponent(LibraryStore.exportFilename)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func adjustDraftStart(by delta: Double) {
+        guard let segment = selectedSegment else { return }
+        let current = Double(draftStart) ?? segment.start
+        let end = Double(draftEnd) ?? segment.end
+        draftStart = String(format: "%.3f", min(max(0, current + delta), end))
+    }
+
+    func adjustDraftEnd(by delta: Double) {
+        guard let segment = selectedSegment else { return }
+        let start = Double(draftStart) ?? segment.start
+        let current = Double(draftEnd) ?? segment.end
+        draftEnd = String(format: "%.3f", max(start, current + delta))
+    }
+
     func select(for segment: TranscriptSegment) -> SelectMoment? {
         selects.first { $0.segmentID == segment.id }
     }
@@ -370,6 +417,46 @@ final class LibraryViewModel {
         guard currentPlayerURL != segment.sourceURL else { return }
         currentPlayerURL = segment.sourceURL
         player.replaceCurrentItem(with: AVPlayerItem(url: segment.sourceURL))
+    }
+
+    private func installBoundaryObserver(end: Double) {
+        if let boundaryObserver {
+            player.removeTimeObserver(boundaryObserver)
+            self.boundaryObserver = nil
+        }
+        let endTime = CMTime(seconds: end, preferredTimescale: 600)
+        boundaryObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: endTime)], queue: .main) { [weak self] in
+            Task { @MainActor in
+                self?.player.pause()
+            }
+        }
+    }
+
+    private func nextSegmentAfterCurrent() -> TranscriptSegment? {
+        guard !filteredSegments.isEmpty else { return nil }
+        let currentIndex = selectedSegmentIndex ?? 0
+        if currentIndex + 1 < filteredSegments.count {
+            return filteredSegments[currentIndex + 1]
+        }
+        if currentIndex > 0 {
+            return filteredSegments[currentIndex - 1]
+        }
+        return nil
+    }
+
+    private func settleSelectionAfterFilterChange() {
+        if let selectedSegmentID, filteredSegments.contains(where: { $0.id == selectedSegmentID }) {
+            focusSelectedWithoutAutoplay()
+            return
+        }
+        selectedSegmentID = filteredSegments.first?.id
+        if let segment = selectedSegment {
+            focus(segment, autoplay: false)
+        } else {
+            clearDraft()
+            player.pause()
+            statusMessage = "No more moments in this queue"
+        }
     }
 
     private func loadDraft(for segment: TranscriptSegment) {
@@ -419,6 +506,10 @@ final class LibraryViewModel {
         selectedFileID = nil
         selectedSegmentID = nil
         player.pause()
+        if let boundaryObserver {
+            player.removeTimeObserver(boundaryObserver)
+            self.boundaryObserver = nil
+        }
         player.replaceCurrentItem(with: nil)
         currentPlayerURL = nil
         clearDraft()

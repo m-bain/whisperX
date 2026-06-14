@@ -44,6 +44,12 @@ struct RootView: View {
                     Label("Export CSV", systemImage: "square.and.arrow.down")
                 }
                 .disabled(model.selects.isEmpty)
+                Button {
+                    model.revealExportInFinder()
+                } label: {
+                    Label("Reveal Export", systemImage: "folder.badge.gearshape")
+                }
+                .disabled(model.selects.isEmpty)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -349,17 +355,22 @@ struct ReviewHeader: View {
             }
             Spacer()
             QuickMarkButton(title: "Good", systemImage: "checkmark.circle.fill", color: .green) {
-                model.mark(status: .good, hookStrength: 5, advance: true)
+                model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark)
             }
             .disabled(model.selectedSegment == nil)
             QuickMarkButton(title: "Maybe", systemImage: "questionmark.circle.fill", color: .orange) {
-                model.mark(status: .maybe, advance: true)
+                model.mark(status: .maybe, advance: model.autoAdvanceAfterMark)
             }
             .disabled(model.selectedSegment == nil)
             QuickMarkButton(title: "Weak", systemImage: "xmark.circle.fill", color: .red) {
-                model.mark(status: .weak, advance: true)
+                model.mark(status: .weak, advance: model.autoAdvanceAfterMark)
             }
             .disabled(model.selectedSegment == nil)
+            Toggle(isOn: Binding(get: { model.autoAdvanceAfterMark }, set: { model.autoAdvanceAfterMark = $0 })) {
+                Label("Auto Advance", systemImage: "arrow.down.circle")
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
@@ -779,14 +790,18 @@ struct EditorialPanel: View {
             }
 
             LabeledContent("Start") {
-                TextField("Start", text: Binding(get: { model.draftStart }, set: { model.draftStart = $0 }))
-                    .textFieldStyle(.roundedBorder)
-                    .monospacedDigit()
+                TrimField(
+                    value: Binding(get: { model.draftStart }, set: { model.draftStart = $0 }),
+                    decrement: { model.adjustDraftStart(by: -0.1) },
+                    increment: { model.adjustDraftStart(by: 0.1) }
+                )
             }
             LabeledContent("End") {
-                TextField("End", text: Binding(get: { model.draftEnd }, set: { model.draftEnd = $0 }))
-                    .textFieldStyle(.roundedBorder)
-                    .monospacedDigit()
+                TrimField(
+                    value: Binding(get: { model.draftEnd }, set: { model.draftEnd = $0 }),
+                    decrement: { model.adjustDraftEnd(by: -0.1) },
+                    increment: { model.adjustDraftEnd(by: 0.1) }
+                )
             }
             TextField("Theme", text: Binding(get: { model.draftTheme }, set: { model.draftTheme = $0 }))
                 .textFieldStyle(.roundedBorder)
@@ -835,11 +850,22 @@ struct InspectorFooter: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            Button {
+                model.revealSourceInFinder()
+            } label: {
+                Label("Reveal Source", systemImage: "folder")
+            }
+            .labelStyle(.iconOnly)
+            .help("Reveal source video in Finder")
+            .disabled(model.selectedSourcePath.isEmpty)
+
             Button(role: .destructive) {
                 model.deleteSelectedSelect()
             } label: {
                 Label("Remove", systemImage: "trash")
             }
+            .labelStyle(.iconOnly)
+            .help("Remove saved select")
             .disabled(model.select(for: segment) == nil)
 
             Spacer()
@@ -847,13 +873,39 @@ struct InspectorFooter: View {
             Button {
                 model.saveDraft()
             } label: {
-                Label("Save Select", systemImage: "tray.and.arrow.down.fill")
+                Label("Save", systemImage: "tray.and.arrow.down.fill")
             }
             .buttonStyle(.borderedProminent)
             .disabled(model.selectedSegment == nil)
         }
         .padding(12)
         .padding(.bottom, 24)
+    }
+}
+
+struct TrimField: View {
+    @Binding var value: String
+    var decrement: () -> Void
+    var increment: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: decrement) {
+                Image(systemName: "minus")
+            }
+            .buttonStyle(.borderless)
+            .help("Nudge earlier")
+
+            TextField("Time", text: $value)
+                .textFieldStyle(.roundedBorder)
+                .monospacedDigit()
+
+            Button(action: increment) {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
+            .help("Nudge later")
+        }
     }
 }
 
@@ -934,13 +986,13 @@ struct ShortcutLayer: View {
                 .keyboardShortcut(.upArrow, modifiers: [])
             Button("Next") { model.focusNext() }
                 .keyboardShortcut(.downArrow, modifiers: [])
-            Button("Mark Good") { model.mark(status: .good, hookStrength: 5, advance: true) }
+            Button("Mark Good") { model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark) }
                 .keyboardShortcut("g", modifiers: [])
-            Button("Mark Maybe") { model.mark(status: .maybe, advance: true) }
+            Button("Mark Maybe") { model.mark(status: .maybe, advance: model.autoAdvanceAfterMark) }
                 .keyboardShortcut("m", modifiers: [])
-            Button("Mark Weak") { model.mark(status: .weak, advance: true) }
+            Button("Mark Weak") { model.mark(status: .weak, advance: model.autoAdvanceAfterMark) }
                 .keyboardShortcut("x", modifiers: [])
-            Button("Mark Unusable") { model.mark(status: .unusable, hookStrength: 1, advance: true) }
+            Button("Mark Unusable") { model.mark(status: .unusable, hookStrength: 1, advance: model.autoAdvanceAfterMark) }
                 .keyboardShortcut("u", modifiers: [])
             Button("Save") { model.saveDraft() }
                 .keyboardShortcut("s", modifiers: [])

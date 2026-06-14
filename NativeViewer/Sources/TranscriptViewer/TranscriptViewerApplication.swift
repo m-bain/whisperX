@@ -61,6 +61,8 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         fileMenu.addItem(withTitle: "Reload Library", action: #selector(reloadLibrary), keyEquivalent: "r")
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Export Selects CSV", action: #selector(exportCSV), keyEquivalent: "e")
+        fileMenu.addItem(withTitle: "Reveal Export in Finder", action: #selector(revealExport), keyEquivalent: "")
+        fileMenu.addItem(withTitle: "Reveal Source in Finder", action: #selector(revealSource), keyEquivalent: "")
         fileItem.submenu = fileMenu
         mainMenu.addItem(fileItem)
 
@@ -100,6 +102,14 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         model?.exportCSV()
     }
 
+    @objc func revealExport() {
+        model?.revealExportInFinder()
+    }
+
+    @objc func revealSource() {
+        model?.revealSourceInFinder()
+    }
+
     @objc func nextMoment() {
         model?.focusNext()
     }
@@ -113,18 +123,22 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
     }
 
     @objc func markGood() {
-        model?.mark(status: .good, hookStrength: 5, advance: true)
+        guard let model else { return }
+        model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark)
     }
 
     @objc func markMaybe() {
-        model?.mark(status: .maybe, advance: true)
+        guard let model else { return }
+        model.mark(status: .maybe, advance: model.autoAdvanceAfterMark)
     }
 
     @objc func markWeak() {
-        model?.mark(status: .weak, advance: true)
+        guard let model else { return }
+        model.mark(status: .weak, advance: model.autoAdvanceAfterMark)
     }
 
     @objc func markUnusable() {
-        model?.mark(status: .unusable, hookStrength: 1, advance: true)
+        guard let model else { return }
+        model.mark(status: .unusable, hookStrength: 1, advance: model.autoAdvanceAfterMark)
     }
 }
