@@ -595,7 +595,7 @@ struct SelectsShelfView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("\(model.selects.count) Selects", systemImage: "tray.full")
+                Label(model.selectFilterSummary.capitalized, systemImage: "tray.full")
                     .font(.headline)
                 Spacer()
                 Button {
@@ -613,24 +613,63 @@ struct SelectsShelfView: View {
                 .help("Hide selects shelf")
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
-                    ForEach(model.sortedSelects) { select in
-                        SavedSelectCard(
-                            select: select,
-                            isSelected: model.selectedSegmentID == select.segmentID,
-                            formatTime: model.formatTime
-                        ) {
-                            model.focus(select, autoplay: true)
-                        }
+            HStack(spacing: 10) {
+                TextField("Filter selects", text: Binding(get: { model.selectSearchText }, set: { model.selectSearchText = $0 }))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 180)
+                Picker("Status", selection: Binding(get: { model.selectFilter }, set: { model.selectFilter = $0 })) {
+                    ForEach(LibraryViewModel.SelectFilter.allCases) { filter in
+                        Text("\(filter.title) \(model.count(for: filter))").tag(filter)
                     }
                 }
-                .padding(.bottom, 2)
+                .frame(width: 150)
+                Picker("Sort", selection: Binding(get: { model.selectSort }, set: { model.selectSort = $0 })) {
+                    ForEach(LibraryViewModel.SelectSort.allCases) { sort in
+                        Text(sort.title).tag(sort)
+                    }
+                }
+                .frame(width: 120)
+                Picker("Hook", selection: Binding(get: { model.minimumHookStrength }, set: { model.minimumHookStrength = $0 })) {
+                    Text("Any").tag(0)
+                    ForEach(1...5, id: \.self) { value in
+                        Text("\(value)+").tag(value)
+                    }
+                }
+                .frame(width: 82)
+                if model.hasSelectFilters {
+                    Button {
+                        model.resetSelectFilters()
+                    } label: {
+                        Label("Reset", systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                    .labelStyle(.iconOnly)
+                    .help("Reset select filters")
+                }
+            }
+
+            if model.visibleSelects.isEmpty {
+                ContentUnavailableView("No matching selects", systemImage: "line.3.horizontal.decrease.circle")
+                    .frame(maxWidth: .infinity, minHeight: 92)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 10) {
+                        ForEach(model.visibleSelects) { select in
+                            SavedSelectCard(
+                                select: select,
+                                isSelected: model.selectedSegmentID == select.segmentID,
+                                formatTime: model.formatTime
+                            ) {
+                                model.focus(select, autoplay: true)
+                            }
+                        }
+                    }
+                    .padding(.bottom, 2)
+                }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .frame(height: 154)
+        .frame(height: 198)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 }

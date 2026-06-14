@@ -7,6 +7,44 @@ import TranscriptViewerCore
 @MainActor
 @Observable
 final class LibraryViewModel {
+    enum SelectFilter: String, CaseIterable, Identifiable {
+        case all
+        case good
+        case maybe
+        case weak
+        case unusable
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: "All"
+            case .good: "Good"
+            case .maybe: "Maybe"
+            case .weak: "Weak"
+            case .unusable: "Unusable"
+            }
+        }
+    }
+
+    enum SelectSort: String, CaseIterable, Identifiable {
+        case hook
+        case recent
+        case timeline
+        case status
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .hook: "Hook"
+            case .recent: "Recent"
+            case .timeline: "Timeline"
+            case .status: "Status"
+            }
+        }
+    }
+
     enum SegmentScope: String, CaseIterable, Identifiable {
         case all
         case unreviewed
@@ -70,6 +108,10 @@ final class LibraryViewModel {
     var draftEnd = ""
     var autoAdvanceAfterMark = true
     var showSelectsShelf = true
+    var selectFilter: SelectFilter = .all
+    var selectSort: SelectSort = .hook
+    var minimumHookStrength = 0
+    var selectSearchText = ""
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -182,17 +224,115 @@ final class LibraryViewModel {
         }
     }
 
-    var sortedSelects: [SelectMoment] {
-        selects.sorted {
-            let lhsHook = $0.hookStrength ?? 0
-            let rhsHook = $1.hookStrength ?? 0
-            if lhsHook != rhsHook {
-                return lhsHook > rhsHook
+    var visibleSelects: [SelectMoment] {
+        let query = selectSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sortedSelects.filter { select in
+            let matchesFilter: Bool
+            switch selectFilter {
+            case .all:
+                matchesFilter = true
+            case .good:
+                matchesFilter = select.status == .good
+            case .maybe:
+                matchesFilter = select.status == .maybe
+            case .weak:
+                matchesFilter = select.status == .weak
+            case .unusable:
+                matchesFilter = select.status == .unusable
             }
-            if $0.relativePath == $1.relativePath {
-                return $0.start < $1.start
+            let hook = select.hookStrength ?? 0
+            let matchesHook = minimumHookStrength == 0 || hook >= minimumHookStrength
+            let matchesQuery = query.isEmpty
+                || select.text.localizedCaseInsensitiveContains(query)
+                || select.relativePath.localizedCaseInsensitiveContains(query)
+                || select.theme.localizedCaseInsensitiveContains(query)
+                || select.tags.joined(separator: " ").localizedCaseInsensitiveContains(query)
+                || (select.speaker?.localizedCaseInsensitiveContains(query) ?? false)
+            return matchesFilter && matchesHook && matchesQuery
+        }
+    }
+
+    private var sortedSelects: [SelectMoment] {
+        selects.sorted { lhs, rhs in
+            switch selectSort {
+            case .hook:
+                return sortByHook(lhs, rhs)
+            case .recent:
+                return lhs.updatedAt > rhs.updatedAt
+            case .timeline:
+                if lhs.relativePath == rhs.relativePath {
+                    return lhs.start < rhs.start
+                }
+                return lhs.relativePath.localizedStandardCompare(rhs.relativePath) == .orderedAscending
+            case .status:
+                let lhsRank = statusRank(lhs.status)
+                let rhsRank = statusRank(rhs.status)
+                if lhsRank != rhsRank {
+                    return lhsRank < rhsRank
+                }
+                return sortByHook(lhs, rhs)
             }
-            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
+    private func sortByHook(_ lhs: SelectMoment, _ rhs: SelectMoment) -> Bool {
+        let lhsHook = lhs.hookStrength ?? 0
+        let rhsHook = rhs.hookStrength ?? 0
+        if lhsHook != rhsHook {
+            return lhsHook > rhsHook
+        }
+        if lhs.relativePath == rhs.relativePath {
+            return lhs.start < rhs.start
+        }
+        return lhs.updatedAt > rhs.updatedAt
+    }
+
+    private func statusRank(_ status: SelectStatus) -> Int {
+        switch status {
+        case .good: 0
+        case .maybe: 1
+        case .selected: 2
+        case .weak: 3
+        case .unusable: 4
+        }
+    }
+
+    var selectFilterSummary: String {
+        let shown = visibleSelects.count
+        let shownLabel = shown == 1 ? "1 select" : "\(shown) selects"
+        if shown == selects.count {
+            return shownLabel
+        }
+        let totalLabel = selects.count == 1 ? "1 select" : "\(selects.count) selects"
+        return "\(shownLabel) of \(totalLabel)"
+    }
+
+    var hasSelectFilters: Bool {
+        selectFilter != .all
+            || selectSort != .hook
+            || minimumHookStrength > 0
+            || !selectSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func resetSelectFilters() {
+        selectFilter = .all
+        selectSort = .hook
+        minimumHookStrength = 0
+        selectSearchText = ""
+    }
+
+    func count(for filter: SelectFilter) -> Int {
+        switch filter {
+        case .all:
+            selects.count
+        case .good:
+            selects.filter { $0.status == .good }.count
+        case .maybe:
+            selects.filter { $0.status == .maybe }.count
+        case .weak:
+            selects.filter { $0.status == .weak }.count
+        case .unusable:
+            selects.filter { $0.status == .unusable }.count
         }
     }
 
