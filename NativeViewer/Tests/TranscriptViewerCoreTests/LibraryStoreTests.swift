@@ -16,6 +16,13 @@ struct LibraryStoreTests {
         #expect(snapshot.segments.first?.speaker == "SPEAKER_00")
         #expect(snapshot.segments.first?.language == "zh")
         #expect(snapshot.segments.first?.text == "AI 可以帮我做基础工作")
+        #expect(snapshot.clipMoments.count == 1)
+        #expect(snapshot.clipMoments.first?.start == 5)
+        #expect(snapshot.clipMoments.first?.end == 8.75)
+        #expect(snapshot.clipMoments.first?.theme == "AI lacks taste")
+        #expect(snapshot.clipMoments.first?.sourceURL == mediaURL(in: fixture))
+        #expect(snapshot.analysisArtifacts.map(\.filename).contains("best_50_quote_moments.md"))
+        #expect(snapshot.analysisArtifacts.first(where: { $0.filename == "best_50_quote_moments.md" })?.title == "Best 50 Quote Moments")
     }
 
     @Test("persists selects and exports stable CSV")
@@ -122,5 +129,26 @@ private struct Fixture {
         ]
         try CSV.encode(rows: manifestRows)
             .write(to: libraryURL.appendingPathComponent("manifest.csv"), atomically: true, encoding: .utf8)
+
+        let clipMomentRows = [
+            ["file", "start_time", "end_time", "theme", "hook_strength", "speaker", "text"],
+            ["Day 1/C0001.MP4", "00:05", "00:08.75", "AI lacks taste", "high", "SPEAKER_01", "但是味道还是人来判断"]
+        ]
+        try CSV.encode(rows: clipMomentRows)
+            .write(to: libraryURL.appendingPathComponent("clip_moments.csv"), atomically: true, encoding: .utf8)
+
+        try """
+        # Best 50 Quote Moments
+
+        1. `Day 1/C0001.MP4` 00:05-00:08 `SPEAKER_01` [AI lacks taste, high]
+           但是味道还是人来判断
+        """.write(to: libraryURL.appendingPathComponent("best_50_quote_moments.md"), atomically: true, encoding: .utf8)
     }
+}
+
+private func mediaURL(in fixture: Fixture) -> URL {
+    fixture.rootURL
+        .appendingPathComponent("Day 1", isDirectory: true)
+        .appendingPathComponent("C0001.MP4")
+        .standardizedFileURL
 }

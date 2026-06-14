@@ -5,12 +5,23 @@ public struct LibrarySnapshot: Equatable, Sendable {
     public var files: [TranscriptFile]
     public var segments: [TranscriptSegment]
     public var selects: [SelectMoment]
+    public var clipMoments: [ClipMoment]
+    public var analysisArtifacts: [AnalysisArtifact]
 
-    public init(libraryURL: URL, files: [TranscriptFile], segments: [TranscriptSegment], selects: [SelectMoment]) {
+    public init(
+        libraryURL: URL,
+        files: [TranscriptFile],
+        segments: [TranscriptSegment],
+        selects: [SelectMoment],
+        clipMoments: [ClipMoment] = [],
+        analysisArtifacts: [AnalysisArtifact] = []
+    ) {
         self.libraryURL = libraryURL
         self.files = files
         self.segments = segments
         self.selects = selects
+        self.clipMoments = clipMoments
+        self.analysisArtifacts = analysisArtifacts
     }
 
     public var doneFileCount: Int {
@@ -23,6 +34,54 @@ public struct LibrarySnapshot: Equatable, Sendable {
 
     public func segments(for fileID: String) -> [TranscriptSegment] {
         segments.filter { $0.fileID == fileID }
+    }
+}
+
+public struct ClipMoment: Identifiable, Hashable, Codable, Sendable {
+    public var id: String
+    public var relativePath: String
+    public var sourceURL: URL?
+    public var start: Double
+    public var end: Double
+    public var theme: String
+    public var hookStrength: String
+    public var speaker: String?
+    public var text: String
+
+    public init(
+        id: String,
+        relativePath: String,
+        sourceURL: URL?,
+        start: Double,
+        end: Double,
+        theme: String,
+        hookStrength: String,
+        speaker: String?,
+        text: String
+    ) {
+        self.id = id
+        self.relativePath = relativePath
+        self.sourceURL = sourceURL
+        self.start = start
+        self.end = end
+        self.theme = theme
+        self.hookStrength = hookStrength
+        self.speaker = speaker
+        self.text = text
+    }
+}
+
+public struct AnalysisArtifact: Identifiable, Hashable, Codable, Sendable {
+    public var id: String
+    public var title: String
+    public var filename: String
+    public var content: String
+
+    public init(id: String, title: String, filename: String, content: String) {
+        self.id = id
+        self.title = title
+        self.filename = filename
+        self.content = content
     }
 }
 
@@ -169,4 +228,3 @@ public enum SelectStatus: String, CaseIterable, Codable, Sendable {
         }
     }
 }
-

@@ -23,6 +23,17 @@ public enum LibraryStoreError: LocalizedError {
 public struct LibraryStore: Sendable {
     public static let selectsFilename = "native-selects.json"
     public static let exportFilename = "selects.csv"
+    public static let clipMomentsFilename = "clip_moments.csv"
+
+    private static let analysisFiles: [(filename: String, fallbackTitle: String)] = [
+        ("master_theme_map.md", "Master Theme Map"),
+        ("best_50_quote_moments.md", "Best 50 Quote Moments"),
+        ("top_20_short_form_clip_ideas.md", "Top 20 Short-Form Clip Ideas"),
+        ("suggested_multi_person_sequences.md", "Suggested Multi-Person Sequences"),
+        ("contradictory_answers_that_cut_well_together.md", "Contradictory Answers"),
+        ("funny_surprising_emotional_moments.md", "Funny / Surprising / Emotional Moments"),
+        ("weak_or_unusable_clips.md", "Weak Or Unusable Clips")
+    ]
 
     public init() {}
 
@@ -30,11 +41,15 @@ public struct LibraryStore: Sendable {
         let libraryURL = libraryURL.standardizedFileURL
         let filesAndSegments = try loadFilesAndSegments(libraryURL: libraryURL)
         let selects = try loadSelects(libraryURL: libraryURL)
+        let clipMoments = try loadClipMoments(libraryURL: libraryURL, files: filesAndSegments.files)
+        let analysisArtifacts = try loadAnalysisArtifacts(libraryURL: libraryURL)
         return LibrarySnapshot(
             libraryURL: libraryURL,
             files: filesAndSegments.files,
             segments: filesAndSegments.segments,
-            selects: selects
+            selects: selects,
+            clipMoments: clipMoments,
+            analysisArtifacts: analysisArtifacts
         )
     }
 
@@ -171,6 +186,63 @@ public struct LibraryStore: Sendable {
         return try decoder.decode([SelectMoment].self, from: Data(contentsOf: url))
     }
 
+    private func loadClipMoments(libraryURL: URL, files: [TranscriptFile]) throws -> [ClipMoment] {
+        let url = libraryURL.appendingPathComponent(Self.clipMomentsFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let rows = CSV.parse(text).filter { !$0.allSatisfy(\.isEmpty) }
+        guard let header = rows.first else { return [] }
+        let sourceByRelativePath = Dictionary(uniqueKeysWithValues: files.map { ($0.relativePath, $0.sourceURL) })
+        return rows.dropFirst().compactMap { row in
+            let values = Dictionary(uniqueKeysWithValues: header.enumerated().map { index, column in
+                (column, index < row.count ? row[index] : "")
+            })
+            guard
+                let relativePath = nonEmpty(values["file"]),
+                let startText = nonEmpty(values["start_time"]),
+                let endText = nonEmpty(values["end_time"]),
+                let start = parseTimecode(startText),
+                let end = parseTimecode(endText)
+            else {
+                return nil
+            }
+            let theme = values["theme"] ?? ""
+            let hookStrength = values["hook_strength"] ?? ""
+            let speaker = nonEmpty(values["speaker"])
+            let body = values["text"] ?? ""
+            return ClipMoment(
+                id: stableID(relativePath, start, end, body),
+                relativePath: relativePath,
+                sourceURL: sourceByRelativePath[relativePath],
+                start: start,
+                end: max(start, end),
+                theme: theme,
+                hookStrength: hookStrength,
+                speaker: speaker,
+                text: body
+            )
+        }
+    }
+
+    private func loadAnalysisArtifacts(libraryURL: URL) throws -> [AnalysisArtifact] {
+        try Self.analysisFiles.compactMap { artifact in
+            let url = libraryURL.appendingPathComponent(artifact.filename)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                return nil
+            }
+            let content = try String(contentsOf: url, encoding: .utf8)
+            return AnalysisArtifact(
+                id: artifact.filename,
+                title: firstMarkdownHeading(in: content) ?? artifact.fallbackTitle,
+                filename: artifact.filename,
+                content: content
+            )
+        }
+    }
+
     private func readTranscript(jsonURL: URL) throws -> WhisperXTranscript {
         do {
             let decoder = JSONDecoder()
@@ -188,12 +260,51 @@ public struct LibraryStore: Sendable {
     }
 
     private func stableFileID(_ path: String) -> String {
+        stableID(path)
+    }
+
+    private func stableID(_ parts: Any...) -> String {
         var hash: UInt64 = 1469598103934665603
-        for byte in path.utf8 {
-            hash ^= UInt64(byte)
+        for part in parts {
+            for byte in String(describing: part).utf8 {
+                hash ^= UInt64(byte)
+                hash &*= 1099511628211
+            }
+            hash ^= 31
             hash &*= 1099511628211
         }
         return String(hash, radix: 16)
+    }
+
+    private func parseTimecode(_ text: String) -> Double? {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let seconds = Double(value) {
+            return seconds
+        }
+        let parts = value.split(separator: ":").compactMap { Double($0) }
+        switch parts.count {
+        case 2:
+            return parts[0] * 60 + parts[1]
+        case 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        default:
+            return nil
+        }
+    }
+
+    private func firstMarkdownHeading(in content: String) -> String? {
+        content
+            .split(whereSeparator: \.isNewline)
+            .first { $0.hasPrefix("# ") }
+            .map { String($0.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap(nonEmpty)
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 }
 
@@ -217,4 +328,3 @@ private struct WhisperXSegment: Decodable {
         case averageLogProbability = "avg_logprob"
     }
 }
-

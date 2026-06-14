@@ -47,33 +47,44 @@ final class LibraryViewModel {
 
     enum SegmentScope: String, CaseIterable, Identifiable {
         case all
-        case unreviewed
-        case selected
-        case good
-        case maybe
-        case weak
+        case aiPicks
+        case highHooks
+        case saved
+        case noAIPick
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .all: "All"
-            case .unreviewed: "Unreviewed"
-            case .selected: "Selected"
-            case .good: "Good"
-            case .maybe: "Maybe"
-            case .weak: "Weak"
+            case .aiPicks: "AI Picks"
+            case .highHooks: "High Hooks"
+            case .saved: "Saved"
+            case .noAIPick: "No AI Pick"
             }
         }
 
         var systemImage: String {
             switch self {
             case .all: "text.line.first.and.arrowtriangle.forward"
-            case .unreviewed: "circle.dotted"
-            case .selected: "pin"
-            case .good: "checkmark.circle"
-            case .maybe: "questionmark.circle"
-            case .weak: "xmark.circle"
+            case .aiPicks: "sparkles"
+            case .highHooks: "flame"
+            case .saved: "tray.full"
+            case .noAIPick: "line.3.horizontal.decrease.circle"
+            }
+        }
+    }
+
+    enum InspectorMode: String, CaseIterable, Identifiable {
+        case moment
+        case aiPlan
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .moment: "Moment"
+            case .aiPlan: "AI Plan"
             }
         }
     }
@@ -91,11 +102,16 @@ final class LibraryViewModel {
     var files: [TranscriptFile] = []
     var segments: [TranscriptSegment] = []
     var selects: [SelectMoment] = []
+    var clipMoments: [ClipMoment] = []
+    var analysisArtifacts: [AnalysisArtifact] = []
     var selectedFileID: String?
     var selectedSegmentID: String?
+    var selectedClipMomentID: String?
+    var selectedAnalysisArtifactID: String?
     var fileSearchText = ""
     var searchText = ""
     var segmentScope: SegmentScope = .all
+    var inspectorMode: InspectorMode = .moment
     var isLoading = false
     var statusMessage = "Open a WhisperX _ai_library folder."
 
@@ -112,6 +128,8 @@ final class LibraryViewModel {
     var selectSort: SelectSort = .hook
     var minimumHookStrength = 0
     var selectSearchText = ""
+    var clipSearchText = ""
+    var clipThemeFilter = "All Themes"
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -130,6 +148,27 @@ final class LibraryViewModel {
     var selectedSegment: TranscriptSegment? {
         guard let selectedSegmentID else { return filteredSegments.first }
         return segments.first { $0.id == selectedSegmentID }
+    }
+
+    var selectedClipMoment: ClipMoment? {
+        guard let selectedClipMomentID else { return filteredClipMoments.first }
+        return clipMoments.first { $0.id == selectedClipMomentID }
+    }
+
+    var currentAIPick: ClipMoment? {
+        guard let selectedSegment else {
+            return selectedClipMoment
+        }
+        let matches = matchingClipMoments(for: selectedSegment)
+        if let selectedClipMoment, matches.contains(where: { $0.id == selectedClipMoment.id }) {
+            return selectedClipMoment
+        }
+        return matches.first
+    }
+
+    var selectedAnalysisArtifact: AnalysisArtifact? {
+        guard let selectedAnalysisArtifactID else { return analysisArtifacts.first }
+        return analysisArtifacts.first { $0.id == selectedAnalysisArtifactID }
     }
 
     var filteredFiles: [TranscriptFile] {
@@ -152,6 +191,10 @@ final class LibraryViewModel {
 
     var reviewedCount: Int {
         selects.count
+    }
+
+    var highPriorityClipMomentCount: Int {
+        clipMoments.filter { hookRank($0.hookStrength) >= 5 }.count
     }
 
     var unreviewedCount: Int {
@@ -199,19 +242,14 @@ final class LibraryViewModel {
             switch segmentScope {
             case .all:
                 true
-            case .unreviewed:
-                select(for: segment) == nil
-            case .selected:
+            case .aiPicks:
+                !matchingClipMoments(for: segment).isEmpty
+            case .highHooks:
+                matchingClipMoments(for: segment).contains { hookRank($0.hookStrength) >= 5 }
+            case .saved:
                 select(for: segment) != nil
-            case .good:
-                select(for: segment)?.status == .good
-            case .maybe:
-                select(for: segment)?.status == .maybe
-            case .weak:
-                {
-                    guard let status = select(for: segment)?.status else { return false }
-                    return status == .weak || status == .unusable
-                }()
+            case .noAIPick:
+                matchingClipMoments(for: segment).isEmpty
             }
         }
 
@@ -250,6 +288,51 @@ final class LibraryViewModel {
                 || (select.speaker?.localizedCaseInsensitiveContains(query) ?? false)
             return matchesFilter && matchesHook && matchesQuery
         }
+    }
+
+    var clipThemes: [String] {
+        let themes = Set(clipMoments.map(\.theme).filter { !$0.isEmpty })
+        return ["All Themes"] + themes.sorted {
+            $0.localizedStandardCompare($1) == .orderedAscending
+        }
+    }
+
+    var filteredClipMoments: [ClipMoment] {
+        let query = clipSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return clipMoments
+            .filter { moment in
+                let matchesTheme = clipThemeFilter == "All Themes" || moment.theme == clipThemeFilter
+                let matchesQuery = query.isEmpty
+                    || moment.text.localizedCaseInsensitiveContains(query)
+                    || moment.relativePath.localizedCaseInsensitiveContains(query)
+                    || moment.theme.localizedCaseInsensitiveContains(query)
+                    || (moment.speaker?.localizedCaseInsensitiveContains(query) ?? false)
+                return matchesTheme && matchesQuery
+            }
+            .sorted { lhs, rhs in
+                let lhsRank = hookRank(lhs.hookStrength)
+                let rhsRank = hookRank(rhs.hookStrength)
+                if lhsRank != rhsRank {
+                    return lhsRank > rhsRank
+                }
+                if lhs.relativePath == rhs.relativePath {
+                    return lhs.start < rhs.start
+                }
+                return lhs.relativePath.localizedStandardCompare(rhs.relativePath) == .orderedAscending
+            }
+    }
+
+    var clipFilterSummary: String {
+        let shown = filteredClipMoments.count
+        let shownLabel = shown == 1 ? "1 AI pick" : "\(shown) AI picks"
+        if shown == clipMoments.count {
+            return shownLabel
+        }
+        return "\(shownLabel) of \(clipMoments.count)"
+    }
+
+    var analysisSearchPlaceholder: String {
+        "\(analysisArtifacts.count) generated notes"
     }
 
     private var sortedSelects: [SelectMoment] {
@@ -345,9 +428,15 @@ final class LibraryViewModel {
             files = snapshot.files
             segments = snapshot.segments
             selects = snapshot.selects
+            clipMoments = snapshot.clipMoments
+            analysisArtifacts = snapshot.analysisArtifacts
+            selectedAnalysisArtifactID = analysisArtifacts.first?.id
+            if !clipThemes.contains(clipThemeFilter) {
+                clipThemeFilter = "All Themes"
+            }
             selectedFileID = files.first(where: { $0.segmentCount > 0 })?.id ?? files.first?.id
             selectedSegmentID = filteredSegments.first?.id
-            statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(selects.count) selects"
+            statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(clipMoments.count) AI picks, \(selects.count) selects"
             rememberLibrary(snapshot.libraryURL)
             if let segment = selectedSegment {
                 focus(segment, autoplay: false)
@@ -379,10 +468,30 @@ final class LibraryViewModel {
         choose(file: nil)
     }
 
-    func startUnreviewedReview() {
+    func startAIAssistedReview() {
         selectedFileID = nil
-        setScope(.unreviewed)
-        statusMessage = "Reviewing unreviewed moments"
+        inspectorMode = .aiPlan
+        segmentScope = .all
+        guard let firstPick = filteredClipMoments.first else {
+            statusMessage = "No AI picks available"
+            return
+        }
+        focus(firstPick, autoplay: false)
+        statusMessage = "Reviewing AI-ranked picks"
+    }
+
+    func focusHighHookAIPick() {
+        selectedFileID = nil
+        inspectorMode = .aiPlan
+        segmentScope = .all
+        guard let pick = filteredClipMoments.first(where: { hookRank($0.hookStrength) >= 5 })
+            ?? clipMoments.first(where: { hookRank($0.hookStrength) >= 5 })
+            ?? filteredClipMoments.first
+        else {
+            statusMessage = "No AI picks available"
+            return
+        }
+        focus(pick, autoplay: true)
     }
 
     func focus(_ segment: TranscriptSegment, autoplay: Bool) {
@@ -397,6 +506,11 @@ final class LibraryViewModel {
             player.play()
         }
         loadDraft(for: segment)
+        let matches = matchingClipMoments(for: segment)
+        if let selectedClipMomentID, matches.contains(where: { $0.id == selectedClipMomentID }) {
+            return
+        }
+        selectedClipMomentID = matches.first?.id
     }
 
     func focus(_ select: SelectMoment, autoplay: Bool) {
@@ -407,6 +521,36 @@ final class LibraryViewModel {
         } else {
             statusMessage = "Select source segment is no longer in this library"
         }
+    }
+
+    func focus(_ clipMoment: ClipMoment, autoplay: Bool) {
+        selectedClipMomentID = clipMoment.id
+        inspectorMode = .aiPlan
+        guard let segment = bestSegment(for: clipMoment) else {
+            statusMessage = "No matching transcript segment for \(clipMoment.relativePath)"
+            return
+        }
+        selectedFileID = nil
+        focus(segment, autoplay: autoplay)
+        statusMessage = "Focused AI pick at \(formatTime(clipMoment.start))"
+    }
+
+    func adopt(_ clipMoment: ClipMoment, status: SelectStatus? = nil) {
+        selectedClipMomentID = clipMoment.id
+        guard let segment = bestSegment(for: clipMoment) else {
+            statusMessage = "No matching transcript segment for \(clipMoment.relativePath)"
+            return
+        }
+        selectedFileID = nil
+        focus(segment, autoplay: false)
+        draftStatus = status ?? defaultStatus(for: clipMoment)
+        draftHookStrength = hookRank(clipMoment.hookStrength)
+        draftTheme = clipMoment.theme
+        draftTags = "ai-pick"
+        draftNotes = "AI pick from \(LibraryStore.clipMomentsFilename)"
+        draftStart = String(format: "%.3f", clipMoment.start)
+        draftEnd = String(format: "%.3f", clipMoment.end)
+        _ = saveDraft(status: draftStatus, hookStrength: draftHookStrength)
     }
 
     func focusSelectedWithoutAutoplay() {
@@ -422,11 +566,38 @@ final class LibraryViewModel {
         moveSelection(offset: -1, autoplay: autoplay)
     }
 
+    func focusNextAIPick(autoplay: Bool = true) {
+        moveAIPick(offset: 1, autoplay: autoplay)
+    }
+
+    func focusPreviousAIPick(autoplay: Bool = true) {
+        moveAIPick(offset: -1, autoplay: autoplay)
+    }
+
+    func adoptCurrentAIPick() {
+        guard let currentAIPick else {
+            statusMessage = "No AI pick is matched to this moment"
+            return
+        }
+        adopt(currentAIPick)
+    }
+
     func moveSelection(offset: Int, autoplay: Bool) {
         guard !filteredSegments.isEmpty else { return }
         let currentIndex = selectedSegmentIndex ?? 0
         let nextIndex = min(max(currentIndex + offset, 0), filteredSegments.count - 1)
         focus(filteredSegments[nextIndex], autoplay: autoplay)
+    }
+
+    func moveAIPick(offset: Int, autoplay: Bool) {
+        let picks = filteredClipMoments
+        guard !picks.isEmpty else {
+            statusMessage = "No AI picks available"
+            return
+        }
+        let currentIndex = selectedClipMomentID.flatMap { id in picks.firstIndex { $0.id == id } } ?? 0
+        let nextIndex = min(max(currentIndex + offset, 0), picks.count - 1)
+        focus(picks[nextIndex], autoplay: autoplay)
     }
 
     func setScope(_ scope: SegmentScope) {
@@ -588,16 +759,40 @@ final class LibraryViewModel {
         switch scope {
         case .all:
             segments.count
-        case .unreviewed:
-            unreviewedCount
-        case .selected:
+        case .aiPicks:
+            segments.filter { !matchingClipMoments(for: $0).isEmpty }.count
+        case .highHooks:
+            segments.filter { segment in
+                matchingClipMoments(for: segment).contains { hookRank($0.hookStrength) >= 5 }
+            }.count
+        case .saved:
             selects.count
-        case .good:
-            selects.filter { $0.status == .good }.count
-        case .maybe:
-            selects.filter { $0.status == .maybe }.count
-        case .weak:
-            selects.filter { $0.status == .weak || $0.status == .unusable }.count
+        case .noAIPick:
+            segments.filter { matchingClipMoments(for: $0).isEmpty }.count
+        }
+    }
+
+    func matchingClipMoments(for segment: TranscriptSegment) -> [ClipMoment] {
+        clipMoments.filter { clipMoment in
+            clipMoment.relativePath == segment.relativePath && overlaps(clipMoment, segment)
+        }
+        .sorted { hookRank($0.hookStrength) > hookRank($1.hookStrength) }
+    }
+
+    func hookRank(_ hookStrength: String) -> Int {
+        switch hookStrength.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "high", "strong", "5":
+            5
+        case "medium", "med", "4":
+            4
+        case "low", "3":
+            3
+        case "weak", "2":
+            2
+        case "bad", "1":
+            1
+        default:
+            3
         }
     }
 
@@ -655,6 +850,36 @@ final class LibraryViewModel {
             return filteredSegments[currentIndex - 1]
         }
         return nil
+    }
+
+    private func bestSegment(for clipMoment: ClipMoment) -> TranscriptSegment? {
+        let candidates = segments.filter { $0.relativePath == clipMoment.relativePath }
+        if candidates.isEmpty {
+            return nil
+        }
+        let midpoint = (clipMoment.start + clipMoment.end) / 2
+        return candidates.min { lhs, rhs in
+            let lhsOverlap = overlapDuration(clipMoment, lhs)
+            let rhsOverlap = overlapDuration(clipMoment, rhs)
+            if lhsOverlap != rhsOverlap {
+                return lhsOverlap > rhsOverlap
+            }
+            let lhsDistance = abs(((lhs.start + lhs.end) / 2) - midpoint)
+            let rhsDistance = abs(((rhs.start + rhs.end) / 2) - midpoint)
+            return lhsDistance < rhsDistance
+        }
+    }
+
+    private func overlaps(_ clipMoment: ClipMoment, _ segment: TranscriptSegment) -> Bool {
+        overlapDuration(clipMoment, segment) > 0
+    }
+
+    private func overlapDuration(_ clipMoment: ClipMoment, _ segment: TranscriptSegment) -> Double {
+        max(0, min(clipMoment.end, segment.end) - max(clipMoment.start, segment.start))
+    }
+
+    private func defaultStatus(for clipMoment: ClipMoment) -> SelectStatus {
+        hookRank(clipMoment.hookStrength) >= 5 ? .good : .maybe
     }
 
     private func settleSelectionAfterFilterChange() {
@@ -716,8 +941,12 @@ final class LibraryViewModel {
         files = []
         segments = []
         selects = []
+        clipMoments = []
+        analysisArtifacts = []
         selectedFileID = nil
         selectedSegmentID = nil
+        selectedClipMomentID = nil
+        selectedAnalysisArtifactID = nil
         player.pause()
         if let boundaryObserver {
             player.removeTimeObserver(boundaryObserver)

@@ -56,6 +56,12 @@ struct RootView: View {
                     Label("Selects Shelf", systemImage: "rectangle.bottomthird.inset.filled")
                 }
                 .disabled(model.libraryURL == nil)
+                Button {
+                    model.inspectorMode = .aiPlan
+                } label: {
+                    Label("AI Plan", systemImage: "sparkles.rectangle.stack")
+                }
+                .disabled(model.analysisArtifacts.isEmpty && model.clipMoments.isEmpty)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -196,8 +202,8 @@ struct LibraryHeader: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 MetricTile(value: "\(model.doneFileCount)", label: "done")
                 MetricTile(value: "\(model.segments.count)", label: "moments")
-                MetricTile(value: "\(model.reviewedCount)", label: "reviewed")
-                MetricTile(value: "\(model.unreviewedCount)", label: "left")
+                MetricTile(value: "\(model.clipMoments.count)", label: "AI picks")
+                MetricTile(value: "\(model.reviewedCount)", label: "selects")
             }
         }
         .padding(14)
@@ -365,48 +371,50 @@ struct ReviewHeader: View {
             }
             Spacer()
             Button {
-                model.startUnreviewedReview()
+                model.startAIAssistedReview()
             } label: {
-                Label("Review", systemImage: "play.circle")
+                Label("AI Review", systemImage: "sparkles")
             }
             .buttonStyle(.bordered)
-            .disabled(model.unreviewedCount == 0)
-            QuickMarkButton(title: "Good", systemImage: "checkmark.circle.fill", color: .green) {
-                model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark)
+            .disabled(model.clipMoments.isEmpty)
+
+            Button {
+                model.focusHighHookAIPick()
+            } label: {
+                Label("High Hooks", systemImage: "flame.fill")
             }
-            .disabled(model.selectedSegment == nil)
-            QuickMarkButton(title: "Maybe", systemImage: "questionmark.circle.fill", color: .orange) {
-                model.mark(status: .maybe, advance: model.autoAdvanceAfterMark)
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .disabled(model.highPriorityClipMomentCount == 0)
+
+            Button {
+                model.adoptCurrentAIPick()
+            } label: {
+                Label("Adopt Pick", systemImage: "tray.and.arrow.down")
             }
-            .disabled(model.selectedSegment == nil)
-            QuickMarkButton(title: "Weak", systemImage: "xmark.circle.fill", color: .red) {
-                model.mark(status: .weak, advance: model.autoAdvanceAfterMark)
+            .buttonStyle(.borderedProminent)
+            .disabled(model.currentAIPick == nil)
+
+            Button {
+                model.focusPreviousAIPick()
+            } label: {
+                Label("Previous AI Pick", systemImage: "chevron.up")
             }
-            .disabled(model.selectedSegment == nil)
-            Toggle(isOn: Binding(get: { model.autoAdvanceAfterMark }, set: { model.autoAdvanceAfterMark = $0 })) {
-                Label("Auto Advance", systemImage: "arrow.down.circle")
+            .labelStyle(.iconOnly)
+            .help("Previous AI pick")
+            .disabled(model.filteredClipMoments.isEmpty)
+
+            Button {
+                model.focusNextAIPick()
+            } label: {
+                Label("Next AI Pick", systemImage: "chevron.down")
             }
-            .toggleStyle(.switch)
-            .controlSize(.small)
+            .labelStyle(.iconOnly)
+            .help("Next AI pick")
+            .disabled(model.filteredClipMoments.isEmpty)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-    }
-}
-
-struct QuickMarkButton: View {
-    var title: String
-    var systemImage: String
-    var color: Color
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .labelStyle(.titleAndIcon)
-        }
-        .buttonStyle(.bordered)
-        .tint(color)
     }
 }
 
@@ -838,23 +846,389 @@ struct InspectorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let segment = model.selectedSegment {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        InspectorSummary(segment: segment, select: model.select(for: segment), model: model)
-                        EditorialPanel(model: model)
-                        TranscriptPanel(segment: segment)
-                    }
-                    .padding(16)
+            Picker("Inspector", selection: Binding(get: { model.inspectorMode }, set: { model.inspectorMode = $0 })) {
+                ForEach(LibraryViewModel.InspectorMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
                 }
-                Divider()
-                InspectorFooter(model: model, segment: segment)
-            } else {
-                ContentUnavailableView("Select a transcript moment", systemImage: "sidebar.right")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .pickerStyle(.segmented)
+            .padding(12)
+
+            Divider()
+
+            switch model.inspectorMode {
+            case .moment:
+                MomentInspectorView(model: model)
+            case .aiPlan:
+                AIPlanInspectorView(model: model)
             }
         }
         .navigationTitle("Inspector")
+    }
+}
+
+struct MomentInspectorView: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        if let segment = model.selectedSegment {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    InspectorSummary(segment: segment, select: model.select(for: segment), model: model)
+                    AIMatchesPanel(model: model, segment: segment)
+                    AIRecommendationPanel(model: model)
+                    if let select = model.select(for: segment) {
+                        SavedSelectSummaryPanel(select: select, formatTime: model.formatTime)
+                    }
+                    TranscriptPanel(segment: segment)
+                }
+                .padding(16)
+            }
+            Divider()
+            InspectorFooter(model: model, segment: segment)
+        } else {
+            ContentUnavailableView("Select a transcript moment", systemImage: "sidebar.right")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+struct AIRecommendationPanel: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("AI Recommendation", systemImage: "sparkles")
+                .font(.headline)
+            if let pick = model.currentAIPick {
+                HStack {
+                    HookBadge(rank: model.hookRank(pick.hookStrength), label: pick.hookStrength)
+                    Text("\(model.formatTime(pick.start)) - \(model.formatTime(pick.end))")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                if !pick.theme.isEmpty {
+                    Text(pick.theme)
+                        .font(.callout.weight(.semibold))
+                }
+                Text(pick.text)
+                    .font(.callout)
+                    .lineLimit(6)
+                    .textSelection(.enabled)
+                Button {
+                    model.adopt(pick)
+                } label: {
+                    Label("Adopt AI Pick", systemImage: "tray.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                ContentUnavailableView("No matched AI pick", systemImage: "sparkle.magnifyingglass")
+                    .frame(maxWidth: .infinity, minHeight: 120)
+            }
+        }
+        .panelStyle()
+    }
+}
+
+struct SavedSelectSummaryPanel: View {
+    var select: SelectMoment
+    var formatTime: (Double) -> String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Saved Select")
+                    .font(.headline)
+                Spacer()
+                SelectBadge(select: select)
+            }
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                GridRow {
+                    DetailLabel("Time")
+                    Text("\(formatTime(select.start)) - \(formatTime(select.end))")
+                        .monospacedDigit()
+                }
+                if !select.theme.isEmpty {
+                    GridRow {
+                        DetailLabel("Theme")
+                        Text(select.theme)
+                    }
+                }
+                if !select.tags.isEmpty {
+                    GridRow {
+                        DetailLabel("Tags")
+                        Text(select.tags.joined(separator: ", "))
+                    }
+                }
+            }
+            .font(.callout)
+            if !select.notes.isEmpty {
+                Text(select.notes)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .panelStyle()
+    }
+}
+
+struct AIPlanInspectorView: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                AIPlanSummary(model: model)
+                AIPicksPanel(model: model)
+                AnalysisArtifactsPanel(model: model)
+            }
+            .padding(16)
+        }
+    }
+}
+
+struct AIPlanSummary: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("AI Plan", systemImage: "sparkles.rectangle.stack")
+                .font(.headline)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                MetricTile(value: "\(model.clipMoments.count)", label: "ranked picks")
+                MetricTile(value: "\(model.highPriorityClipMomentCount)", label: "high hook")
+                MetricTile(value: "\(model.analysisArtifacts.count)", label: "notes")
+                MetricTile(value: "\(model.selects.count)", label: "saved")
+            }
+        }
+        .panelStyle()
+    }
+}
+
+struct AIPicksPanel: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(model.clipFilterSummary, systemImage: "quote.bubble")
+                    .font(.headline)
+                Spacer()
+            }
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search AI picks", text: Binding(get: { model.clipSearchText }, set: { model.clipSearchText = $0 }))
+                        .textFieldStyle(.plain)
+                    if !model.clipSearchText.isEmpty {
+                        Button {
+                            model.clipSearchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
+
+                Picker("Theme", selection: Binding(get: { model.clipThemeFilter }, set: { model.clipThemeFilter = $0 })) {
+                    ForEach(model.clipThemes, id: \.self) { theme in
+                        Text(theme).tag(theme)
+                    }
+                }
+            }
+
+            if model.filteredClipMoments.isEmpty {
+                ContentUnavailableView("No AI picks", systemImage: "sparkle.magnifyingglass")
+                    .frame(maxWidth: .infinity, minHeight: 120)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(model.filteredClipMoments.prefix(80)) { clipMoment in
+                        ClipMomentCard(
+                            clipMoment: clipMoment,
+                            isSelected: model.selectedClipMomentID == clipMoment.id,
+                            hookRank: model.hookRank(clipMoment.hookStrength),
+                            formatTime: model.formatTime,
+                            play: { model.focus(clipMoment, autoplay: true) },
+                            adopt: { model.adopt(clipMoment) }
+                        )
+                    }
+                }
+            }
+        }
+        .panelStyle()
+    }
+}
+
+struct ClipMomentCard: View {
+    var clipMoment: ClipMoment
+    var isSelected: Bool
+    var hookRank: Int
+    var formatTime: (Double) -> String
+    var play: () -> Void
+    var adopt: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                HookBadge(rank: hookRank, label: clipMoment.hookStrength)
+                Text("\(formatTime(clipMoment.start)) - \(formatTime(clipMoment.end))")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Button(action: play) {
+                    Label("Play", systemImage: "play.fill")
+                }
+                .labelStyle(.iconOnly)
+                .help("Play AI pick")
+                Button(action: adopt) {
+                    Label("Adopt", systemImage: "tray.and.arrow.down")
+                }
+                .labelStyle(.iconOnly)
+                .help("Save as select")
+            }
+            Text(clipMoment.relativePath)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            if !clipMoment.theme.isEmpty {
+                Text(clipMoment.theme)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(clipMoment.text.isEmpty ? "No transcript text" : clipMoment.text)
+                .font(.callout)
+                .lineLimit(5)
+                .textSelection(.enabled)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isSelected ? Color.accentColor.opacity(0.12) : Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+struct HookBadge: View {
+    var rank: Int
+    var label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "flame.fill")
+            Text(displayLabel)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.13), in: Capsule())
+    }
+
+    private var displayLabel: String {
+        label.isEmpty ? "Hook \(rank)" : label.capitalized
+    }
+
+    private var color: Color {
+        switch rank {
+        case 5...:
+            .red
+        case 4:
+            .orange
+        default:
+            .accentColor
+        }
+    }
+}
+
+struct AnalysisArtifactsPanel: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Generated Notes", systemImage: "doc.text.magnifyingglass")
+                .font(.headline)
+            if model.analysisArtifacts.isEmpty {
+                ContentUnavailableView("No analysis notes", systemImage: "doc.text")
+                    .frame(maxWidth: .infinity, minHeight: 120)
+            } else {
+                Picker("Note", selection: Binding(get: {
+                    model.selectedAnalysisArtifactID ?? model.analysisArtifacts.first?.id ?? ""
+                }, set: { model.selectedAnalysisArtifactID = $0 })) {
+                    ForEach(model.analysisArtifacts) { artifact in
+                        Text(artifact.title).tag(artifact.id)
+                    }
+                }
+                if let artifact = model.selectedAnalysisArtifact {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(artifact.filename)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ScrollView {
+                            Text(artifact.content)
+                                .font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(minHeight: 220, maxHeight: 360)
+                        .padding(10)
+                        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 7)
+                                .strokeBorder(Color.secondary.opacity(0.14), lineWidth: 1)
+                        }
+                    }
+                }
+            }
+        }
+        .panelStyle()
+    }
+}
+
+struct AIMatchesPanel: View {
+    let model: LibraryViewModel
+    var segment: TranscriptSegment
+
+    var body: some View {
+        let matches = model.matchingClipMoments(for: segment)
+        if !matches.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("AI Matches", systemImage: "sparkles")
+                    .font(.headline)
+                ForEach(matches.prefix(3)) { clipMoment in
+                    HStack(alignment: .top, spacing: 9) {
+                        HookBadge(rank: model.hookRank(clipMoment.hookStrength), label: clipMoment.hookStrength)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(clipMoment.theme.isEmpty ? "Untitled theme" : clipMoment.theme)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            Text(clipMoment.text)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(3)
+                        }
+                        Spacer(minLength: 0)
+                        Button {
+                            model.adopt(clipMoment)
+                        } label: {
+                            Label("Adopt", systemImage: "tray.and.arrow.down")
+                        }
+                        .labelStyle(.iconOnly)
+                        .help("Save AI match as select")
+                    }
+                }
+            }
+            .panelStyle()
+        }
     }
 }
 
@@ -914,61 +1288,6 @@ struct DetailLabel: View {
     }
 }
 
-struct EditorialPanel: View {
-    let model: LibraryViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Editorial")
-                .font(.headline)
-
-            StatusSelector(model: model)
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Hook Strength")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                HookStrengthPicker(model: model)
-            }
-
-            LabeledContent("Start") {
-                TrimField(
-                    value: Binding(get: { model.draftStart }, set: { model.draftStart = $0 }),
-                    decrement: { model.adjustDraftStart(by: -0.1) },
-                    increment: { model.adjustDraftStart(by: 0.1) }
-                )
-            }
-            LabeledContent("End") {
-                TrimField(
-                    value: Binding(get: { model.draftEnd }, set: { model.draftEnd = $0 }),
-                    decrement: { model.adjustDraftEnd(by: -0.1) },
-                    increment: { model.adjustDraftEnd(by: 0.1) }
-                )
-            }
-            TextField("Theme", text: Binding(get: { model.draftTheme }, set: { model.draftTheme = $0 }))
-                .textFieldStyle(.roundedBorder)
-            TextField("Tags", text: Binding(get: { model.draftTags }, set: { model.draftTags = $0 }))
-                .textFieldStyle(.roundedBorder)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Notes")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                TextEditor(text: Binding(get: { model.draftNotes }, set: { model.draftNotes = $0 }))
-                    .font(.body)
-                    .frame(minHeight: 95)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7)
-                            .strokeBorder(Color.secondary.opacity(0.18))
-                    }
-            }
-        }
-        .panelStyle()
-    }
-}
-
 struct TranscriptPanel: View {
     var segment: TranscriptSegment
 
@@ -1022,82 +1341,15 @@ struct InspectorFooter: View {
             .disabled(!model.hasSelectedSelect)
 
             Button {
-                model.saveDraft()
+                model.adoptCurrentAIPick()
             } label: {
-                Label("Save", systemImage: "tray.and.arrow.down.fill")
+                Label("Adopt AI Pick", systemImage: "sparkles")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(model.selectedSegment == nil)
+            .disabled(model.currentAIPick == nil)
         }
         .padding(12)
         .padding(.bottom, 24)
-    }
-}
-
-struct TrimField: View {
-    @Binding var value: String
-    var decrement: () -> Void
-    var increment: () -> Void
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Button(action: decrement) {
-                Image(systemName: "minus")
-            }
-            .buttonStyle(.borderless)
-            .help("Nudge earlier")
-
-            TextField("Time", text: $value)
-                .textFieldStyle(.roundedBorder)
-                .monospacedDigit()
-
-            Button(action: increment) {
-                Image(systemName: "plus")
-            }
-            .buttonStyle(.borderless)
-            .help("Nudge later")
-        }
-    }
-}
-
-struct StatusSelector: View {
-    let model: LibraryViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("Status")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            HStack(spacing: 6) {
-                ForEach(SelectStatus.allCases, id: \.self) { status in
-                    Button {
-                        model.draftStatus = status
-                    } label: {
-                        Text(status.title)
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 7)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(model.draftStatus == status ? .white : .primary)
-                    .background(statusColor(status, selected: model.draftStatus == status), in: RoundedRectangle(cornerRadius: 7))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7)
-                            .strokeBorder(Color.secondary.opacity(model.draftStatus == status ? 0 : 0.18))
-                    }
-                }
-            }
-        }
-    }
-
-    private func statusColor(_ status: SelectStatus, selected: Bool) -> Color {
-        guard selected else { return Color(nsColor: .controlBackgroundColor) }
-        switch status {
-        case .good: return .green
-        case .maybe: return .orange
-        case .weak, .unusable: return .red
-        case .selected: return .accentColor
-        }
     }
 }
 
@@ -1116,6 +1368,7 @@ struct StatusBar: View {
             Spacer()
             Text("\(model.files.count) files")
             Text("\(model.segments.count) moments")
+            Text("\(model.clipMoments.count) AI picks")
             Text("\(model.selects.count) selects")
         }
         .font(.caption)
@@ -1133,30 +1386,22 @@ struct ShortcutLayer: View {
         VStack {
             Button("Play/Pause") { model.togglePlayback() }
                 .keyboardShortcut(.space, modifiers: [])
-            Button("Start Review") { model.startUnreviewedReview() }
+            Button("Start AI Review") { model.startAIAssistedReview() }
                 .keyboardShortcut("b", modifiers: [])
+            Button("AI Plan") { model.inspectorMode = .aiPlan }
+                .keyboardShortcut("a", modifiers: [])
+            Button("Adopt AI Pick") { model.adoptCurrentAIPick() }
+                .keyboardShortcut(.return, modifiers: [])
             Button("Toggle Selects") { model.showSelectsShelf.toggle() }
                 .keyboardShortcut("l", modifiers: [])
-            Button("Previous") { model.focusPrevious() }
+            Button("Previous AI Pick") { model.focusPreviousAIPick() }
                 .keyboardShortcut(.upArrow, modifiers: [])
-            Button("Next") { model.focusNext() }
+            Button("Next AI Pick") { model.focusNextAIPick() }
                 .keyboardShortcut(.downArrow, modifiers: [])
-            Button("Mark Good") { model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark) }
-                .keyboardShortcut("g", modifiers: [])
-            Button("Mark Maybe") { model.mark(status: .maybe, advance: model.autoAdvanceAfterMark) }
-                .keyboardShortcut("m", modifiers: [])
-            Button("Mark Weak") { model.mark(status: .weak, advance: model.autoAdvanceAfterMark) }
-                .keyboardShortcut("x", modifiers: [])
-            Button("Mark Unusable") { model.mark(status: .unusable, hookStrength: 1, advance: model.autoAdvanceAfterMark) }
-                .keyboardShortcut("u", modifiers: [])
             Button("Save") { model.saveDraft() }
                 .keyboardShortcut("s", modifiers: [])
             Button("Copy Select CSV") { model.copySelectedSelectCSV() }
                 .keyboardShortcut("c", modifiers: [])
-            ForEach(1...5, id: \.self) { value in
-                Button("Hook \(value)") { model.setHookStrength(value) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(value)")), modifiers: [])
-            }
         }
         .frame(width: 0, height: 0)
         .opacity(0.01)
