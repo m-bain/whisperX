@@ -1,4 +1,5 @@
 import AVKit
+import AppKit
 import SwiftUI
 import TranscriptViewerCore
 
@@ -397,9 +398,7 @@ struct PersonRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: "person.crop.circle")
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 20)
+                PersonThumbnail(person: person)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(person.title)
                         .font(.callout.weight(.medium))
@@ -425,6 +424,116 @@ struct PersonRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct PersonThumbnail: View {
+    var person: PersonProfile
+
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(Color.accentColor)
+                    .padding(3)
+            }
+        }
+        .frame(width: 30, height: 30)
+        .background(Color.accentColor.opacity(0.12), in: Circle())
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.18), lineWidth: 1))
+        .task(id: person.id) {
+            image = await PersonThumbnailLoader.shared.thumbnail(for: person)
+        }
+    }
+}
+
+final class PersonThumbnailLoader: @unchecked Sendable {
+    static let shared = PersonThumbnailLoader()
+
+    private let cache = NSCache<NSString, NSImage>()
+
+    private init() {
+        cache.countLimit = 500
+    }
+
+    func thumbnail(for person: PersonProfile) async -> NSImage? {
+        let cacheKey = person.id as NSString
+        if let cached = cache.object(forKey: cacheKey) {
+            return cached
+        }
+
+        guard let appearance = representativeAppearance(for: person) else {
+            return nil
+        }
+
+        let image = await Task.detached(priority: .utility) {
+            Self.renderThumbnail(from: appearance)
+        }.value
+
+        if let image {
+            cache.setObject(image, forKey: cacheKey)
+        }
+        return image
+    }
+
+    private func representativeAppearance(for person: PersonProfile) -> PersonAppearance? {
+        person.appearances
+            .filter { $0.sourceURL != nil }
+            .max {
+                ($0.boundingBox.width * $0.boundingBox.height) < ($1.boundingBox.width * $1.boundingBox.height)
+            }
+    }
+
+    private static func renderThumbnail(from appearance: PersonAppearance) -> NSImage? {
+        guard let sourceURL = appearance.sourceURL else {
+            return nil
+        }
+
+        let asset = AVURLAsset(url: sourceURL)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = CMTime(seconds: 0.35, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = CMTime(seconds: 0.35, preferredTimescale: 600)
+
+        guard let frame = try? generator.copyCGImage(
+            at: CMTime(seconds: appearance.timestamp, preferredTimescale: 600),
+            actualTime: nil
+        ),
+            let crop = frame.cropping(to: cropRect(for: appearance.boundingBox, in: frame))
+        else {
+            return nil
+        }
+
+        return NSImage(cgImage: crop, size: NSSize(width: crop.width, height: crop.height))
+    }
+
+    private static func cropRect(for boundingBox: FaceBoundingBox, in image: CGImage) -> CGRect {
+        let imageRect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        let faceRect = CGRect(
+            x: boundingBox.x * imageRect.width,
+            y: (1 - boundingBox.y - boundingBox.height) * imageRect.height,
+            width: boundingBox.width * imageRect.width,
+            height: boundingBox.height * imageRect.height
+        )
+        let paddedSize = max(faceRect.width, faceRect.height) * 1.55
+
+        return CGRect(
+            x: faceRect.midX - paddedSize / 2,
+            y: faceRect.midY - paddedSize / 2,
+            width: paddedSize,
+            height: paddedSize
+        )
+        .integral
+        .intersection(imageRect)
     }
 }
 
