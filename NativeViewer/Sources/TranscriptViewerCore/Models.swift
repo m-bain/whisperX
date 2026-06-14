@@ -4,7 +4,6 @@ public struct LibrarySnapshot: Equatable, Sendable {
     public var libraryURL: URL
     public var files: [TranscriptFile]
     public var segments: [TranscriptSegment]
-    public var selects: [SelectMoment]
     public var clipMoments: [ClipMoment]
     public var analysisArtifacts: [AnalysisArtifact]
 
@@ -12,14 +11,12 @@ public struct LibrarySnapshot: Equatable, Sendable {
         libraryURL: URL,
         files: [TranscriptFile],
         segments: [TranscriptSegment],
-        selects: [SelectMoment],
         clipMoments: [ClipMoment] = [],
         analysisArtifacts: [AnalysisArtifact] = []
     ) {
         self.libraryURL = libraryURL
         self.files = files
         self.segments = segments
-        self.selects = selects
         self.clipMoments = clipMoments
         self.analysisArtifacts = analysisArtifacts
     }
@@ -153,78 +150,5 @@ public struct TranscriptSegment: Identifiable, Hashable, Codable, Sendable {
         self.text = text
         self.language = language
         self.averageLogProbability = averageLogProbability
-    }
-}
-
-public struct SelectMoment: Identifiable, Hashable, Codable, Sendable {
-    public var id: String
-    public var segmentID: String
-    public var fileID: String
-    public var sourceURL: URL
-    public var relativePath: String
-    public var start: Double
-    public var end: Double
-    public var speaker: String?
-    public var text: String
-    public var status: SelectStatus
-    public var hookStrength: Int?
-    public var theme: String
-    public var tags: [String]
-    public var notes: String
-    public var createdAt: Date
-    public var updatedAt: Date
-
-    public init(
-        id: String,
-        segmentID: String,
-        fileID: String,
-        sourceURL: URL,
-        relativePath: String,
-        start: Double,
-        end: Double,
-        speaker: String?,
-        text: String,
-        status: SelectStatus,
-        hookStrength: Int?,
-        theme: String,
-        tags: [String],
-        notes: String,
-        createdAt: Date,
-        updatedAt: Date
-    ) {
-        self.id = id
-        self.segmentID = segmentID
-        self.fileID = fileID
-        self.sourceURL = sourceURL
-        self.relativePath = relativePath
-        self.start = start
-        self.end = end
-        self.speaker = speaker
-        self.text = text
-        self.status = status
-        self.hookStrength = hookStrength
-        self.theme = theme
-        self.tags = tags
-        self.notes = notes
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-    }
-}
-
-public enum SelectStatus: String, CaseIterable, Codable, Sendable {
-    case selected
-    case good
-    case maybe
-    case weak
-    case unusable
-
-    public var title: String {
-        switch self {
-        case .selected: "Selected"
-        case .good: "Good"
-        case .maybe: "Maybe"
-        case .weak: "Weak"
-        case .unusable: "Unusable"
-        }
     }
 }

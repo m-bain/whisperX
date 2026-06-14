@@ -25,43 +25,6 @@ struct LibraryStoreTests {
         #expect(snapshot.analysisArtifacts.first(where: { $0.filename == "best_50_quote_moments.md" })?.title == "Best 50 Quote Moments")
     }
 
-    @Test("persists selects and exports stable CSV")
-    func savesAndExportsSelects() throws {
-        let fixture = try Fixture()
-        let store = LibraryStore()
-        let snapshot = try store.load(libraryURL: fixture.libraryURL)
-        let segment = try #require(snapshot.segments.last)
-        let select = SelectMoment(
-            id: "select::\(segment.id)",
-            segmentID: segment.id,
-            fileID: segment.fileID,
-            sourceURL: segment.sourceURL,
-            relativePath: segment.relativePath,
-            start: 5.25,
-            end: 8.5,
-            speaker: segment.speaker,
-            text: segment.text,
-            status: .good,
-            hookStrength: 5,
-            theme: "AI lacks taste",
-            tags: ["food", "human judgment"],
-            notes: "Strong contrast",
-            createdAt: Date(timeIntervalSince1970: 10),
-            updatedAt: Date(timeIntervalSince1970: 20)
-        )
-
-        try store.save(selects: [select], libraryURL: fixture.libraryURL)
-        let reloaded = try store.load(libraryURL: fixture.libraryURL)
-        #expect(reloaded.selects == [select])
-
-        let exportURL = try store.export(selects: reloaded.selects, libraryURL: fixture.libraryURL)
-        let csv = try String(contentsOf: exportURL, encoding: .utf8)
-        #expect(csv.contains("file,relative_file,start,end,theme,hook_strength,status,tags,speaker,text,notes,segment_id"))
-        #expect(csv.contains("Day 1/C0001.MP4"))
-        #expect(csv.contains("5.250,8.500"))
-        #expect(csv.contains("\"food,human judgment\""))
-    }
-
     @Test("CSV parser handles quoted commas and escaped quotes")
     func parsesQuotedCSV() {
         let rows = CSV.parse("a,b,c\none,\"two, still two\",\"quote \"\"inside\"\"\"\n")

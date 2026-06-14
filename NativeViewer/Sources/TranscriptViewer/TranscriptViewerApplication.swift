@@ -39,6 +39,7 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         self.window = window
 
         installMenu()
+        model.loadStartupLibrary(initialPath: initialPath)
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -60,8 +61,6 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         fileMenu.addItem(withTitle: "Open Library...", action: #selector(openLibrary), keyEquivalent: "o")
         fileMenu.addItem(withTitle: "Reload Library", action: #selector(reloadLibrary), keyEquivalent: "r")
         fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Export Selects CSV", action: #selector(exportCSV), keyEquivalent: "e")
-        fileMenu.addItem(withTitle: "Reveal Export in Finder", action: #selector(revealExport), keyEquivalent: "")
         fileMenu.addItem(withTitle: "Reveal Source in Finder", action: #selector(revealSource), keyEquivalent: "")
         fileItem.submenu = fileMenu
         mainMenu.addItem(fileItem)
@@ -70,14 +69,10 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         let reviewMenu = NSMenu(title: "Review")
         reviewMenu.addItem(withTitle: "Start AI Review", action: #selector(startAIReview), keyEquivalent: "b")
         reviewMenu.addItem(withTitle: "Show AI Plan", action: #selector(showAIPlan), keyEquivalent: "a")
-        reviewMenu.addItem(withTitle: "Adopt Current AI Pick", action: #selector(adoptCurrentAIPick), keyEquivalent: "\r")
         reviewMenu.addItem(withTitle: "Previous AI Pick", action: #selector(previousAIPick), keyEquivalent: "\u{F700}")
         reviewMenu.addItem(withTitle: "Next AI Pick", action: #selector(nextAIPick), keyEquivalent: "\u{F701}")
-        reviewMenu.addItem(withTitle: "Toggle Selects Shelf", action: #selector(toggleSelectsShelf), keyEquivalent: "l")
         reviewMenu.addItem(.separator())
         reviewMenu.addItem(withTitle: "Play/Pause", action: #selector(togglePlayback), keyEquivalent: " ")
-        reviewMenu.addItem(.separator())
-        reviewMenu.addItem(withTitle: "Copy Select CSV Row", action: #selector(copySelectCSV), keyEquivalent: "c")
         reviewItem.submenu = reviewMenu
         mainMenu.addItem(reviewItem)
 
@@ -100,14 +95,6 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         model?.reload()
     }
 
-    @objc func exportCSV() {
-        model?.exportCSV()
-    }
-
-    @objc func revealExport() {
-        model?.revealExportInFinder()
-    }
-
     @objc func revealSource() {
         model?.revealSourceInFinder()
     }
@@ -124,21 +111,8 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         model?.startAIAssistedReview()
     }
 
-    @objc func adoptCurrentAIPick() {
-        model?.adoptCurrentAIPick()
-    }
-
-    @objc func toggleSelectsShelf() {
-        guard let model else { return }
-        model.showSelectsShelf.toggle()
-    }
-
     @objc func showAIPlan() {
         model?.inspectorMode = .aiPlan
-    }
-
-    @objc func copySelectCSV() {
-        model?.copySelectedSelectCSV()
     }
 
     @objc func togglePlayback() {

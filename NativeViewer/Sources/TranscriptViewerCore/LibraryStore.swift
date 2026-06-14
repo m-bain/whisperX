@@ -21,8 +21,6 @@ public enum LibraryStoreError: LocalizedError {
 }
 
 public struct LibraryStore: Sendable {
-    public static let selectsFilename = "native-selects.json"
-    public static let exportFilename = "selects.csv"
     public static let clipMomentsFilename = "clip_moments.csv"
 
     private static let analysisFiles: [(filename: String, fallbackTitle: String)] = [
@@ -40,67 +38,15 @@ public struct LibraryStore: Sendable {
     public func load(libraryURL: URL) throws -> LibrarySnapshot {
         let libraryURL = libraryURL.standardizedFileURL
         let filesAndSegments = try loadFilesAndSegments(libraryURL: libraryURL)
-        let selects = try loadSelects(libraryURL: libraryURL)
         let clipMoments = try loadClipMoments(libraryURL: libraryURL, files: filesAndSegments.files)
         let analysisArtifacts = try loadAnalysisArtifacts(libraryURL: libraryURL)
         return LibrarySnapshot(
             libraryURL: libraryURL,
             files: filesAndSegments.files,
             segments: filesAndSegments.segments,
-            selects: selects,
             clipMoments: clipMoments,
             analysisArtifacts: analysisArtifacts
         )
-    }
-
-    public func save(selects: [SelectMoment], libraryURL: URL) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(selects.sorted { $0.updatedAt > $1.updatedAt })
-        try data.write(to: libraryURL.appendingPathComponent(Self.selectsFilename), options: .atomic)
-    }
-
-    public func export(selects: [SelectMoment], libraryURL: URL) throws -> URL {
-        let sorted = selects.sorted {
-            if $0.relativePath == $1.relativePath {
-                return $0.start < $1.start
-            }
-            return $0.relativePath < $1.relativePath
-        }
-        var rows = [[
-            "file",
-            "relative_file",
-            "start",
-            "end",
-            "theme",
-            "hook_strength",
-            "status",
-            "tags",
-            "speaker",
-            "text",
-            "notes",
-            "segment_id"
-        ]]
-        rows.append(contentsOf: sorted.map { select in
-            [
-                select.sourceURL.path,
-                select.relativePath,
-                String(format: "%.3f", select.start),
-                String(format: "%.3f", select.end),
-                select.theme,
-                select.hookStrength.map(String.init) ?? "",
-                select.status.rawValue,
-                select.tags.joined(separator: ","),
-                select.speaker ?? "",
-                select.text,
-                select.notes,
-                select.segmentID
-            ]
-        })
-        let url = libraryURL.appendingPathComponent(Self.exportFilename)
-        try CSV.encode(rows: rows).write(to: url, atomically: true, encoding: .utf8)
-        return url
     }
 
     private func loadFilesAndSegments(libraryURL: URL) throws -> (files: [TranscriptFile], segments: [TranscriptSegment]) {
@@ -174,16 +120,6 @@ public struct LibraryStore: Sendable {
             return $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
         }
         return (files, allSegments)
-    }
-
-    private func loadSelects(libraryURL: URL) throws -> [SelectMoment] {
-        let url = libraryURL.appendingPathComponent(Self.selectsFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return []
-        }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode([SelectMoment].self, from: Data(contentsOf: url))
     }
 
     private func loadClipMoments(libraryURL: URL, files: [TranscriptFile]) throws -> [ClipMoment] {
