@@ -68,6 +68,9 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
 
         let reviewItem = NSMenuItem()
         let reviewMenu = NSMenu(title: "Review")
+        reviewMenu.addItem(withTitle: "Start Unreviewed Review", action: #selector(startUnreviewedReview), keyEquivalent: "b")
+        reviewMenu.addItem(withTitle: "Toggle Selects Shelf", action: #selector(toggleSelectsShelf), keyEquivalent: "l")
+        reviewMenu.addItem(.separator())
         reviewMenu.addItem(withTitle: "Previous Moment", action: #selector(previousMoment), keyEquivalent: "\u{F700}")
         reviewMenu.addItem(withTitle: "Next Moment", action: #selector(nextMoment), keyEquivalent: "\u{F701}")
         reviewMenu.addItem(withTitle: "Play/Pause", action: #selector(togglePlayback), keyEquivalent: " ")
@@ -76,6 +79,8 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
         reviewMenu.addItem(withTitle: "Mark Maybe", action: #selector(markMaybe), keyEquivalent: "m")
         reviewMenu.addItem(withTitle: "Mark Weak", action: #selector(markWeak), keyEquivalent: "x")
         reviewMenu.addItem(withTitle: "Mark Unusable", action: #selector(markUnusable), keyEquivalent: "u")
+        reviewMenu.addItem(.separator())
+        reviewMenu.addItem(withTitle: "Copy Select CSV Row", action: #selector(copySelectCSV), keyEquivalent: "c")
         reviewItem.submenu = reviewMenu
         mainMenu.addItem(reviewItem)
 
@@ -112,6 +117,19 @@ final class TranscriptViewerApplication: NSObject, NSApplicationDelegate {
 
     @objc func nextMoment() {
         model?.focusNext()
+    }
+
+    @objc func startUnreviewedReview() {
+        model?.startUnreviewedReview()
+    }
+
+    @objc func toggleSelectsShelf() {
+        guard let model else { return }
+        model.showSelectsShelf.toggle()
+    }
+
+    @objc func copySelectCSV() {
+        model?.copySelectedSelectCSV()
     }
 
     @objc func previousMoment() {

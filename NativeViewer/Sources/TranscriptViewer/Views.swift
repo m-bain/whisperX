@@ -50,6 +50,12 @@ struct RootView: View {
                     Label("Reveal Export", systemImage: "folder.badge.gearshape")
                 }
                 .disabled(model.selects.isEmpty)
+                Button {
+                    model.showSelectsShelf.toggle()
+                } label: {
+                    Label("Selects Shelf", systemImage: "rectangle.bottomthird.inset.filled")
+                }
+                .disabled(model.libraryURL == nil)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -334,6 +340,10 @@ struct ReviewConsoleView: View {
             SegmentFilterBar(model: model)
             Divider()
             SegmentList(model: model)
+            if model.showSelectsShelf, !model.selects.isEmpty {
+                Divider()
+                SelectsShelfView(model: model)
+            }
         }
         .navigationTitle("Review")
     }
@@ -354,6 +364,13 @@ struct ReviewHeader: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                model.startUnreviewedReview()
+            } label: {
+                Label("Review", systemImage: "play.circle")
+            }
+            .buttonStyle(.bordered)
+            .disabled(model.unreviewedCount == 0)
             QuickMarkButton(title: "Good", systemImage: "checkmark.circle.fill", color: .green) {
                 model.mark(status: .good, hookStrength: 5, advance: model.autoAdvanceAfterMark)
             }
@@ -562,13 +579,99 @@ struct SegmentFilterBar: View {
                 set: { model.setScope($0) }
             )) {
                 ForEach(LibraryViewModel.SegmentScope.allCases) { scope in
-                    Label(scope.title, systemImage: scope.systemImage).tag(scope)
+                    Label("\(scope.title) \(model.count(for: scope))", systemImage: scope.systemImage).tag(scope)
                 }
             }
             .pickerStyle(.segmented)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+}
+
+struct SelectsShelfView: View {
+    let model: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("\(model.selects.count) Selects", systemImage: "tray.full")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    model.exportCSV()
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    model.showSelectsShelf = false
+                } label: {
+                    Label("Hide", systemImage: "chevron.down")
+                }
+                .labelStyle(.iconOnly)
+                .help("Hide selects shelf")
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(model.sortedSelects) { select in
+                        SavedSelectCard(
+                            select: select,
+                            isSelected: model.selectedSegmentID == select.segmentID,
+                            formatTime: model.formatTime
+                        ) {
+                            model.focus(select, autoplay: true)
+                        }
+                    }
+                }
+                .padding(.bottom, 2)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(height: 154)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+struct SavedSelectCard: View {
+    var select: SelectMoment
+    var isSelected: Bool
+    var formatTime: (Double) -> String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    SelectBadge(select: select)
+                    Spacer(minLength: 0)
+                    Text("\(formatTime(select.start)) - \(formatTime(select.end))")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Text(select.relativePath)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(select.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(10)
+            .frame(width: 260, height: 102, alignment: .topLeading)
+            .background(isSelected ? Color.accentColor.opacity(0.13) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.12), lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -871,6 +974,15 @@ struct InspectorFooter: View {
             Spacer()
 
             Button {
+                model.copySelectedSelectCSV()
+            } label: {
+                Label("Copy CSV", systemImage: "doc.on.doc")
+            }
+            .labelStyle(.iconOnly)
+            .help("Copy saved select as CSV row")
+            .disabled(!model.hasSelectedSelect)
+
+            Button {
                 model.saveDraft()
             } label: {
                 Label("Save", systemImage: "tray.and.arrow.down.fill")
@@ -982,6 +1094,10 @@ struct ShortcutLayer: View {
         VStack {
             Button("Play/Pause") { model.togglePlayback() }
                 .keyboardShortcut(.space, modifiers: [])
+            Button("Start Review") { model.startUnreviewedReview() }
+                .keyboardShortcut("b", modifiers: [])
+            Button("Toggle Selects") { model.showSelectsShelf.toggle() }
+                .keyboardShortcut("l", modifiers: [])
             Button("Previous") { model.focusPrevious() }
                 .keyboardShortcut(.upArrow, modifiers: [])
             Button("Next") { model.focusNext() }
@@ -996,6 +1112,8 @@ struct ShortcutLayer: View {
                 .keyboardShortcut("u", modifiers: [])
             Button("Save") { model.saveDraft() }
                 .keyboardShortcut("s", modifiers: [])
+            Button("Copy Select CSV") { model.copySelectedSelectCSV() }
+                .keyboardShortcut("c", modifiers: [])
             ForEach(1...5, id: \.self) { value in
                 Button("Hook \(value)") { model.setHookStrength(value) }
                     .keyboardShortcut(KeyEquivalent(Character("\(value)")), modifiers: [])

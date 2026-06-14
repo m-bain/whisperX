@@ -69,6 +69,7 @@ final class LibraryViewModel {
     var draftStart = ""
     var draftEnd = ""
     var autoAdvanceAfterMark = true
+    var showSelectsShelf = true
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -181,6 +182,20 @@ final class LibraryViewModel {
         }
     }
 
+    var sortedSelects: [SelectMoment] {
+        selects.sorted {
+            let lhsHook = $0.hookStrength ?? 0
+            let rhsHook = $1.hookStrength ?? 0
+            if lhsHook != rhsHook {
+                return lhsHook > rhsHook
+            }
+            if $0.relativePath == $1.relativePath {
+                return $0.start < $1.start
+            }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
     func loadLibrary(_ url: URL) async {
         isLoading = true
         defer { isLoading = false }
@@ -224,6 +239,12 @@ final class LibraryViewModel {
         choose(file: nil)
     }
 
+    func startUnreviewedReview() {
+        selectedFileID = nil
+        setScope(.unreviewed)
+        statusMessage = "Reviewing unreviewed moments"
+    }
+
     func focus(_ segment: TranscriptSegment, autoplay: Bool) {
         if selectedFileID != nil {
             selectedFileID = segment.fileID
@@ -236,6 +257,16 @@ final class LibraryViewModel {
             player.play()
         }
         loadDraft(for: segment)
+    }
+
+    func focus(_ select: SelectMoment, autoplay: Bool) {
+        if let segment = segments.first(where: { $0.id == select.segmentID }) {
+            selectedFileID = nil
+            selectedSegmentID = segment.id
+            focus(segment, autoplay: autoplay)
+        } else {
+            statusMessage = "Select source segment is no longer in this library"
+        }
     }
 
     func focusSelectedWithoutAutoplay() {
@@ -372,6 +403,14 @@ final class LibraryViewModel {
         }
     }
 
+    func copySelectedSelectCSV() {
+        guard let segment = selectedSegment, let select = select(for: segment) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(CSV.encode(rows: [csvRow(for: select)]).trimmingCharacters(in: .newlines), forType: .string)
+        statusMessage = "Copied select CSV row"
+    }
+
     func revealSourceInFinder() {
         guard let segment = selectedSegment else { return }
         NSWorkspace.shared.activateFileViewerSelecting([segment.sourceURL])
@@ -405,6 +444,23 @@ final class LibraryViewModel {
         selects.filter { $0.fileID == file.id }.count
     }
 
+    func count(for scope: SegmentScope) -> Int {
+        switch scope {
+        case .all:
+            segments.count
+        case .unreviewed:
+            unreviewedCount
+        case .selected:
+            selects.count
+        case .good:
+            selects.filter { $0.status == .good }.count
+        case .maybe:
+            selects.filter { $0.status == .maybe }.count
+        case .weak:
+            selects.filter { $0.status == .weak || $0.status == .unusable }.count
+        }
+    }
+
     func formatTime(_ seconds: Double) -> String {
         let totalMilliseconds = Int((seconds * 1000).rounded())
         let minutes = totalMilliseconds / 60_000
@@ -417,6 +473,23 @@ final class LibraryViewModel {
         guard currentPlayerURL != segment.sourceURL else { return }
         currentPlayerURL = segment.sourceURL
         player.replaceCurrentItem(with: AVPlayerItem(url: segment.sourceURL))
+    }
+
+    private func csvRow(for select: SelectMoment) -> [String] {
+        [
+            select.sourceURL.path,
+            select.relativePath,
+            String(format: "%.3f", select.start),
+            String(format: "%.3f", select.end),
+            select.theme,
+            select.hookStrength.map(String.init) ?? "",
+            select.status.rawValue,
+            select.tags.joined(separator: ","),
+            select.speaker ?? "",
+            select.text,
+            select.notes,
+            select.segmentID
+        ]
     }
 
     private func installBoundaryObserver(end: Double) {
