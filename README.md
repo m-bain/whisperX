@@ -236,6 +236,16 @@ Transcription differences from openai's whisper:
 - Diarization is far from perfect
 - Language specific wav2vec2 model is needed
 
+<h2 align="left" id="local-viewer">Local transcript selects viewer</h2>
+
+WhisperX includes a small local viewer for reviewing batch transcript exports. Point it at an `_ai_library` folder that contains a `manifest.csv` and per-file WhisperX JSON outputs:
+
+```bash
+whisperx-viewer /path/to/_ai_library
+```
+
+The viewer starts a localhost web app, indexes transcript segments into `_ai_library/viewer.sqlite`, plays source media files listed in the manifest, and exports selected moments to `_ai_library/selects.csv`.
+
 <h2 align="left" id="contribute">Contribute 🧑‍🏫</h2>
 
 If you are multilingual, a major way you can contribute to this project is to find phoneme models on huggingface (or train your own) and test them on speech for the target language. If the results look good send a pull request and some examples showing its success.
