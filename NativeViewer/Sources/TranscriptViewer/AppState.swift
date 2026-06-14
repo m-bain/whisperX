@@ -1,0 +1,426 @@
+import AVFoundation
+import Foundation
+import Observation
+import TranscriptViewerCore
+
+@MainActor
+@Observable
+final class LibraryViewModel {
+    enum SegmentScope: String, CaseIterable, Identifiable {
+        case all
+        case unreviewed
+        case selected
+        case good
+        case maybe
+        case weak
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: "All"
+            case .unreviewed: "Unreviewed"
+            case .selected: "Selected"
+            case .good: "Good"
+            case .maybe: "Maybe"
+            case .weak: "Weak"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .all: "text.line.first.and.arrowtriangle.forward"
+            case .unreviewed: "circle.dotted"
+            case .selected: "pin"
+            case .good: "checkmark.circle"
+            case .maybe: "questionmark.circle"
+            case .weak: "xmark.circle"
+            }
+        }
+    }
+
+    @ObservationIgnored private let store = LibraryStore()
+    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored var player = AVPlayer()
+    @ObservationIgnored private var currentPlayerURL: URL?
+    @ObservationIgnored private let lastLibraryKey = "TranscriptViewer.lastLibraryPath"
+    @ObservationIgnored private let recentLibrariesKey = "TranscriptViewer.recentLibraries"
+
+    var libraryURL: URL?
+    var recentLibraries: [String] = []
+    var files: [TranscriptFile] = []
+    var segments: [TranscriptSegment] = []
+    var selects: [SelectMoment] = []
+    var selectedFileID: String?
+    var selectedSegmentID: String?
+    var fileSearchText = ""
+    var searchText = ""
+    var segmentScope: SegmentScope = .all
+    var isLoading = false
+    var statusMessage = "Open a WhisperX _ai_library folder."
+
+    var draftStatus: SelectStatus = .selected
+    var draftHookStrength: Int = 3
+    var draftTheme = ""
+    var draftTags = ""
+    var draftNotes = ""
+    var draftStart = ""
+    var draftEnd = ""
+
+    init(initialPath: String?) {
+        recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
+        if let initialPath, !initialPath.isEmpty {
+            Task { await loadLibrary(URL(fileURLWithPath: initialPath)) }
+        } else if let lastPath = defaults.string(forKey: lastLibraryKey), !lastPath.isEmpty {
+            Task { await loadLibrary(URL(fileURLWithPath: lastPath)) }
+        }
+    }
+
+    var selectedFile: TranscriptFile? {
+        guard let selectedFileID else { return nil }
+        return files.first { $0.id == selectedFileID }
+    }
+
+    var selectedSegment: TranscriptSegment? {
+        guard let selectedSegmentID else { return filteredSegments.first }
+        return segments.first { $0.id == selectedSegmentID }
+    }
+
+    var filteredFiles: [TranscriptFile] {
+        let query = fileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return files }
+        return files.filter {
+            $0.relativePath.localizedCaseInsensitiveContains(query)
+                || $0.status.localizedCaseInsensitiveContains(query)
+                || ($0.language?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+    }
+
+    var doneFileCount: Int {
+        files.filter { $0.status == "done" }.count
+    }
+
+    var pendingFileCount: Int {
+        files.filter { $0.status == "pending" }.count
+    }
+
+    var reviewedCount: Int {
+        selects.count
+    }
+
+    var unreviewedCount: Int {
+        max(segments.count - selects.count, 0)
+    }
+
+    var progressFraction: Double {
+        guard !segments.isEmpty else { return 0 }
+        return min(Double(reviewedCount) / Double(segments.count), 1)
+    }
+
+    var selectedSegmentIndex: Int? {
+        guard let selectedSegmentID else { return nil }
+        return filteredSegments.firstIndex { $0.id == selectedSegmentID }
+    }
+
+    var reviewPositionText: String {
+        guard let selectedSegmentIndex else { return "\(filteredSegments.count) moments" }
+        return "\(selectedSegmentIndex + 1) of \(filteredSegments.count)"
+    }
+
+    var selectedDurationText: String {
+        guard let selectedSegment else { return "No segment selected" }
+        return "\(formatTime(selectedSegment.start)) - \(formatTime(selectedSegment.end))"
+    }
+
+    var filteredSegments: [TranscriptSegment] {
+        let byFile: [TranscriptSegment]
+        if let selectedFileID {
+            byFile = segments.filter { $0.fileID == selectedFileID }
+        } else {
+            byFile = segments
+        }
+
+        let byScope = byFile.filter { segment in
+            switch segmentScope {
+            case .all:
+                true
+            case .unreviewed:
+                select(for: segment) == nil
+            case .selected:
+                select(for: segment) != nil
+            case .good:
+                select(for: segment)?.status == .good
+            case .maybe:
+                select(for: segment)?.status == .maybe
+            case .weak:
+                {
+                    guard let status = select(for: segment)?.status else { return false }
+                    return status == .weak || status == .unusable
+                }()
+            }
+        }
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return byScope }
+        return byScope.filter { segment in
+            segment.text.localizedCaseInsensitiveContains(query)
+                || segment.relativePath.localizedCaseInsensitiveContains(query)
+                || (segment.speaker?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+    }
+
+    func loadLibrary(_ url: URL) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let snapshot = try store.load(libraryURL: url)
+            libraryURL = snapshot.libraryURL
+            files = snapshot.files
+            segments = snapshot.segments
+            selects = snapshot.selects
+            selectedFileID = files.first(where: { $0.segmentCount > 0 })?.id ?? files.first?.id
+            selectedSegmentID = filteredSegments.first?.id
+            statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(selects.count) selects"
+            rememberLibrary(snapshot.libraryURL)
+            if let segment = selectedSegment {
+                focus(segment, autoplay: false)
+            } else {
+                clearDraft()
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+            clearLibrary()
+        }
+    }
+
+    func reload() {
+        guard let libraryURL else { return }
+        Task { await loadLibrary(libraryURL) }
+    }
+
+    func choose(file: TranscriptFile?) {
+        selectedFileID = file?.id
+        selectedSegmentID = filteredSegments.first?.id
+        if let segment = selectedSegment {
+            focus(segment, autoplay: false)
+        } else {
+            clearDraft()
+        }
+    }
+
+    func clearFileSelection() {
+        choose(file: nil)
+    }
+
+    func focus(_ segment: TranscriptSegment, autoplay: Bool) {
+        if selectedFileID != nil {
+            selectedFileID = segment.fileID
+        }
+        selectedSegmentID = segment.id
+        preparePlayer(for: segment)
+        player.seek(to: CMTime(seconds: segment.start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        if autoplay {
+            player.play()
+        }
+        loadDraft(for: segment)
+    }
+
+    func focusSelectedWithoutAutoplay() {
+        guard let segment = selectedSegment else { return }
+        focus(segment, autoplay: false)
+    }
+
+    func focusNext(autoplay: Bool = true) {
+        moveSelection(offset: 1, autoplay: autoplay)
+    }
+
+    func focusPrevious(autoplay: Bool = true) {
+        moveSelection(offset: -1, autoplay: autoplay)
+    }
+
+    func moveSelection(offset: Int, autoplay: Bool) {
+        guard !filteredSegments.isEmpty else { return }
+        let currentIndex = selectedSegmentIndex ?? 0
+        let nextIndex = min(max(currentIndex + offset, 0), filteredSegments.count - 1)
+        focus(filteredSegments[nextIndex], autoplay: autoplay)
+    }
+
+    func setScope(_ scope: SegmentScope) {
+        segmentScope = scope
+        if let selectedSegmentID, filteredSegments.contains(where: { $0.id == selectedSegmentID }) {
+            focusSelectedWithoutAutoplay()
+        } else {
+            selectedSegmentID = filteredSegments.first?.id
+            focusSelectedWithoutAutoplay()
+        }
+    }
+
+    func nudgePlayback(seconds: Double) {
+        let next = max(0, player.currentTime().seconds + seconds)
+        player.seek(to: CMTime(seconds: next, preferredTimescale: 600))
+    }
+
+    func togglePlayback() {
+        if player.timeControlStatus == .playing {
+            player.pause()
+        } else {
+            player.play()
+        }
+    }
+
+    func mark(status: SelectStatus, hookStrength: Int? = nil, advance: Bool = false) {
+        draftStatus = status
+        if let hookStrength {
+            draftHookStrength = hookStrength
+        }
+        saveDraft()
+        if advance {
+            focusNext(autoplay: true)
+        }
+    }
+
+    func setHookStrength(_ value: Int) {
+        draftHookStrength = min(max(value, 1), 5)
+        if selectedSegment != nil {
+            saveDraft()
+        }
+    }
+
+    func saveDraft(status overrideStatus: SelectStatus? = nil, hookStrength overrideHook: Int? = nil) {
+        guard let libraryURL, let segment = selectedSegment else { return }
+        let existing = select(for: segment)
+        let now = Date()
+        let start = Double(draftStart) ?? segment.start
+        let end = max(start, Double(draftEnd) ?? segment.end)
+        let tags = draftTags
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let moment = SelectMoment(
+            id: existing?.id ?? "select::\(segment.id)",
+            segmentID: segment.id,
+            fileID: segment.fileID,
+            sourceURL: segment.sourceURL,
+            relativePath: segment.relativePath,
+            start: start,
+            end: end,
+            speaker: segment.speaker,
+            text: segment.text,
+            status: overrideStatus ?? draftStatus,
+            hookStrength: overrideHook ?? draftHookStrength,
+            theme: draftTheme,
+            tags: tags,
+            notes: draftNotes,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now
+        )
+        if let index = selects.firstIndex(where: { $0.segmentID == segment.id }) {
+            selects[index] = moment
+        } else {
+            selects.append(moment)
+        }
+        do {
+            try store.save(selects: selects, libraryURL: libraryURL)
+            loadDraft(for: segment)
+            statusMessage = "Saved \(moment.status.title.lowercased()) select at \(formatTime(moment.start))"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func deleteSelectedSelect() {
+        guard let libraryURL, let segment = selectedSegment else { return }
+        selects.removeAll { $0.segmentID == segment.id }
+        do {
+            try store.save(selects: selects, libraryURL: libraryURL)
+            loadDraft(for: segment)
+            statusMessage = "Removed select"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func exportCSV() {
+        guard let libraryURL else { return }
+        do {
+            let url = try store.export(selects: selects, libraryURL: libraryURL)
+            statusMessage = "Exported \(selects.count) selects to \(url.lastPathComponent)"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func select(for segment: TranscriptSegment) -> SelectMoment? {
+        selects.first { $0.segmentID == segment.id }
+    }
+
+    func selectCount(for file: TranscriptFile) -> Int {
+        selects.filter { $0.fileID == file.id }.count
+    }
+
+    func formatTime(_ seconds: Double) -> String {
+        let totalMilliseconds = Int((seconds * 1000).rounded())
+        let minutes = totalMilliseconds / 60_000
+        let seconds = (totalMilliseconds % 60_000) / 1000
+        let tenths = (totalMilliseconds % 1000) / 100
+        return "\(minutes):\(String(format: "%02d", seconds)).\(tenths)"
+    }
+
+    private func preparePlayer(for segment: TranscriptSegment) {
+        guard currentPlayerURL != segment.sourceURL else { return }
+        currentPlayerURL = segment.sourceURL
+        player.replaceCurrentItem(with: AVPlayerItem(url: segment.sourceURL))
+    }
+
+    private func loadDraft(for segment: TranscriptSegment) {
+        if let select = select(for: segment) {
+            draftStatus = select.status
+            draftHookStrength = select.hookStrength ?? 3
+            draftTheme = select.theme
+            draftTags = select.tags.joined(separator: ", ")
+            draftNotes = select.notes
+            draftStart = String(format: "%.3f", select.start)
+            draftEnd = String(format: "%.3f", select.end)
+        } else {
+            draftStatus = .selected
+            draftHookStrength = 3
+            draftTheme = ""
+            draftTags = ""
+            draftNotes = ""
+            draftStart = String(format: "%.3f", segment.start)
+            draftEnd = String(format: "%.3f", segment.end)
+        }
+    }
+
+    private func clearDraft() {
+        draftStatus = .selected
+        draftHookStrength = 3
+        draftTheme = ""
+        draftTags = ""
+        draftNotes = ""
+        draftStart = ""
+        draftEnd = ""
+    }
+
+    private func rememberLibrary(_ url: URL) {
+        let path = url.path
+        defaults.set(path, forKey: lastLibraryKey)
+        recentLibraries.removeAll { $0 == path }
+        recentLibraries.insert(path, at: 0)
+        recentLibraries = Array(recentLibraries.prefix(6))
+        defaults.set(recentLibraries, forKey: recentLibrariesKey)
+    }
+
+    private func clearLibrary() {
+        libraryURL = nil
+        files = []
+        segments = []
+        selects = []
+        selectedFileID = nil
+        selectedSegmentID = nil
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        currentPlayerURL = nil
+        clearDraft()
+    }
+}
