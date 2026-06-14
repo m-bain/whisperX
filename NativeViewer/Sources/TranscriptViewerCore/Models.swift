@@ -42,6 +42,7 @@ public struct ClipMoment: Identifiable, Hashable, Codable, Sendable {
     public var end: Double
     public var theme: String
     public var hookStrength: String
+    public var quality: String
     public var speaker: String?
     public var text: String
 
@@ -53,6 +54,7 @@ public struct ClipMoment: Identifiable, Hashable, Codable, Sendable {
         end: Double,
         theme: String,
         hookStrength: String,
+        quality: String,
         speaker: String?,
         text: String
     ) {
@@ -63,6 +65,7 @@ public struct ClipMoment: Identifiable, Hashable, Codable, Sendable {
         self.end = end
         self.theme = theme
         self.hookStrength = hookStrength
+        self.quality = quality
         self.speaker = speaker
         self.text = text
     }

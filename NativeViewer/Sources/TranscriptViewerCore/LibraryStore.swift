@@ -147,6 +147,7 @@ public struct LibraryStore: Sendable {
             }
             let theme = values["theme"] ?? ""
             let hookStrength = values["hook_strength"] ?? ""
+            let quality = values["quality"] ?? ""
             let speaker = nonEmpty(values["speaker"])
             let body = values["text"] ?? ""
             return ClipMoment(
@@ -157,6 +158,7 @@ public struct LibraryStore: Sendable {
                 end: max(start, end),
                 theme: theme,
                 hookStrength: hookStrength,
+                quality: quality,
                 speaker: speaker,
                 text: body
             )

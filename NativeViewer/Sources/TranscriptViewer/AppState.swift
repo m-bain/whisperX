@@ -7,6 +7,9 @@ import TranscriptViewerCore
 @MainActor
 @Observable
 final class LibraryViewModel {
+    private static let allThemesFilter = "All Themes"
+    private static let allQualitiesFilter = "All Qualities"
+
     enum SegmentScope: String, CaseIterable, Identifiable {
         case all
         case aiPicks
@@ -74,7 +77,8 @@ final class LibraryViewModel {
     var statusMessage = "Open a WhisperX _ai_library folder."
 
     var clipSearchText = ""
-    var clipThemeFilter = "All Themes"
+    var clipThemeFilter = allThemesFilter
+    var clipQualityFilter = allQualitiesFilter
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -197,7 +201,14 @@ final class LibraryViewModel {
 
     var clipThemes: [String] {
         let themes = Set(clipMoments.map(\.theme).filter { !$0.isEmpty })
-        return ["All Themes"] + themes.sorted {
+        return [Self.allThemesFilter] + themes.sorted {
+            $0.localizedStandardCompare($1) == .orderedAscending
+        }
+    }
+
+    var clipQualities: [String] {
+        let qualities = Set(clipMoments.map(\.quality).filter { !$0.isEmpty })
+        return [Self.allQualitiesFilter] + qualities.sorted {
             $0.localizedStandardCompare($1) == .orderedAscending
         }
     }
@@ -206,13 +217,15 @@ final class LibraryViewModel {
         let query = clipSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         return clipMoments
             .filter { moment in
-                let matchesTheme = clipThemeFilter == "All Themes" || moment.theme == clipThemeFilter
+                let matchesTheme = clipThemeFilter == Self.allThemesFilter || moment.theme == clipThemeFilter
+                let matchesQuality = clipQualityFilter == Self.allQualitiesFilter || moment.quality == clipQualityFilter
                 let matchesQuery = query.isEmpty
                     || moment.text.localizedCaseInsensitiveContains(query)
                     || moment.relativePath.localizedCaseInsensitiveContains(query)
                     || moment.theme.localizedCaseInsensitiveContains(query)
+                    || moment.quality.localizedCaseInsensitiveContains(query)
                     || (moment.speaker?.localizedCaseInsensitiveContains(query) ?? false)
-                return matchesTheme && matchesQuery
+                return matchesTheme && matchesQuality && matchesQuery
             }
             .sorted { lhs, rhs in
                 let lhsRank = hookRank(lhs.hookStrength)
@@ -252,7 +265,10 @@ final class LibraryViewModel {
             analysisArtifacts = snapshot.analysisArtifacts
             selectedAnalysisArtifactID = analysisArtifacts.first?.id
             if !clipThemes.contains(clipThemeFilter) {
-                clipThemeFilter = "All Themes"
+                clipThemeFilter = Self.allThemesFilter
+            }
+            if !clipQualities.contains(clipQualityFilter) {
+                clipQualityFilter = Self.allQualitiesFilter
             }
             statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(clipMoments.count) AI picks"
             rememberLibrary(snapshot.libraryURL)

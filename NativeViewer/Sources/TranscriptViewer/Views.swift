@@ -760,6 +760,12 @@ struct AIPicksPanel: View {
                         Text(theme).tag(theme)
                     }
                 }
+
+                Picker("Quality", selection: Binding(get: { model.clipQualityFilter }, set: { model.clipQualityFilter = $0 })) {
+                    ForEach(model.clipQualities, id: \.self) { quality in
+                        Text(quality).tag(quality)
+                    }
+                }
             }
 
             if model.filteredClipMoments.isEmpty {
@@ -794,6 +800,9 @@ struct ClipMomentCard: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
                 HookBadge(rank: hookRank, label: clipMoment.hookStrength)
+                if !clipMoment.quality.isEmpty {
+                    QualityBadge(label: clipMoment.quality)
+                }
                 Text("\(formatTime(clipMoment.start)) - \(formatTime(clipMoment.end))")
                     .font(.caption)
                     .monospacedDigit()
@@ -826,6 +835,37 @@ struct ClipMomentCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+struct QualityBadge: View {
+    var label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark.seal.fill")
+            Text(label.capitalized)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.12), in: Capsule())
+    }
+
+    private var color: Color {
+        switch label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "excellent", "great", "high", "a":
+            .green
+        case "good", "medium", "b":
+            .blue
+        case "weak", "low", "c":
+            .orange
+        case "bad", "poor", "d":
+            .red
+        default:
+            .secondary
         }
     }
 }
@@ -920,6 +960,9 @@ struct AIMatchesPanel: View {
                     HStack(alignment: .top, spacing: 9) {
                         HookBadge(rank: model.hookRank(clipMoment.hookStrength), label: clipMoment.hookStrength)
                         VStack(alignment: .leading, spacing: 4) {
+                            if !clipMoment.quality.isEmpty {
+                                QualityBadge(label: clipMoment.quality)
+                            }
                             Text(clipMoment.theme.isEmpty ? "Untitled theme" : clipMoment.theme)
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
