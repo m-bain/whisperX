@@ -63,6 +63,33 @@ final class LibraryViewModel {
         var id: String { rawValue }
     }
 
+    enum SidebarTab: String, CaseIterable, Identifiable {
+        case overview
+        case files
+        case people
+        case tags
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .overview: "Overview"
+            case .files: "Files"
+            case .people: "People"
+            case .tags: "Tags"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .overview: "rectangle.grid.2x2"
+            case .files: "film.stack"
+            case .people: "person.2"
+            case .tags: "tag"
+            }
+        }
+    }
+
     struct TagSummary: Identifiable, Hashable {
         var id: String
         var label: String
@@ -98,6 +125,8 @@ final class LibraryViewModel {
     var segmentScope: SegmentScope = .all
     var inspectorMode: InspectorMode = .moment
     var libraryMode: LibraryMode = .review
+    var sidebarTab: SidebarTab = .overview
+    var isSidebarCollapsed = false
     var isLoading = false
     var isScanningPeople = false
     var statusMessage = "Open a WhisperX _ai_library folder."
@@ -428,6 +457,7 @@ final class LibraryViewModel {
 
     func choose(file: TranscriptFile?) {
         libraryMode = .review
+        sidebarTab = .files
         selectedPersonID = nil
         resetPersonDrafts()
         selectedFileID = file?.id
@@ -446,6 +476,7 @@ final class LibraryViewModel {
 
     func choose(person: PersonProfile?) {
         libraryMode = .review
+        sidebarTab = .people
         selectedTagFilter = nil
         selectedPersonID = person?.id
         selectedFileID = nil
@@ -468,6 +499,7 @@ final class LibraryViewModel {
 
     func showTagCloud() {
         libraryMode = .tags
+        sidebarTab = .tags
         selectedFileID = nil
         selectedPersonID = nil
         resetPersonDrafts()
@@ -476,6 +508,7 @@ final class LibraryViewModel {
 
     func selectTag(_ tag: TagSummary) {
         libraryMode = .tags
+        sidebarTab = .tags
         selectedTagFilter = tag.label
         fileSearchText = ""
         searchText = ""
@@ -828,6 +861,7 @@ final class LibraryViewModel {
         selectedTagFilter = nil
         tagSearchText = ""
         libraryMode = .review
+        sidebarTab = .overview
         resetPersonDrafts()
         player.pause()
         if let boundaryObserver {
