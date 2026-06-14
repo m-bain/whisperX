@@ -22,6 +22,7 @@ public enum LibraryStoreError: LocalizedError {
 
 public struct LibraryStore: Sendable {
     public static let clipMomentsFilename = "clip_moments.csv"
+    public static let clipTagsFilename = "clip_tags.csv"
     public static let peopleIndexFilename = "people_index.csv"
     public static let peopleTagsFilename = "people_tags.csv"
 
@@ -41,6 +42,7 @@ public struct LibraryStore: Sendable {
         let libraryURL = libraryURL.standardizedFileURL
         let filesAndSegments = try loadFilesAndSegments(libraryURL: libraryURL)
         let clipMoments = try loadClipMoments(libraryURL: libraryURL, files: filesAndSegments.files)
+        let clipTags = try loadClipTags(libraryURL: libraryURL)
         let analysisArtifacts = try loadAnalysisArtifacts(libraryURL: libraryURL)
         let people = try loadPeople(libraryURL: libraryURL, files: filesAndSegments.files)
         return LibrarySnapshot(
@@ -48,6 +50,7 @@ public struct LibraryStore: Sendable {
             files: filesAndSegments.files,
             segments: filesAndSegments.segments,
             clipMoments: clipMoments,
+            clipTags: clipTags,
             analysisArtifacts: analysisArtifacts,
             people: people
         )
@@ -232,6 +235,38 @@ public struct LibraryStore: Sendable {
         }
     }
 
+    private func loadClipTags(libraryURL: URL) throws -> [ClipTag] {
+        let url = libraryURL.appendingPathComponent(Self.clipTagsFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let rows = CSV.parse(text).filter { !$0.allSatisfy(\.isEmpty) }
+        guard let header = rows.first else { return [] }
+        return rows.dropFirst().compactMap { row in
+            let values = Dictionary(uniqueKeysWithValues: header.enumerated().map { index, column in
+                (column, index < row.count ? row[index] : "")
+            })
+            guard let relativePath = nonEmpty(values["relative_file"] ?? values["file"]) else {
+                return nil
+            }
+            let allTags = parseSemicolonTags(values["tags"])
+            return ClipTag(
+                id: stableID(relativePath),
+                relativePath: relativePath,
+                locationTags: parseSemicolonTags(values["location_tags"]),
+                spokenLanguageTags: parseSemicolonTags(values["spoken_language_tags"]),
+                themeTags: parseSemicolonTags(values["theme_tags"]),
+                entityTags: parseSemicolonTags(values["entity_tags"]),
+                interviewLanguageTags: parseSemicolonTags(values["interview_language_tags"]),
+                qualityTags: parseSemicolonTags(values["quality_tags"]),
+                tags: allTags.isEmpty ? parseSemicolonTags(values["entity_tags"]) : allTags
+            )
+        }
+        .sorted { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
+    }
+
     private func loadAnalysisArtifacts(libraryURL: URL) throws -> [AnalysisArtifact] {
         try Self.analysisFiles.compactMap { artifact in
             let url = libraryURL.appendingPathComponent(artifact.filename)
@@ -400,6 +435,13 @@ public struct LibraryStore: Sendable {
             return nil
         }
         return trimmed
+    }
+
+    private func parseSemicolonTags(_ value: String?) -> [String] {
+        (value ?? "")
+            .split(separator: ";")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func tagValue(for column: String, person: PersonProfile) -> String {

@@ -22,6 +22,15 @@ struct LibraryStoreTests {
         #expect(snapshot.clipMoments.first?.theme == "AI lacks taste")
         #expect(snapshot.clipMoments.first?.quality == "good")
         #expect(snapshot.clipMoments.first?.sourceURL == mediaURL(in: fixture))
+        #expect(snapshot.clipTags.count == 1)
+        #expect(snapshot.clipTags.first?.relativePath == "Day 1/C0001.MP4")
+        #expect(snapshot.clipTags.first?.locationTags == ["Hangzhou", "Zhejiang University"])
+        #expect(snapshot.clipTags.first?.spokenLanguageTags == ["Chinese"])
+        #expect(snapshot.clipTags.first?.themeTags == ["Education and learning", "Everyday utility"])
+        #expect(snapshot.clipTags.first?.entityTags == ["Codex", "DeepSeek"])
+        #expect(snapshot.clipTags.first?.interviewLanguageTags == ["Computer-Using AI"])
+        #expect(snapshot.clipTags.first?.qualityTags == ["very_short"])
+        #expect(snapshot.clipTags.first?.tags.contains("Codex") == true)
         #expect(snapshot.people.count == 1)
         #expect(snapshot.people.first?.title == "Host")
         #expect(snapshot.people.first?.tags == ["host", "decision maker"])
@@ -129,6 +138,41 @@ private struct Fixture {
         ]
         try CSV.encode(rows: clipMomentRows)
             .write(to: libraryURL.appendingPathComponent("clip_moments.csv"), atomically: true, encoding: .utf8)
+
+        let clipTagRows = [
+            [
+                "file",
+                "relative_file",
+                "json",
+                "status",
+                "segment_count",
+                "location_tags",
+                "spoken_language_tags",
+                "theme_tags",
+                "entity_tags",
+                "interview_language_tags",
+                "quality_tags",
+                "tags",
+                "text_excerpt"
+            ],
+            [
+                mediaURL.path,
+                "Day 1/C0001.MP4",
+                transcriptURL.path,
+                "done",
+                "2",
+                "Hangzhou;Zhejiang University",
+                "Chinese",
+                "Education and learning;Everyday utility",
+                "Codex;DeepSeek",
+                "Computer-Using AI",
+                "very_short",
+                "Hangzhou;Zhejiang University;Chinese;Education and learning;Everyday utility;Codex;DeepSeek;Computer-Using AI;very_short",
+                "AI 可以帮我做基础工作"
+            ]
+        ]
+        try CSV.encode(rows: clipTagRows)
+            .write(to: libraryURL.appendingPathComponent("clip_tags.csv"), atomically: true, encoding: .utf8)
 
         let peopleRows = [
             [

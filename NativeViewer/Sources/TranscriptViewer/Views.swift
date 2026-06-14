@@ -198,7 +198,11 @@ struct SidebarView: View {
                 }
                 Section("Files") {
                     ForEach(model.filteredFiles) { file in
-                        FileRow(file: file, isSelected: model.selectedFileID == file.id) {
+                        FileRow(
+                            file: file,
+                            clipTag: model.clipTags(for: file.relativePath),
+                            isSelected: model.selectedFileID == file.id
+                        ) {
                             model.choose(file: file)
                         }
                     }
@@ -347,6 +351,7 @@ struct QueueRow: View {
 
 struct FileRow: View {
     var file: TranscriptFile
+    var clipTag: ClipTag?
     var isSelected: Bool
     var action: () -> Void
 
@@ -366,6 +371,12 @@ struct FileRow: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    if let clipTag, !clipTag.displayTags.isEmpty {
+                        Text(clipTag.displayTags.prefix(4).joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -621,7 +632,7 @@ struct SegmentFilterBar: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search transcript, speaker, file", text: Binding(
+                TextField("Search transcript, speaker, file, tags", text: Binding(
                     get: { model.searchText },
                     set: { model.searchText = $0 }
                 ))
@@ -910,6 +921,7 @@ struct MomentInspectorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     InspectorSummary(segment: segment, model: model)
+                    ClipTagsPanel(clipTag: model.selectedClipTags)
                     AIMatchesPanel(model: model, segment: segment)
                     AIRecommendationPanel(model: model)
                     TranscriptPanel(segment: segment)
@@ -943,6 +955,9 @@ struct AIRecommendationPanel: View {
                 if !pick.theme.isEmpty {
                     Text(pick.theme)
                         .font(.callout.weight(.semibold))
+                }
+                if let clipTag = model.clipTags(for: pick.relativePath) {
+                    ClipTagSummary(clipTag: clipTag, limit: 8)
                 }
                 Text(pick.text)
                     .font(.callout)
@@ -982,7 +997,7 @@ struct AIPlanSummary: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 MetricTile(value: "\(model.clipMoments.count)", label: "ranked picks")
                 MetricTile(value: "\(model.highPriorityClipMomentCount)", label: "high hook")
-                MetricTile(value: "\(model.analysisArtifacts.count)", label: "notes")
+                MetricTile(value: "\(model.clipTags.count)", label: "tagged clips")
                 MetricTile(value: "\(model.clipThemes.count - 1)", label: "themes")
             }
         }
@@ -1004,7 +1019,7 @@ struct AIPicksPanel: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                    TextField("Search AI picks", text: Binding(get: { model.clipSearchText }, set: { model.clipSearchText = $0 }))
+                    TextField("Search AI picks and tags", text: Binding(get: { model.clipSearchText }, set: { model.clipSearchText = $0 }))
                         .textFieldStyle(.plain)
                     if !model.clipSearchText.isEmpty {
                         Button {
@@ -1042,6 +1057,7 @@ struct AIPicksPanel: View {
                         ClipMomentCard(
                             clipMoment: clipMoment,
                             isSelected: model.selectedClipMomentID == clipMoment.id,
+                            clipTag: model.clipTags(for: clipMoment.relativePath),
                             hookRank: model.hookRank(clipMoment.hookStrength),
                             formatTime: model.formatTime,
                             play: { model.focus(clipMoment, autoplay: true) }
@@ -1057,6 +1073,7 @@ struct AIPicksPanel: View {
 struct ClipMomentCard: View {
     var clipMoment: ClipMoment
     var isSelected: Bool
+    var clipTag: ClipTag?
     var hookRank: Int
     var formatTime: (Double) -> String
     var play: () -> Void
@@ -1088,6 +1105,9 @@ struct ClipMomentCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+            if let clipTag {
+                ClipTagSummary(clipTag: clipTag, limit: 6)
             }
             Text(clipMoment.text.isEmpty ? "No transcript text" : clipMoment.text)
                 .font(.callout)
@@ -1244,6 +1264,80 @@ struct AIMatchesPanel: View {
     }
 }
 
+struct ClipTagsPanel: View {
+    var clipTag: ClipTag?
+
+    var body: some View {
+        if let clipTag {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Clip Tags", systemImage: "tag")
+                    .font(.headline)
+                TagGroup(title: "Location", tags: clipTag.locationTags)
+                TagGroup(title: "Language", tags: clipTag.spokenLanguageTags)
+                TagGroup(title: "Entities", tags: clipTag.entityTags)
+                TagGroup(title: "Themes", tags: clipTag.themeTags)
+                TagGroup(title: "Interview language", tags: clipTag.interviewLanguageTags)
+                TagGroup(title: "Quality", tags: clipTag.qualityTags)
+            }
+            .panelStyle()
+        }
+    }
+}
+
+struct TagGroup: View {
+    var title: String
+    var tags: [String]
+
+    var body: some View {
+        if !tags.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TagCloud(tags: tags)
+            }
+        }
+    }
+}
+
+struct ClipTagSummary: View {
+    var clipTag: ClipTag
+    var limit: Int
+
+    var body: some View {
+        let tags = Array(clipTag.displayTags.prefix(limit))
+        if !tags.isEmpty {
+            TagCloud(tags: tags)
+        }
+    }
+}
+
+struct TagCloud: View {
+    var tags: [String]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 6)], alignment: .leading, spacing: 6) {
+            ForEach(tags, id: \.self) { tag in
+                TagChip(label: tag)
+            }
+        }
+    }
+}
+
+struct TagChip: View {
+    var label: String
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(.secondary)
+            .background(Color.secondary.opacity(0.11), in: Capsule())
+    }
+}
+
 struct InspectorSummary: View {
     var segment: TranscriptSegment
     let model: LibraryViewModel
@@ -1350,6 +1444,7 @@ struct StatusBar: View {
             Text("\(model.files.count) files")
             Text("\(model.segments.count) moments")
             Text("\(model.clipMoments.count) AI picks")
+            Text("\(model.clipTags.count) tagged")
             Text("\(model.people.count) people")
         }
         .font(.caption)
@@ -1398,5 +1493,25 @@ private struct PanelStyle: ViewModifier {
 private extension View {
     func panelStyle() -> some View {
         modifier(PanelStyle())
+    }
+}
+
+private extension ClipTag {
+    var displayTags: [String] {
+        var values: [String] = []
+        appendUnique(locationTags, to: &values)
+        appendUnique(entityTags, to: &values)
+        appendUnique(interviewLanguageTags, to: &values)
+        appendUnique(themeTags, to: &values)
+        appendUnique(spokenLanguageTags, to: &values)
+        appendUnique(qualityTags, to: &values)
+        appendUnique(tags, to: &values)
+        return values
+    }
+
+    private func appendUnique(_ tags: [String], to values: inout [String]) {
+        for tag in tags where !values.contains(tag) {
+            values.append(tag)
+        }
     }
 }

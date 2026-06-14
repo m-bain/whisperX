@@ -69,6 +69,7 @@ final class LibraryViewModel {
     var files: [TranscriptFile] = []
     var segments: [TranscriptSegment] = []
     var clipMoments: [ClipMoment] = []
+    var clipTags: [ClipTag] = []
     var analysisArtifacts: [AnalysisArtifact] = []
     var people: [PersonProfile] = []
     var selectedFileID: String?
@@ -119,6 +120,19 @@ final class LibraryViewModel {
         return clipMoments.first { $0.id == selectedClipMomentID }
     }
 
+    var selectedClipTags: ClipTag? {
+        if let selectedSegment {
+            return clipTags(for: selectedSegment.relativePath)
+        }
+        if let selectedClipMoment {
+            return clipTags(for: selectedClipMoment.relativePath)
+        }
+        if let selectedFile {
+            return clipTags(for: selectedFile.relativePath)
+        }
+        return nil
+    }
+
     var selectedPerson: PersonProfile? {
         guard let selectedPersonID else { return nil }
         return people.first { $0.id == selectedPersonID }
@@ -147,6 +161,7 @@ final class LibraryViewModel {
             $0.relativePath.localizedCaseInsensitiveContains(query)
                 || $0.status.localizedCaseInsensitiveContains(query)
                 || ($0.language?.localizedCaseInsensitiveContains(query) ?? false)
+                || clipTagsMatch(relativePath: $0.relativePath, query: query)
         }
     }
 
@@ -234,6 +249,7 @@ final class LibraryViewModel {
             segment.text.localizedCaseInsensitiveContains(query)
                 || segment.relativePath.localizedCaseInsensitiveContains(query)
                 || (segment.speaker?.localizedCaseInsensitiveContains(query) ?? false)
+                || clipTagsMatch(relativePath: segment.relativePath, query: query)
         }
     }
 
@@ -263,6 +279,7 @@ final class LibraryViewModel {
                     || moment.theme.localizedCaseInsensitiveContains(query)
                     || moment.quality.localizedCaseInsensitiveContains(query)
                     || (moment.speaker?.localizedCaseInsensitiveContains(query) ?? false)
+                    || clipTagsMatch(relativePath: moment.relativePath, query: query)
                 return matchesTheme && matchesQuality && matchesQuery
             }
             .sorted { lhs, rhs in
@@ -300,6 +317,7 @@ final class LibraryViewModel {
             files = snapshot.files
             segments = snapshot.segments
             clipMoments = snapshot.clipMoments
+            clipTags = snapshot.clipTags
             analysisArtifacts = snapshot.analysisArtifacts
             people = snapshot.people
             selectedAnalysisArtifactID = analysisArtifacts.first?.id
@@ -311,7 +329,7 @@ final class LibraryViewModel {
             if !clipQualities.contains(clipQualityFilter) {
                 clipQualityFilter = Self.allQualitiesFilter
             }
-            statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(clipMoments.count) AI picks, \(people.count) people"
+            statusMessage = "\(files.count) files, \(segments.count) transcript segments, \(clipMoments.count) AI picks, \(clipTags.count) tagged clips, \(people.count) people"
             rememberLibrary(snapshot.libraryURL)
             if let firstPick = filteredClipMoments.first(where: { bestSegment(for: $0) != nil }) {
                 selectedFileID = nil
@@ -535,6 +553,7 @@ final class LibraryViewModel {
                 files = snapshot.files
                 segments = snapshot.segments
                 clipMoments = snapshot.clipMoments
+                clipTags = snapshot.clipTags
                 analysisArtifacts = snapshot.analysisArtifacts
                 people = snapshot.people
                 if let selectedPersonID, !people.contains(where: { $0.id == selectedPersonID }) {
@@ -576,6 +595,10 @@ final class LibraryViewModel {
             clipMoment.relativePath == segment.relativePath && overlaps(clipMoment, segment)
         }
         .sorted { hookRank($0.hookStrength) > hookRank($1.hookStrength) }
+    }
+
+    func clipTags(for relativePath: String) -> ClipTag? {
+        clipTags.first { $0.relativePath == relativePath }
     }
 
     func hookRank(_ hookStrength: String) -> Int {
@@ -688,6 +711,7 @@ final class LibraryViewModel {
         files = []
         segments = []
         clipMoments = []
+        clipTags = []
         analysisArtifacts = []
         people = []
         selectedFileID = nil
@@ -725,5 +749,16 @@ final class LibraryViewModel {
         text.split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    private func clipTagsMatch(relativePath: String, query: String) -> Bool {
+        guard let clipTag = clipTags(for: relativePath) else { return false }
+        return clipTag.tags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.locationTags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.spokenLanguageTags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.themeTags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.entityTags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.interviewLanguageTags.contains { $0.localizedCaseInsensitiveContains(query) }
+            || clipTag.qualityTags.contains { $0.localizedCaseInsensitiveContains(query) }
     }
 }

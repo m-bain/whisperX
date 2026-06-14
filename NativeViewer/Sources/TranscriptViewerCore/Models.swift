@@ -5,6 +5,7 @@ public struct LibrarySnapshot: Equatable, Sendable {
     public var files: [TranscriptFile]
     public var segments: [TranscriptSegment]
     public var clipMoments: [ClipMoment]
+    public var clipTags: [ClipTag]
     public var analysisArtifacts: [AnalysisArtifact]
     public var people: [PersonProfile]
 
@@ -13,6 +14,7 @@ public struct LibrarySnapshot: Equatable, Sendable {
         files: [TranscriptFile],
         segments: [TranscriptSegment],
         clipMoments: [ClipMoment] = [],
+        clipTags: [ClipTag] = [],
         analysisArtifacts: [AnalysisArtifact] = [],
         people: [PersonProfile] = []
     ) {
@@ -20,6 +22,7 @@ public struct LibrarySnapshot: Equatable, Sendable {
         self.files = files
         self.segments = segments
         self.clipMoments = clipMoments
+        self.clipTags = clipTags
         self.analysisArtifacts = analysisArtifacts
         self.people = people
     }
@@ -154,6 +157,40 @@ public struct ClipMoment: Identifiable, Hashable, Codable, Sendable {
         self.quality = quality
         self.speaker = speaker
         self.text = text
+    }
+}
+
+public struct ClipTag: Identifiable, Hashable, Codable, Sendable {
+    public var id: String
+    public var relativePath: String
+    public var locationTags: [String]
+    public var spokenLanguageTags: [String]
+    public var themeTags: [String]
+    public var entityTags: [String]
+    public var interviewLanguageTags: [String]
+    public var qualityTags: [String]
+    public var tags: [String]
+
+    public init(
+        id: String,
+        relativePath: String,
+        locationTags: [String] = [],
+        spokenLanguageTags: [String] = [],
+        themeTags: [String] = [],
+        entityTags: [String] = [],
+        interviewLanguageTags: [String] = [],
+        qualityTags: [String] = [],
+        tags: [String] = []
+    ) {
+        self.id = id
+        self.relativePath = relativePath
+        self.locationTags = locationTags
+        self.spokenLanguageTags = spokenLanguageTags
+        self.themeTags = themeTags
+        self.entityTags = entityTags
+        self.interviewLanguageTags = interviewLanguageTags
+        self.qualityTags = qualityTags
+        self.tags = tags
     }
 }
 
