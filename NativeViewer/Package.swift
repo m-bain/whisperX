@@ -17,7 +17,8 @@ let package = Package(
             dependencies: ["TranscriptViewerCore"],
             linkerSettings: [
                 .linkedFramework("AVFoundation"),
-                .linkedFramework("AVKit")
+                .linkedFramework("AVKit"),
+                .linkedFramework("Vision")
             ]
         ),
         .testTarget(

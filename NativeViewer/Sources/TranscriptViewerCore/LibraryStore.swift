@@ -22,6 +22,8 @@ public enum LibraryStoreError: LocalizedError {
 
 public struct LibraryStore: Sendable {
     public static let clipMomentsFilename = "clip_moments.csv"
+    public static let peopleIndexFilename = "people_index.csv"
+    public static let peopleTagsFilename = "people_tags.csv"
 
     private static let analysisFiles: [(filename: String, fallbackTitle: String)] = [
         ("master_theme_map.md", "Master Theme Map"),
@@ -40,13 +42,78 @@ public struct LibraryStore: Sendable {
         let filesAndSegments = try loadFilesAndSegments(libraryURL: libraryURL)
         let clipMoments = try loadClipMoments(libraryURL: libraryURL, files: filesAndSegments.files)
         let analysisArtifacts = try loadAnalysisArtifacts(libraryURL: libraryURL)
+        let people = try loadPeople(libraryURL: libraryURL, files: filesAndSegments.files)
         return LibrarySnapshot(
             libraryURL: libraryURL,
             files: filesAndSegments.files,
             segments: filesAndSegments.segments,
             clipMoments: clipMoments,
-            analysisArtifacts: analysisArtifacts
+            analysisArtifacts: analysisArtifacts,
+            people: people
         )
+    }
+
+    public func replacePeopleIndex(libraryURL: URL, appearances: [PersonAppearance]) throws {
+        let rows = [
+            [
+                "person_id",
+                "appearance_id",
+                "file",
+                "file_id",
+                "timestamp",
+                "bbox_x",
+                "bbox_y",
+                "bbox_width",
+                "bbox_height",
+                "signature"
+            ]
+        ] + appearances.sorted {
+            if $0.relativePath == $1.relativePath {
+                return $0.timestamp < $1.timestamp
+            }
+            return $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+        }.map { appearance in
+            [
+                appearance.personID,
+                appearance.id,
+                appearance.relativePath,
+                appearance.fileID,
+                Self.formatNumber(appearance.timestamp),
+                Self.formatNumber(appearance.boundingBox.x),
+                Self.formatNumber(appearance.boundingBox.y),
+                Self.formatNumber(appearance.boundingBox.width),
+                Self.formatNumber(appearance.boundingBox.height),
+                appearance.signature
+            ]
+        }
+        try CSV.encode(rows: rows)
+            .write(
+                to: libraryURL.standardizedFileURL.appendingPathComponent(Self.peopleIndexFilename),
+                atomically: true,
+                encoding: .utf8
+            )
+    }
+
+    public func savePersonTags(libraryURL: URL, person: PersonProfile) throws {
+        let url = libraryURL.standardizedFileURL.appendingPathComponent(Self.peopleTagsFilename)
+        let existingRows = (try? String(contentsOf: url, encoding: .utf8))
+            .map(CSV.parse)?
+            .filter { !$0.allSatisfy(\.isEmpty) } ?? []
+        let header = existingRows.first ?? ["person_id", "display_name", "tags", "notes", "updated_at"]
+        let required = ["person_id", "display_name", "tags", "notes", "updated_at"]
+        let outputHeader = required.allSatisfy { header.contains($0) } ? header : required
+        let rows = existingRows.dropFirst().filter { row in
+            guard let personIDIndex = outputHeader.firstIndex(of: "person_id"), personIDIndex < row.count else {
+                return false
+            }
+            return row[personIDIndex] != person.id
+        }
+        let values = Dictionary(uniqueKeysWithValues: outputHeader.map { column in
+            (column, tagValue(for: column, person: person))
+        })
+        let updatedRow = outputHeader.map { values[$0] ?? "" }
+        try CSV.encode(rows: [outputHeader] + rows + [updatedRow])
+            .write(to: url, atomically: true, encoding: .utf8)
     }
 
     private func loadFilesAndSegments(libraryURL: URL) throws -> (files: [TranscriptFile], segments: [TranscriptSegment]) {
@@ -181,6 +248,96 @@ public struct LibraryStore: Sendable {
         }
     }
 
+    private func loadPeople(libraryURL: URL, files: [TranscriptFile]) throws -> [PersonProfile] {
+        let appearances = try loadPersonAppearances(libraryURL: libraryURL, files: files)
+        let tags = try loadPersonTags(libraryURL: libraryURL)
+        let knownPersonIDs = Set(appearances.map(\.personID)).union(tags.keys)
+        return knownPersonIDs.map { personID in
+            let tagged = tags[personID]
+            return PersonProfile(
+                id: personID,
+                displayName: tagged?.displayName ?? "",
+                tags: tagged?.tags ?? [],
+                notes: tagged?.notes ?? "",
+                appearances: appearances.filter { $0.personID == personID }.sorted {
+                    if $0.relativePath == $1.relativePath {
+                        return $0.timestamp < $1.timestamp
+                    }
+                    return $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+                }
+            )
+        }
+        .sorted {
+            if $0.videoCount != $1.videoCount {
+                return $0.videoCount > $1.videoCount
+            }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private func loadPersonAppearances(libraryURL: URL, files: [TranscriptFile]) throws -> [PersonAppearance] {
+        let url = libraryURL.appendingPathComponent(Self.peopleIndexFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+
+        let sourceByRelativePath = Dictionary(uniqueKeysWithValues: files.map { ($0.relativePath, $0.sourceURL) })
+        let fileIDByRelativePath = Dictionary(uniqueKeysWithValues: files.map { ($0.relativePath, $0.id) })
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let rows = CSV.parse(text).filter { !$0.allSatisfy(\.isEmpty) }
+        guard let header = rows.first else { return [] }
+        return rows.dropFirst().compactMap { row in
+            let values = Dictionary(uniqueKeysWithValues: header.enumerated().map { index, column in
+                (column, index < row.count ? row[index] : "")
+            })
+            guard
+                let personID = nonEmpty(values["person_id"]),
+                let relativePath = nonEmpty(values["file"]),
+                let timestamp = Double(values["timestamp"] ?? ""),
+                let x = Double(values["bbox_x"] ?? ""),
+                let y = Double(values["bbox_y"] ?? ""),
+                let width = Double(values["bbox_width"] ?? ""),
+                let height = Double(values["bbox_height"] ?? "")
+            else {
+                return nil
+            }
+            let fileID = nonEmpty(values["file_id"]) ?? fileIDByRelativePath[relativePath] ?? stableFileID(sourceByRelativePath[relativePath]?.path ?? relativePath)
+            let appearanceID = nonEmpty(values["appearance_id"]) ?? stableID(personID, relativePath, timestamp, x, y, width, height)
+            return PersonAppearance(
+                id: appearanceID,
+                personID: personID,
+                fileID: fileID,
+                relativePath: relativePath,
+                sourceURL: sourceByRelativePath[relativePath],
+                timestamp: timestamp,
+                boundingBox: FaceBoundingBox(x: x, y: y, width: width, height: height),
+                signature: values["signature"] ?? ""
+            )
+        }
+    }
+
+    private func loadPersonTags(libraryURL: URL) throws -> [String: (displayName: String, tags: [String], notes: String)] {
+        let url = libraryURL.appendingPathComponent(Self.peopleTagsFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return [:]
+        }
+
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let rows = CSV.parse(text).filter { !$0.allSatisfy(\.isEmpty) }
+        guard let header = rows.first else { return [:] }
+        return Dictionary(uniqueKeysWithValues: rows.dropFirst().compactMap { row in
+            let values = Dictionary(uniqueKeysWithValues: header.enumerated().map { index, column in
+                (column, index < row.count ? row[index] : "")
+            })
+            guard let personID = nonEmpty(values["person_id"]) else { return nil }
+            let tags = (values["tags"] ?? "")
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            return (personID, (values["display_name"] ?? "", tags, values["notes"] ?? ""))
+        })
+    }
+
     private func readTranscript(jsonURL: URL) throws -> WhisperXTranscript {
         do {
             let decoder = JSONDecoder()
@@ -243,6 +400,27 @@ public struct LibraryStore: Sendable {
             return nil
         }
         return trimmed
+    }
+
+    private func tagValue(for column: String, person: PersonProfile) -> String {
+        switch column {
+        case "person_id":
+            person.id
+        case "display_name":
+            person.displayName
+        case "tags":
+            person.tags.joined(separator: ", ")
+        case "notes":
+            person.notes
+        case "updated_at":
+            Self.formatNumber(Date().timeIntervalSince1970)
+        default:
+            ""
+        }
+    }
+
+    private static func formatNumber(_ value: Double) -> String {
+        String(format: "%.6f", value)
     }
 }
 

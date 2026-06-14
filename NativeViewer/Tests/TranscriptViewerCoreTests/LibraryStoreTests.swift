@@ -22,8 +22,37 @@ struct LibraryStoreTests {
         #expect(snapshot.clipMoments.first?.theme == "AI lacks taste")
         #expect(snapshot.clipMoments.first?.quality == "good")
         #expect(snapshot.clipMoments.first?.sourceURL == mediaURL(in: fixture))
+        #expect(snapshot.people.count == 1)
+        #expect(snapshot.people.first?.title == "Host")
+        #expect(snapshot.people.first?.tags == ["host", "decision maker"])
+        #expect(snapshot.people.first?.videoCount == 1)
+        #expect(snapshot.people.first?.appearances.first?.relativePath == "Day 1/C0001.MP4")
         #expect(snapshot.analysisArtifacts.map(\.filename).contains("best_50_quote_moments.md"))
         #expect(snapshot.analysisArtifacts.first(where: { $0.filename == "best_50_quote_moments.md" })?.title == "Best 50 Quote Moments")
+    }
+
+    @Test("saves editable people tags")
+    func savesPeopleTags() throws {
+        let fixture = try Fixture()
+        let store = LibraryStore()
+        let snapshot = try store.load(libraryURL: fixture.libraryURL)
+        let person = try #require(snapshot.people.first)
+
+        try store.savePersonTags(
+            libraryURL: fixture.libraryURL,
+            person: PersonProfile(
+                id: person.id,
+                displayName: "Founder",
+                tags: ["investor", "clip priority"],
+                notes: "Use for product narrative.",
+                appearances: person.appearances
+            )
+        )
+
+        let updated = try store.load(libraryURL: fixture.libraryURL).people.first
+        #expect(updated?.title == "Founder")
+        #expect(updated?.tags == ["investor", "clip priority"])
+        #expect(updated?.notes == "Use for product narrative.")
     }
 
     @Test("CSV parser handles quoted commas and escaped quotes")
@@ -100,6 +129,31 @@ private struct Fixture {
         ]
         try CSV.encode(rows: clipMomentRows)
             .write(to: libraryURL.appendingPathComponent("clip_moments.csv"), atomically: true, encoding: .utf8)
+
+        let peopleRows = [
+            [
+                "person_id",
+                "appearance_id",
+                "file",
+                "file_id",
+                "timestamp",
+                "bbox_x",
+                "bbox_y",
+                "bbox_width",
+                "bbox_height",
+                "signature"
+            ],
+            ["person_abc123", "appearance_1", "Day 1/C0001.MP4", "", "5.500", "0.2", "0.2", "0.3", "0.3", "0.1;0.2;0.3"]
+        ]
+        try CSV.encode(rows: peopleRows)
+            .write(to: libraryURL.appendingPathComponent("people_index.csv"), atomically: true, encoding: .utf8)
+
+        let peopleTagRows = [
+            ["person_id", "display_name", "tags", "notes", "updated_at"],
+            ["person_abc123", "Host", "host, decision maker", "Primary speaker", "0"]
+        ]
+        try CSV.encode(rows: peopleTagRows)
+            .write(to: libraryURL.appendingPathComponent("people_tags.csv"), atomically: true, encoding: .utf8)
 
         try """
         # Best 50 Quote Moments

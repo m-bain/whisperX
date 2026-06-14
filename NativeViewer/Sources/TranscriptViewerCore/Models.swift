@@ -6,19 +6,22 @@ public struct LibrarySnapshot: Equatable, Sendable {
     public var segments: [TranscriptSegment]
     public var clipMoments: [ClipMoment]
     public var analysisArtifacts: [AnalysisArtifact]
+    public var people: [PersonProfile]
 
     public init(
         libraryURL: URL,
         files: [TranscriptFile],
         segments: [TranscriptSegment],
         clipMoments: [ClipMoment] = [],
-        analysisArtifacts: [AnalysisArtifact] = []
+        analysisArtifacts: [AnalysisArtifact] = [],
+        people: [PersonProfile] = []
     ) {
         self.libraryURL = libraryURL
         self.files = files
         self.segments = segments
         self.clipMoments = clipMoments
         self.analysisArtifacts = analysisArtifacts
+        self.people = people
     }
 
     public var doneFileCount: Int {
@@ -31,6 +34,89 @@ public struct LibrarySnapshot: Equatable, Sendable {
 
     public func segments(for fileID: String) -> [TranscriptSegment] {
         segments.filter { $0.fileID == fileID }
+    }
+}
+
+public struct PersonProfile: Identifiable, Hashable, Codable, Sendable {
+    public var id: String
+    public var displayName: String
+    public var tags: [String]
+    public var notes: String
+    public var appearances: [PersonAppearance]
+
+    public init(
+        id: String,
+        displayName: String = "",
+        tags: [String] = [],
+        notes: String = "",
+        appearances: [PersonAppearance] = []
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.tags = tags
+        self.notes = notes
+        self.appearances = appearances
+    }
+
+    public var title: String {
+        displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Person \(id.suffix(6))" : displayName
+    }
+
+    public var videoCount: Int {
+        Set(appearances.map(\.fileID)).count
+    }
+
+    public var appearanceCount: Int {
+        appearances.count
+    }
+
+    public var fileIDs: Set<String> {
+        Set(appearances.map(\.fileID))
+    }
+}
+
+public struct PersonAppearance: Identifiable, Hashable, Codable, Sendable {
+    public var id: String
+    public var personID: String
+    public var fileID: String
+    public var relativePath: String
+    public var sourceURL: URL?
+    public var timestamp: Double
+    public var boundingBox: FaceBoundingBox
+    public var signature: String
+
+    public init(
+        id: String,
+        personID: String,
+        fileID: String,
+        relativePath: String,
+        sourceURL: URL?,
+        timestamp: Double,
+        boundingBox: FaceBoundingBox,
+        signature: String
+    ) {
+        self.id = id
+        self.personID = personID
+        self.fileID = fileID
+        self.relativePath = relativePath
+        self.sourceURL = sourceURL
+        self.timestamp = timestamp
+        self.boundingBox = boundingBox
+        self.signature = signature
+    }
+}
+
+public struct FaceBoundingBox: Hashable, Codable, Sendable {
+    public var x: Double
+    public var y: Double
+    public var width: Double
+    public var height: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
     }
 }
 
