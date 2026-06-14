@@ -1,3 +1,16 @@
+> # ⚠️ DEPRECATED FORK — retired, safe to delete
+>
+> This is **@falahat's `whisperx-typed` fork** of WhisperX (a type-aware fork
+> pinned at 3.4.5), now **retired**. Upstream
+> [m-bain/whisperX](https://github.com/m-bain/whisperX) is at 3.8.6+ and ships
+> inline type annotations; consumers get those types via `follow_untyped_imports`
+> (mypy) or `useLibraryCodeForTypes` (pyright), so this fork is no longer needed.
+> [`easy-whisperx`](https://github.com/falahat/easy-whisperx) now depends on
+> upstream `whisperx` directly. **Use upstream, not this.** Retained only until
+> @falahat deletes the repository.
+
+---
+
 <h1 align="center">WhisperX</h1>
 
 <p align="center">
