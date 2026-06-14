@@ -8,6 +8,7 @@ APP_DIR="$ROOT/.build/TranscriptViewer.app"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$ROOT/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp "$TRIPLE/TranscriptViewer" "$APP_DIR/Contents/MacOS/TranscriptViewer"
 chmod +x "$APP_DIR/Contents/MacOS/TranscriptViewer"
 codesign --force --deep --sign - "$APP_DIR" >/dev/null
