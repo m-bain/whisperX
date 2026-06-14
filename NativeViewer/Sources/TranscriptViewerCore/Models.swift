@@ -192,6 +192,24 @@ public struct ClipTag: Identifiable, Hashable, Codable, Sendable {
         self.qualityTags = qualityTags
         self.tags = tags
     }
+
+    public var displayTags: [String] {
+        var values: [String] = []
+        appendUnique(locationTags, to: &values)
+        appendUnique(entityTags, to: &values)
+        appendUnique(interviewLanguageTags, to: &values)
+        appendUnique(themeTags, to: &values)
+        appendUnique(spokenLanguageTags, to: &values)
+        appendUnique(qualityTags, to: &values)
+        appendUnique(tags, to: &values)
+        return values
+    }
+
+    private func appendUnique(_ tags: [String], to values: inout [String]) {
+        for tag in tags where !values.contains(tag) {
+            values.append(tag)
+        }
+    }
 }
 
 public struct AnalysisArtifact: Identifiable, Hashable, Codable, Sendable {

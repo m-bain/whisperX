@@ -64,6 +64,31 @@ struct LibraryStoreTests {
         #expect(updated?.notes == "Use for product narrative.")
     }
 
+    @Test("clip tags expose deduplicated display tags")
+    func clipDisplayTagsDeduplicateCategories() {
+        let clipTag = ClipTag(
+            id: "clip",
+            relativePath: "clip.mp4",
+            locationTags: ["Hangzhou"],
+            spokenLanguageTags: ["Chinese"],
+            themeTags: ["Education"],
+            entityTags: ["Codex", "Hangzhou"],
+            interviewLanguageTags: ["Computer-Using AI"],
+            qualityTags: ["very_short"],
+            tags: ["Codex", "extra"]
+        )
+
+        #expect(clipTag.displayTags == [
+            "Hangzhou",
+            "Codex",
+            "Computer-Using AI",
+            "Education",
+            "Chinese",
+            "very_short",
+            "extra"
+        ])
+    }
+
     @Test("CSV parser handles quoted commas and escaped quotes")
     func parsesQuotedCSV() {
         let rows = CSV.parse("a,b,c\none,\"two, still two\",\"quote \"\"inside\"\"\"\n")
