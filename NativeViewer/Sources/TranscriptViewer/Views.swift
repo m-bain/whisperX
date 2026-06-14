@@ -191,9 +191,16 @@ struct SidebarView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(model.filteredPeople) { person in
-                            PersonRow(person: person, isSelected: model.selectedPersonID == person.id) {
+                            PersonRow(
+                                person: person,
+                                isSelected: model.selectedPersonID == person.id,
+                                action: {
                                 model.choose(person: person)
-                            }
+                                },
+                                renameAction: {
+                                    model.beginRenaming(person: person)
+                                }
+                            )
                         }
                     }
                 }
@@ -210,6 +217,9 @@ struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
+        }
+        .sheet(item: Binding(get: { model.personBeingRenamed }, set: { model.personBeingRenamed = $0 })) { person in
+            RenamePersonSheet(model: model, person: person)
         }
     }
 }
@@ -394,6 +404,7 @@ struct PersonRow: View {
     var person: PersonProfile
     var isSelected: Bool
     var action: () -> Void
+    var renameAction: () -> Void
 
     var body: some View {
         Button(action: action) {
@@ -424,6 +435,57 @@ struct PersonRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(action: renameAction) {
+                Label("Rename", systemImage: "pencil")
+            }
+        }
+    }
+}
+
+struct RenamePersonSheet: View {
+    let model: LibraryViewModel
+    var person: PersonProfile
+
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                PersonThumbnail(person: person)
+                    .frame(width: 36, height: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Rename Person")
+                        .font(.headline)
+                    Text("\(person.videoCount) videos, \(person.appearanceCount) faces")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            TextField("Name", text: Binding(get: { model.personRenameDraft }, set: { model.personRenameDraft = $0 }))
+                .textFieldStyle(.roundedBorder)
+                .focused($isNameFocused)
+                .onSubmit {
+                    model.savePersonRename()
+                }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    model.cancelPersonRename()
+                }
+                Button("Save") {
+                    model.savePersonRename()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 360)
+        .onAppear {
+            isNameFocused = true
+        }
     }
 }
 

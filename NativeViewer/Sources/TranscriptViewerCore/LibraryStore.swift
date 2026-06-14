@@ -20,6 +20,8 @@ public enum LibraryStoreError: LocalizedError {
     }
 }
 
+private typealias PersonTagValues = (displayName: String, tags: [String], notes: String)
+
 public struct LibraryStore: Sendable {
     public static let clipMomentsFilename = "clip_moments.csv"
     public static let clipTagsFilename = "clip_tags.csv"
@@ -284,8 +286,13 @@ public struct LibraryStore: Sendable {
     }
 
     private func loadPeople(libraryURL: URL, files: [TranscriptFile]) throws -> [PersonProfile] {
-        let appearances = try loadPersonAppearances(libraryURL: libraryURL, files: files)
-        let tags = try loadPersonTags(libraryURL: libraryURL)
+        let consolidation = PersonAppearanceConsolidator()
+            .consolidateWithRemapping(try loadPersonAppearances(libraryURL: libraryURL, files: files))
+        let appearances = consolidation.appearances
+        let tags = mergedPersonTags(
+            try loadPersonTags(libraryURL: libraryURL),
+            personIDByOriginalID: consolidation.personIDByOriginalID
+        )
         let knownPersonIDs = Set(appearances.map(\.personID)).union(tags.keys)
         return knownPersonIDs.map { personID in
             let tagged = tags[personID]
@@ -351,7 +358,7 @@ public struct LibraryStore: Sendable {
         }
     }
 
-    private func loadPersonTags(libraryURL: URL) throws -> [String: (displayName: String, tags: [String], notes: String)] {
+    private func loadPersonTags(libraryURL: URL) throws -> [String: PersonTagValues] {
         let url = libraryURL.appendingPathComponent(Self.peopleTagsFilename)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return [:]
@@ -371,6 +378,47 @@ public struct LibraryStore: Sendable {
                 .filter { !$0.isEmpty }
             return (personID, (values["display_name"] ?? "", tags, values["notes"] ?? ""))
         })
+    }
+
+    private func mergedPersonTags(
+        _ tags: [String: PersonTagValues],
+        personIDByOriginalID: [String: String]
+    ) -> [String: PersonTagValues] {
+        var merged: [String: PersonTagValues] = [:]
+        for personID in tags.keys.sorted() {
+            guard let tag = tags[personID] else { continue }
+            let canonicalID = personIDByOriginalID[personID] ?? personID
+            guard var existing = merged[canonicalID] else {
+                merged[canonicalID] = tag
+                continue
+            }
+            if existing.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                existing.displayName = tag.displayName
+            }
+            existing.tags = orderedUnion(existing.tags, tag.tags)
+            existing.notes = orderedUnion(
+                existing.notes
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map(String.init),
+                tag.notes
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map(String.init)
+            )
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            merged[canonicalID] = existing
+        }
+        return merged
+    }
+
+    private func orderedUnion(_ lhs: [String], _ rhs: [String]) -> [String] {
+        var seen: Set<String> = []
+        return (lhs + rhs).filter { value in
+            let key = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !key.isEmpty, !seen.contains(key) else { return false }
+            seen.insert(key)
+            return true
+        }
     }
 
     private func readTranscript(jsonURL: URL) throws -> WhisperXTranscript {

@@ -8,6 +8,7 @@ struct FaceIndexer: Sendable {
     var sampleInterval: Double = 5
     var maximumFramesPerFile: Int = 180
     var clusterThreshold: Double = 0.18
+    var duplicateMergeThreshold: Double = 0.24
 
     func scan(files: [TranscriptFile]) async throws -> [PersonAppearance] {
         try await Task.detached(priority: .userInitiated) {
@@ -68,7 +69,8 @@ struct FaceIndexer: Sendable {
             }
         }
 
-        return appearances
+        return PersonAppearanceConsolidator(mergeThreshold: duplicateMergeThreshold)
+            .consolidate(appearances)
     }
 
     private func sampleTimes(duration: Double) -> [Double] {

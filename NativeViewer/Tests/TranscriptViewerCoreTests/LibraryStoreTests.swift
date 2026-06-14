@@ -64,6 +64,64 @@ struct LibraryStoreTests {
         #expect(updated?.notes == "Use for product narrative.")
     }
 
+    @Test("consolidates duplicate person appearances by signature")
+    func consolidatesDuplicatePersonAppearances() {
+        let appearances = [
+            makeAppearance(id: "a1", personID: "person_a", signature: "0.100;0.200;0.300"),
+            makeAppearance(id: "a2", personID: "person_a", timestamp: 5, signature: "0.110;0.190;0.310"),
+            makeAppearance(id: "b1", personID: "person_b", timestamp: 10, signature: "0.120;0.210;0.290"),
+            makeAppearance(id: "c1", personID: "person_c", timestamp: 15, signature: "0.800;0.700;0.600")
+        ]
+
+        let result = PersonAppearanceConsolidator(mergeThreshold: 0.05)
+            .consolidateWithRemapping(appearances)
+
+        #expect(result.personIDByOriginalID["person_b"] == "person_a")
+        #expect(Set(result.appearances.map(\.personID)) == ["person_a", "person_c"])
+        #expect(result.appearances.filter { $0.personID == "person_a" }.count == 3)
+    }
+
+    @Test("loads existing people index with duplicate person IDs consolidated")
+    func loadsConsolidatedPeopleIndex() throws {
+        let fixture = try Fixture()
+        let peopleRows = [
+            [
+                "person_id",
+                "appearance_id",
+                "file",
+                "file_id",
+                "timestamp",
+                "bbox_x",
+                "bbox_y",
+                "bbox_width",
+                "bbox_height",
+                "signature"
+            ],
+            ["person_abc123", "appearance_1", "Day 1/C0001.MP4", "", "5.500", "0.2", "0.2", "0.3", "0.3", "0.100;0.200;0.300"],
+            ["person_dup456", "appearance_2", "Day 1/C0001.MP4", "", "6.500", "0.2", "0.2", "0.3", "0.3", "0.110;0.190;0.310"]
+        ]
+        try CSV.encode(rows: peopleRows)
+            .write(to: fixture.libraryURL.appendingPathComponent("people_index.csv"), atomically: true, encoding: .utf8)
+
+        let peopleTagRows = [
+            ["person_id", "display_name", "tags", "notes", "updated_at"],
+            ["person_abc123", "Host", "host, decision maker", "Primary speaker", "0"],
+            ["person_dup456", "", "guest", "Seen in intro", "0"]
+        ]
+        try CSV.encode(rows: peopleTagRows)
+            .write(to: fixture.libraryURL.appendingPathComponent("people_tags.csv"), atomically: true, encoding: .utf8)
+
+        let people = try LibraryStore().load(libraryURL: fixture.libraryURL).people
+
+        #expect(people.count == 1)
+        #expect(people.first?.id == "person_abc123")
+        #expect(people.first?.title == "Host")
+        #expect(people.first?.tags == ["host", "decision maker", "guest"])
+        #expect(people.first?.notes == "Primary speaker\nSeen in intro")
+        #expect(people.first?.appearances.count == 2)
+        #expect(Set(people.first?.appearances.map(\.personID) ?? []) == ["person_abc123"])
+    }
+
     @Test("CSV parser handles quoted commas and escaped quotes")
     func parsesQuotedCSV() {
         let rows = CSV.parse("a,b,c\none,\"two, still two\",\"quote \"\"inside\"\"\"\n")
@@ -213,4 +271,22 @@ private func mediaURL(in fixture: Fixture) -> URL {
         .appendingPathComponent("Day 1", isDirectory: true)
         .appendingPathComponent("C0001.MP4")
         .standardizedFileURL
+}
+
+private func makeAppearance(
+    id: String,
+    personID: String,
+    timestamp: Double = 0,
+    signature: String
+) -> PersonAppearance {
+    PersonAppearance(
+        id: id,
+        personID: personID,
+        fileID: "file_1",
+        relativePath: "Day 1/C0001.MP4",
+        sourceURL: nil,
+        timestamp: timestamp,
+        boundingBox: FaceBoundingBox(x: 0.2, y: 0.2, width: 0.3, height: 0.3),
+        signature: signature
+    )
 }

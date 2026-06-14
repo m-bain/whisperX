@@ -92,6 +92,8 @@ final class LibraryViewModel {
     var personDraftName = ""
     var personDraftTags = ""
     var personDraftNotes = ""
+    var personBeingRenamed: PersonProfile?
+    var personRenameDraft = ""
 
     init(initialPath: String?) {
         recentLibraries = defaults.stringArray(forKey: recentLibrariesKey) ?? []
@@ -562,7 +564,7 @@ final class LibraryViewModel {
                 } else {
                     loadPersonDrafts()
                 }
-                statusMessage = "Found \(people.count) people across \(appearances.count) face appearances"
+                statusMessage = "Found \(people.count) people across \(appearances.count) face appearances after duplicate merge"
             } catch {
                 statusMessage = "People scan failed: \(error.localizedDescription)"
             }
@@ -587,6 +589,41 @@ final class LibraryViewModel {
             statusMessage = "Saved tags for \(updated.title)"
         } catch {
             statusMessage = "Could not save person tags: \(error.localizedDescription)"
+        }
+    }
+
+    func beginRenaming(person: PersonProfile) {
+        personBeingRenamed = person
+        personRenameDraft = person.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? person.title : person.displayName
+    }
+
+    func cancelPersonRename() {
+        personBeingRenamed = nil
+        personRenameDraft = ""
+    }
+
+    func savePersonRename() {
+        guard let libraryURL, let personBeingRenamed, let index = people.firstIndex(where: { $0.id == personBeingRenamed.id }) else {
+            cancelPersonRename()
+            return
+        }
+        let updated = PersonProfile(
+            id: people[index].id,
+            displayName: personRenameDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+            tags: people[index].tags,
+            notes: people[index].notes,
+            appearances: people[index].appearances
+        )
+        do {
+            try store.savePersonTags(libraryURL: libraryURL, person: updated)
+            people[index] = updated
+            if selectedPersonID == updated.id {
+                loadPersonDrafts()
+            }
+            statusMessage = "Renamed \(updated.title)"
+            cancelPersonRename()
+        } catch {
+            statusMessage = "Could not rename person: \(error.localizedDescription)"
         }
     }
 
