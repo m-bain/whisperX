@@ -216,14 +216,26 @@ class FasterWhisperPipeline(Pipeline):
             offset=self._vad_params["vad_offset"],
         )
         if self.tokenizer is None:
-            # If VAD found speech segments, start language detection from the first spoken word
-            if len(vad_segments) > 0:
-                first_speech_start_idx = int(vad_segments[0]['start'] * SAMPLE_RATE)
-                print(f"Skipping initial silence. Detecting language starting at {vad_segments[0]['start']:.2f}s")
-                language = language or self.detect_language(audio[first_speech_start_idx:])
-            else:
-                # Fallback if no speech was detected at all by VAD
-                language = language or self.detect_language(audio)
+            if language is None:
+                # If VAD found speech segments, start language detection from the first spoken word
+                if len(vad_segments) > 0:
+                    first_speech_start_idx = int(vad_segments[0]['start'] * SAMPLE_RATE)
+                    sliced_audio = audio[first_speech_start_idx:]
+                    
+                    # Calculate the exact minimum samples needed for a 25ms spectrogram window
+                    min_required_samples = int(0.025 * SAMPLE_RATE) 
+                    
+                    if len(sliced_audio) >= min_required_samples:
+                        print(f"Skipping initial silence. Detecting language starting at {vad_segments[0]['start']:.2f}s")
+                        language = self.detect_language(sliced_audio)
+                    else:
+                        # Added the lengths into the print statement for better debugging logs
+                        print(f"Warning: VAD slice is too short or out of bounds (Got {len(sliced_audio)} samples, need at least {min_required_samples}). Falling back to full audio.")
+                        language = self.detect_language(audio)
+                else:
+                    # Fallback if no speech was detected at all by VAD
+                    language = self.detect_language(audio)
+
             task = task or "transcribe"
             self.tokenizer = Tokenizer(
                 self.model.hf_tokenizer,
