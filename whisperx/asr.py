@@ -216,7 +216,14 @@ class FasterWhisperPipeline(Pipeline):
             offset=self._vad_params["vad_offset"],
         )
         if self.tokenizer is None:
-            language = language or self.detect_language(audio)
+            # If VAD found speech segments, start language detection from the first spoken word
+            if len(vad_segments) > 0:
+                first_speech_start_idx = int(vad_segments[0]['start'] * SAMPLE_RATE)
+                print(f"Skipping initial silence. Detecting language starting at {vad_segments[0]['start']:.2f}s")
+                language = language or self.detect_language(audio[first_speech_start_idx:])
+            else:
+                # Fallback if no speech was detected at all by VAD
+                language = language or self.detect_language(audio)
             task = task or "transcribe"
             self.tokenizer = Tokenizer(
                 self.model.hf_tokenizer,
