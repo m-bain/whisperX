@@ -222,8 +222,9 @@ class FasterWhisperPipeline(Pipeline):
                     first_speech_start_idx = int(vad_segments[0]['start'] * SAMPLE_RATE)
                     sliced_audio = audio[first_speech_start_idx:]
                     
-                    # Calculate the exact minimum samples needed for a 25ms spectrogram window
-                    min_required_samples = int(0.025 * SAMPLE_RATE) 
+                    # Require at least 0.5 seconds of audio for reliable language detection
+                    min_required_seconds = 0.5
+                    min_required_samples = int(min_required_seconds * SAMPLE_RATE)
                     
                     if len(sliced_audio) >= min_required_samples:
                         print(f"Skipping initial silence. Detecting language starting at {vad_segments[0]['start']:.2f}s")
