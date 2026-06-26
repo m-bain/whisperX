@@ -21,6 +21,21 @@ def load_model(*args, **kwargs):
     return asr.load_model(*args, **kwargs)
 
 
+def load_qwen_model(*args, **kwargs):
+    asr_qwen = _lazy_import("asr_qwen")
+    return asr_qwen.load_model(*args, **kwargs)
+
+
+def load_qwen_align_model(*args, **kwargs):
+    alignment_qwen = _lazy_import("alignment_qwen")
+    return alignment_qwen.load_align_model(*args, **kwargs)
+
+
+def align_qwen(*args, **kwargs):
+    alignment_qwen = _lazy_import("alignment_qwen")
+    return alignment_qwen.align(*args, **kwargs)
+
+
 def load_audio(*args, **kwargs):
     audio = _lazy_import("audio")
     return audio.load_audio(*args, **kwargs)
