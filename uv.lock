@@ -3136,7 +3136,7 @@ wheels = [
 
 [[package]]
 name = "whisperx"
-version = "3.8.6"
+version = "3.8.7rc1"
 source = { editable = "." }
 dependencies = [
     { name = "ctranslate2" },
@@ -3168,7 +3168,7 @@ dev = [
 requires-dist = [
     { name = "ctranslate2", specifier = ">=4.5.0" },
     { name = "faster-whisper", specifier = ">=1.2.0" },
-    { name = "huggingface-hub", specifier = "<1.0.0" },
+    { name = "huggingface-hub", specifier = ">=0.28.1" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "numpy", specifier = ">=2.1.0" },
     { name = "omegaconf", specifier = ">=2.3.0" },
