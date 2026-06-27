@@ -183,9 +183,21 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     logger.info(
                         f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
                     )
-                    align_model, align_metadata = load_align_model(
-                        result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
-                    )
+                    try:
+                        align_model, align_metadata = load_align_model(
+                            result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
+                        )
+                    except ValueError as e:
+                        # No alignment model for this language — often a mis-detected
+                        # "phantom" language in a single chunk. Warn and keep the unaligned
+                        # (segment-level) transcription for this result instead of crashing
+                        # the whole run. See #298.
+                        logger.warning(
+                            f"Skipping alignment for language '{result.get('language')}': {e} "
+                            f"Keeping unaligned segment-level transcription for this audio."
+                        )
+                        results.append((result, audio_path))
+                        continue
                 logger.info("Performing alignment...")
                 result: AlignedTranscriptionResult = align(
                     result["segments"],
