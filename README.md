@@ -85,6 +85,20 @@ Or if using [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools):
 uvx whisperx
 ```
 
+#### Using uv with CUDA
+
+If you want to use WhisperX with CUDA (GPU acceleration) via uv, use the following commands ( Python >= 3.10, < 3.14 ):
+
+```bash
+uv tool install --python 3.13 --extra-index-url https://download.pytorch.org/whl/cu128 --index-strategy unsafe-best-match whisperx
+```
+
+Or if using uvx:
+
+```bash
+uvx --python 3.13 --extra-index-url https://download.pytorch.org/whl/cu128 --index-strategy unsafe-best-match whisperx
+```
+
 ### 2. Advanced Installation Options
 
 These installation methods are for developers or users with specific needs. If you're not sure, stick with the simple installation above.
