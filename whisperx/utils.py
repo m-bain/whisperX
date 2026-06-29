@@ -191,6 +191,24 @@ def compression_ratio(text) -> float:
     return len(text_bytes) / len(zlib.compress(text_bytes))
 
 
+def _apply_highlight(word: str, color: Optional[str], *, is_current: bool) -> str:
+    """Surround `word` with a highlight tag when it is the current word.
+
+    Strips leading whitespace before the tag so that ``<u>hello</u>`` rather
+    than `` <u>hello</u>`` is produced.  When `color` is given uses a
+    ``<font color="...">`` tag; otherwise uses the legacy ``<u>`` underline.
+    """
+    if not is_current:
+        return word
+    match = re.match(r"^(\s*)(.*)$", word)
+    if match is None:
+        return word
+    prefix, body = match.group(1), match.group(2)
+    if color:
+        return f'{prefix}<font color="{color}">{body}</font>'
+    return f"{prefix}<u>{body}</u>"
+
+
 def format_timestamp(
     seconds: float, always_include_hours: bool = False, decimal_marker: str = "."
 ):
@@ -253,6 +271,7 @@ class SubtitlesWriter(ResultWriter):
         raw_max_line_width: Optional[int] = options["max_line_width"]
         max_line_count: Optional[int] = options["max_line_count"]
         highlight_words: bool = options["highlight_words"]
+        highlight_color: Optional[str] = options.get("highlight_color")
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
         preserve_segments = max_line_count is None or raw_max_line_width is None
 
@@ -342,9 +361,7 @@ class SubtitlesWriter(ResultWriter):
 
                             yield start, end, prefix + " ".join(
                                 [
-                                    re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
-                                    if j == i
-                                    else word
+                                    _apply_highlight(word, highlight_color, is_current=(j == i))
                                     for j, word in enumerate(all_words)
                                 ]
                             )
