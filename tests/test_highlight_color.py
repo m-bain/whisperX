@@ -2,7 +2,13 @@
 
 import pytest
 
-from whisperx.utils import _apply_highlight, WriteVTT, WriteSRT
+from whisperx.utils import (
+    _apply_highlight,
+    _parse_score_color_map,
+    _select_score_color,
+    WriteVTT,
+    WriteSRT,
+)
 
 
 class TestApplyHighlight:
@@ -43,6 +49,63 @@ class TestApplyHighlight:
                 assert result.count("<u>") == result.count("</u>"), (
                     f"Unbalanced u tags in: {result!r}"
                 )
+
+    def test_score_color_map_overrides_fixed_color(self):
+        score_color_map = [(0.5, "red"), (0.8, "green")]
+        result = _apply_highlight("hello", "blue", is_current=True, score_color_map=score_color_map, score=0.9)
+        assert '<font color="green">' in result
+
+    def test_score_color_map_falls_back_when_score_missing(self):
+        score_color_map = [(0.5, "red"), (0.8, "green")]
+        result = _apply_highlight("hello", "blue", is_current=True, score_color_map=score_color_map, score=None)
+        assert '<font color="blue">' in result
+
+    def test_score_color_map_selects_color_by_threshold(self):
+        score_color_map = [(0.3, "red"), (0.7, "yellow"), (1.0, "green")]
+        low = _apply_highlight("x", None, is_current=True, score_color_map=score_color_map, score=0.2)
+        mid = _apply_highlight("x", None, is_current=True, score_color_map=score_color_map, score=0.5)
+        high = _apply_highlight("x", None, is_current=True, score_color_map=score_color_map, score=0.9)
+        assert '<font color="red">' in low
+        assert '<font color="yellow">' in mid
+        assert '<font color="green">' in high
+
+
+class TestScoreColorMapHelpers:
+    """Unit tests for score color map parsing and selection."""
+
+    def test_parse_score_color_map(self):
+        assert _parse_score_color_map("0:red,0.5:yellow,0.8:green") == [
+            (0.0, "red"),
+            (0.5, "yellow"),
+            (0.8, "green"),
+        ]
+
+    def test_parse_score_color_map_sorts_by_threshold(self):
+        assert _parse_score_color_map("0.8:green,0:red,0.5:yellow") == [
+            (0.0, "red"),
+            (0.5, "yellow"),
+            (0.8, "green"),
+        ]
+
+    def test_parse_score_color_map_empty(self):
+        assert _parse_score_color_map("") == []
+
+    def test_parse_score_color_map_invalid_format(self):
+        with pytest.raises(ValueError):
+            _parse_score_color_map("0.5red")
+
+    def test_select_score_color_below_threshold(self):
+        score_color_map = [(0.5, "red"), (0.8, "yellow"), (1.0, "green")]
+        assert _select_score_color(score_color_map, 0.3) == "red"
+
+    def test_select_score_color_at_boundary(self):
+        score_color_map = [(0.5, "red"), (0.8, "yellow"), (1.0, "green")]
+        assert _select_score_color(score_color_map, 0.5) == "yellow"
+        assert _select_score_color(score_color_map, 0.8) == "green"
+
+    def test_select_score_color_above_all(self):
+        score_color_map = [(0.5, "red"), (0.8, "yellow"), (1.0, "green")]
+        assert _select_score_color(score_color_map, 0.95) == "green"
 
 
 def _make_minimal_result():
@@ -166,3 +229,63 @@ class TestSubtitlesWriterHighlight:
             assert text.count("<u>") == text.count("</u>"), (
                 f"Unbalanced tags in: {text!r}"
             )
+
+    def test_score_colors_rendered_based_on_score(self):
+        """Words are colored according to their alignment score."""
+        result = {
+            "language": "en",
+            "segments": [
+                {
+                    "start": 0.0,
+                    "end": 3.0,
+                    "text": "hello world test",
+                    "words": [
+                        {"word": "hello", "start": 0.0, "end": 0.5, "score": 0.2},
+                        {"word": "world", "start": 0.6, "end": 1.0, "score": 0.6},
+                        {"word": "test", "start": 1.1, "end": 1.5, "score": 0.9},
+                    ],
+                }
+            ],
+        }
+        opts = {
+            "highlight_words": True,
+            "max_line_width": None,
+            "max_line_count": None,
+            "highlight_color": "gray",
+            "highlight_score_colors": "0.3:red,0.7:yellow,1.0:green",
+        }
+        vtt = WriteVTT(output_dir=".")
+        lines = list(vtt.iterate_result(result, opts))
+        texts = "\n".join([ln[2] for ln in lines])
+        assert '<font color="red">hello</font>' in texts, f"got: {texts}"
+        assert '<font color="yellow">world</font>' in texts, f"got: {texts}"
+        assert '<font color="green">test</font>' in texts, f"got: {texts}"
+
+    def test_score_colors_missing_score_falls_back_to_highlight_color(self):
+        """If a word lacks a score, it should use the fixed --highlight_color."""
+        result = {
+            "language": "en",
+            "segments": [
+                {
+                    "start": 0.0,
+                    "end": 2.0,
+                    "text": "hello world",
+                    "words": [
+                        {"word": "hello", "start": 0.0, "end": 0.5, "score": 0.2},
+                        {"word": "world", "start": 0.6, "end": 1.0},
+                    ],
+                }
+            ],
+        }
+        opts = {
+            "highlight_words": True,
+            "max_line_width": None,
+            "max_line_count": None,
+            "highlight_color": "gray",
+            "highlight_score_colors": "0.3:red,0.7:yellow,1.0:green",
+        }
+        vtt = WriteVTT(output_dir=".")
+        lines = list(vtt.iterate_result(result, opts))
+        texts = "\n".join([ln[2] for ln in lines])
+        assert '<font color="red">hello</font>' in texts, f"got: {texts}"
+        assert '<font color="gray">world</font>' in texts, f"got: {texts}"

@@ -191,12 +191,21 @@ def compression_ratio(text) -> float:
     return len(text_bytes) / len(zlib.compress(text_bytes))
 
 
-def _apply_highlight(word: str, color: Optional[str], *, is_current: bool) -> str:
+def _apply_highlight(
+    word: str,
+    color: Optional[str],
+    *,
+    is_current: bool,
+    score_color_map: Optional[list[tuple[float, str]]] = None,
+    score: Optional[float] = None,
+) -> str:
     """Surround `word` with a highlight tag when it is the current word.
 
     Strips leading whitespace before the tag so that ``<u>hello</u>`` rather
     than `` <u>hello</u>`` is produced.  When `color` is given uses a
     ``<font color="...">`` tag; otherwise uses the legacy ``<u>`` underline.
+    If `score_color_map` is provided, the color is selected based on `score`
+    instead of using the fixed `color`.
     """
     if not is_current:
         return word
@@ -204,9 +213,48 @@ def _apply_highlight(word: str, color: Optional[str], *, is_current: bool) -> st
     if match is None:
         return word
     prefix, body = match.group(1), match.group(2)
-    if color:
-        return f'{prefix}<font color="{color}">{body}</font>'
+
+    selected_color = color
+    if score_color_map is not None and score is not None:
+        selected_color = _select_score_color(score_color_map, score)
+
+    if selected_color:
+        return f'{prefix}<font color="{selected_color}">{body}</font>'
     return f"{prefix}<u>{body}</u>"
+
+
+def _parse_score_color_map(raw: str) -> list[tuple[float, str]]:
+    """Parse a score-to-color mapping string into a sorted list.
+
+    Input format: ``"0:gray,0.5:yellow,0.8:green"``
+    Thresholds must be numeric; the result is sorted by threshold ascending.
+    """
+    if not raw:
+        return []
+    mapping = []
+    for part in raw.split(","):
+        if ":" not in part:
+            raise ValueError(
+                f"Invalid score color mapping: {part!r}. Expected format: 'threshold:color'.")
+        threshold, color = part.split(":", 1)
+        mapping.append((float(threshold.strip()), color.strip()))
+    mapping.sort(key=lambda x: x[0])
+    return mapping
+
+
+def _select_score_color(score_color_map: list[tuple[float, str]], score: float) -> Optional[str]:
+    """Select the color for a given score from a sorted threshold mapping.
+
+    The first threshold that is strictly greater than the score determines
+    the color.  If the score is greater than or equal to all thresholds,
+    the last color is used.
+    """
+    if not score_color_map:
+        return None
+    for threshold, color in score_color_map:
+        if score < threshold:
+            return color
+    return score_color_map[-1][1]
 
 
 def format_timestamp(
@@ -272,6 +320,8 @@ class SubtitlesWriter(ResultWriter):
         max_line_count: Optional[int] = options["max_line_count"]
         highlight_words: bool = options["highlight_words"]
         highlight_color: Optional[str] = options.get("highlight_color")
+        highlight_score_colors_raw: Optional[str] = options.get("highlight_score_colors")
+        score_color_map = _parse_score_color_map(highlight_score_colors_raw) if highlight_score_colors_raw else None
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
         preserve_segments = max_line_count is None or raw_max_line_width is None
 
@@ -351,7 +401,7 @@ class SubtitlesWriter(ResultWriter):
 
                 if highlight_words and has_timing:
                     last = subtitle_start
-                    all_words = [timing["word"] for timing in subtitle]
+                    all_words = list(subtitle)
                     for i, this_word in enumerate(subtitle):
                         if "start" in this_word:
                             start = self.format_timestamp(this_word["start"])
@@ -361,7 +411,13 @@ class SubtitlesWriter(ResultWriter):
 
                             yield start, end, prefix + " ".join(
                                 [
-                                    _apply_highlight(word, highlight_color, is_current=(j == i))
+                                    _apply_highlight(
+                                        word["word"],
+                                        highlight_color,
+                                        is_current=(j == i),
+                                        score_color_map=score_color_map,
+                                        score=word.get("score"),
+                                    )
                                     for j, word in enumerate(all_words)
                                 ]
                             )

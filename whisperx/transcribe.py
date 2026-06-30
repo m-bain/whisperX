@@ -112,7 +112,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     }
 
     writer = get_writer(output_format, output_dir)
-    word_options = ["highlight_words", "max_line_count", "max_line_width", "highlight_color"]
+    word_options = ["highlight_words", "max_line_count", "max_line_width", "highlight_color", "highlight_score_colors"]
     if no_align:
         for option in word_options:
             if args[option]:
