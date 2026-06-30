@@ -42,6 +42,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     align_model: str = args.pop("align_model")
     interpolate_method: str = args.pop("interpolate_method")
+    timestamp_sanitize: bool = args.pop("timestamp_sanitize")
     no_align: bool = args.pop("no_align")
     task: str = args.pop("task")
     if task == "translate":
@@ -194,6 +195,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     input_audio,
                     device,
                     interpolate_method=interpolate_method,
+                    timestamp_sanitize=timestamp_sanitize,
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
                 )
