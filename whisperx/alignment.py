@@ -143,6 +143,19 @@ def align(
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
 
+    # Use language-specific Punkt model if available otherwise we fallback to English.
+    punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
+    try:
+        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+    except LookupError as e:
+        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
+        if not nltk.download('punkt_tab', quiet=True):
+            raise RuntimeError(
+                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
+                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
+            ) from e
+        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
     # Store temporary processing values
@@ -186,13 +199,6 @@ def align(
 
         clean_wdx = list(range(len(per_word)))
 
-        # Use language-specific Punkt model if available otherwise we fallback to English.
-        punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
-        try:
-            sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
-        except LookupError:
-            nltk.download('punkt_tab', quiet=True)
-            sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
         sentence_spans = list(sentence_splitter.span_tokenize(text))
 
         segment_data[sdx] = {
