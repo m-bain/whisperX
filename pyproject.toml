@@ -22,6 +22,7 @@ dependencies = [
     "torchvision~=0.23.0",
     "torchcodec>=0.6.0,<0.8.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
     "transformers>=4.48.0",
+    "uroman>=1.3.1", # romanization for the multilingual MMS fallback aligner
     "triton>=3.3.0; sys_platform == 'linux' and platform_machine == 'x86_64'" # only install triton on x86_64 Linux
 ]
 
