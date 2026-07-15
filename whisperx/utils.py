@@ -5,6 +5,9 @@ import sys
 import zlib
 from typing import Callable, Optional, TextIO
 
+import numpy as np
+import pandas as pd
+
 LANGUAGES = {
     "en": "english",
     "zh": "chinese",
@@ -474,3 +477,148 @@ def interpolate_nans(x, method='nearest'):
         return x.interpolate(method=method).ffill().bfill()
     else:
         return x.ffill().bfill()
+
+
+def distribute_word_timestamps(
+    words: list[dict],
+    segment_start: float,
+    segment_end: float,
+    method: str = "linear",
+) -> list[dict]:
+    """Fill missing word timestamps using character-offset or index-based interpolation."""
+    if not words:
+        return words
+
+    if method == "ignore":
+        return words
+
+    if method == "time_weighted":
+        return _distribute_word_timestamps_time_weighted(words, segment_start, segment_end)
+
+    # nearest / linear: use index-based interpolation via pandas
+    return _distribute_word_timestamps_index_based(words, method)
+
+
+def _distribute_word_timestamps_index_based(words: list[dict], method: str) -> list[dict]:
+    _starts = pd.Series([w.get("start", np.nan) for w in words])
+    _ends = pd.Series([w.get("end", np.nan) for w in words])
+
+    if _starts.isna().any() and _starts.notna().any():
+        _starts = interpolate_nans(_starts, method=method)
+        _ends = interpolate_nans(_ends, method=method)
+        for i, w in enumerate(words):
+            if "start" not in w and pd.notna(_starts.iloc[i]):
+                w["start"] = _starts.iloc[i]
+            if "end" not in w and pd.notna(_ends.iloc[i]):
+                w["end"] = _ends.iloc[i]
+
+    return words
+
+
+def _distribute_word_timestamps_time_weighted(
+    words: list[dict],
+    segment_start: float,
+    segment_end: float,
+) -> list[dict]:
+    starts = np.array([w.get("start", np.nan) for w in words], dtype=float)
+    ends = np.array([w.get("end", np.nan) for w in words], dtype=float)
+    valid_mask = ~np.isnan(starts) & ~np.isnan(ends)
+    num_anchors = valid_mask.sum()
+
+    if num_anchors < 2:
+        return fill_degenerate_timestamps(words, segment_start, segment_end)
+
+    # Cumulative character offset at the start and end of each word
+    char_starts = []
+    char_ends = []
+    offset = 0
+    for w in words:
+        length = len(w.get("word", ""))
+        char_starts.append(offset)
+        offset += length
+        char_ends.append(offset)
+    char_starts = np.array(char_starts, dtype=float)
+    char_ends = np.array(char_ends, dtype=float)
+
+    anchor_offsets = char_starts[valid_mask]
+    anchor_starts = starts[valid_mask]
+    anchor_ends = ends[valid_mask]
+
+    for i, w in enumerate(words):
+        if np.isnan(starts[i]):
+            starts[i] = np.interp(char_starts[i], anchor_offsets, anchor_starts)
+        if np.isnan(ends[i]):
+            ends[i] = np.interp(char_ends[i], anchor_offsets, anchor_ends)
+        w["start"] = float(starts[i])
+        w["end"] = float(ends[i])
+
+    return words
+
+
+def fill_degenerate_timestamps(
+    words: list[dict],
+    segment_start: float,
+    segment_end: float,
+) -> list[dict]:
+    """Uniformly distribute timestamps when too few anchors exist."""
+    if not words:
+        return words
+
+    total_chars = sum(len(w.get("word", "")) for w in words)
+    total_duration = segment_end - segment_start
+
+    if total_chars == 0 or total_duration <= 0:
+        n = len(words)
+        for i, w in enumerate(words):
+            start = segment_start + i * total_duration / max(n, 1)
+            end = segment_start + (i + 1) * total_duration / max(n, 1)
+            w["start"] = start
+            w["end"] = end
+        return words
+
+    current_time = segment_start
+    for w in words:
+        word_duration = len(w.get("word", "")) / total_chars * total_duration
+        w["start"] = current_time
+        w["end"] = current_time + word_duration
+        current_time += word_duration
+
+    return words
+
+
+def sanitize_word_timestamps(
+    words: list[dict],
+    segment_start: float,
+    segment_end: float,
+    min_duration: float = 0.02,
+) -> list[dict]:
+    """Ensure timestamps are monotonic, non-overlapping, and inside the segment."""
+    if not words:
+        return words
+
+    # Boundary clip
+    for w in words:
+        start = w.get("start", np.nan)
+        end = w.get("end", np.nan)
+        if pd.isna(start):
+            start = segment_start
+        if pd.isna(end):
+            end = segment_end
+        w["start"] = max(segment_start, min(float(start), segment_end))
+        w["end"] = max(segment_start, min(float(end), segment_end))
+
+    # Monotonic start, non-overlap, positive duration
+    for i, w in enumerate(words):
+        if i > 0:
+            prev = words[i - 1]
+            w["start"] = max(w["start"], prev["start"], prev["end"])
+        if w["end"] < w["start"] + min_duration:
+            w["end"] = w["start"] + min_duration
+
+    # Last word ends no later than segment_end
+    if words:
+        words[-1]["end"] = min(words[-1]["end"], segment_end)
+        if words[-1]["end"] <= words[-1]["start"]:
+            words[-1]["end"] = min(segment_end, words[-1]["start"] + min_duration)
+
+    return words

@@ -2,11 +2,12 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from unittest.mock import MagicMock
 
 from whisperx.alignment import align
-from whisperx.utils import interpolate_nans
+from whisperx.utils import interpolate_nans, distribute_word_timestamps, sanitize_word_timestamps, fill_degenerate_timestamps
 
 
 def _make_mock_model(emission, dictionary):
@@ -229,3 +230,161 @@ class TestInterpolateNans:
 
         assert "start" in sentence_words_nearest[1], "'99' should get start with nearest"
         assert "end" in sentence_words_nearest[1], "'99' should get end with nearest"
+
+
+class TestDistributeWordTimestamps:
+    """Unit tests for distribute_word_timestamps() and helpers."""
+
+    def test_time_weighted_longer_word_gets_more_time(self):
+        words = [
+            {"word": "a", "start": 0.0, "end": 0.1},
+            {"word": "bb"},
+            {"word": "ccc"},
+            {"word": "d", "start": 0.9, "end": 1.0},
+        ]
+        result = distribute_word_timestamps(
+            words, segment_start=0.0, segment_end=1.0, method="time_weighted"
+        )
+        bb_duration = result[1]["end"] - result[1]["start"]
+        ccc_duration = result[2]["end"] - result[2]["start"]
+        assert ccc_duration > bb_duration
+
+    def test_degenerate_uniform_distribution(self):
+        words = [{"word": "hello"}, {"word": "world"}]
+        result = distribute_word_timestamps(
+            words, segment_start=0.0, segment_end=1.0, method="time_weighted"
+        )
+        assert result[0]["start"] == 0.0
+        assert result[0]["end"] == 0.5
+        assert result[1]["start"] == 0.5
+        assert result[1]["end"] == 1.0
+
+    def test_degenerate_proportional_to_length(self):
+        words = [{"word": "a"}, {"word": "bcdef"}]
+        result = fill_degenerate_timestamps(words, segment_start=0.0, segment_end=1.0)
+        # total 6 chars, first word gets 1/6
+        assert result[0]["end"] == pytest.approx(1 / 6, abs=1e-6)
+        assert result[1]["start"] == pytest.approx(1 / 6, abs=1e-6)
+
+    def test_ignore_preserves_missing_timestamps(self):
+        words = [
+            {"word": "the", "start": 0.1, "end": 0.3},
+            {"word": "99"},
+            {"word": "cats", "start": 0.6, "end": 0.9},
+        ]
+        result = distribute_word_timestamps(
+            words, segment_start=0.0, segment_end=1.0, method="ignore"
+        )
+        assert "start" not in result[1]
+        assert "end" not in result[1]
+
+    def test_zero_or_single_word_segment(self):
+        assert distribute_word_timestamps([], 0.0, 1.0, "time_weighted") == []
+        result = distribute_word_timestamps(
+            [{"word": "only"}], segment_start=0.0, segment_end=1.0, method="time_weighted"
+        )
+        assert len(result) == 1
+        assert result[0]["start"] == 0.0
+        assert result[0]["end"] == 1.0
+
+
+class TestSanitizeWordTimestamps:
+    """Unit tests for sanitize_word_timestamps()."""
+
+    def test_boundary_clip(self):
+        words = [
+            {"word": "a", "start": -0.5, "end": 0.1},
+            {"word": "b", "start": 0.9, "end": 2.0},
+        ]
+        result = sanitize_word_timestamps(words, segment_start=0.0, segment_end=1.0)
+        assert result[0]["start"] == 0.0
+        assert result[0]["end"] == 0.1
+        assert result[1]["start"] == 0.9
+        assert result[1]["end"] == 1.0
+
+    def test_monotonic_and_non_overlap(self):
+        words = [
+            {"word": "a", "start": 0.1, "end": 0.5},
+            {"word": "b", "start": 0.4, "end": 0.45},
+        ]
+        result = sanitize_word_timestamps(words, segment_start=0.0, segment_end=1.0)
+        assert result[0]["start"] <= result[1]["start"]
+        assert result[0]["end"] <= result[1]["start"]
+        assert result[1]["start"] < result[1]["end"]
+
+    def test_positive_duration(self):
+        words = [{"word": "a", "start": 0.5, "end": 0.5}]
+        result = sanitize_word_timestamps(words, segment_start=0.0, segment_end=1.0)
+        assert result[0]["end"] > result[0]["start"]
+
+    def test_last_word_does_not_exceed_segment_end(self):
+        words = [{"word": "a", "start": 0.9, "end": 0.95}, {"word": "b", "start": 0.95, "end": 1.05}]
+        result = sanitize_word_timestamps(words, segment_start=0.0, segment_end=1.0)
+        assert result[-1]["end"] <= 1.0
+
+
+class TestTimestampSanitizeIntegration:
+    """Integration tests for --timestamp_sanitize via align()."""
+
+    def test_nearest_with_timestamp_sanitize_is_monotonic(self):
+        torch.manual_seed(0)
+        dictionary = {
+            "<pad>": 0,
+            "a": 1, "b": 2, "c": 3, "d": 4, "e": 5,
+            "f": 6, "g": 7, "h": 8, "i": 9, "k": 10,
+            "l": 11, "m": 12, "n": 13, "o": 14, "p": 15,
+            "r": 16, "s": 17, "t": 18, "u": 19, "w": 20,
+            "|": 21,
+        }
+        metadata = {"language": "en", "dictionary": dictionary, "type": "torchaudio"}
+        text = "the 99 cats"
+        emission = _make_emission(100, dictionary, list(text), blank_id=0)
+        model = _make_mock_model(emission, dictionary)
+        audio = torch.randn(16000 * 5)
+        transcript = [{"text": text, "start": 0.0, "end": 5.0}]
+        result = align(
+            transcript=transcript,
+            model=model,
+            align_model_metadata=metadata,
+            audio=audio,
+            device="cpu",
+            interpolate_method="nearest",
+            timestamp_sanitize=True,
+        )
+        words = result["word_segments"]
+        for i in range(len(words) - 1):
+            assert words[i]["start"] <= words[i + 1]["start"]
+            assert words[i]["end"] <= words[i + 1]["start"]
+            assert words[i]["end"] <= words[i + 1]["end"]
+            assert words[i]["start"] < words[i]["end"]
+
+    def test_time_weighted_is_monotonic_and_bounded(self):
+        torch.manual_seed(0)
+        dictionary = {
+            "<pad>": 0,
+            "a": 1, "b": 2, "c": 3, "d": 4, "e": 5,
+            "f": 6, "g": 7, "h": 8, "i": 9, "k": 10,
+            "l": 11, "m": 12, "n": 13, "o": 14, "p": 15,
+            "r": 16, "s": 17, "t": 18, "u": 19, "w": 20,
+            "|": 21,
+        }
+        metadata = {"language": "en", "dictionary": dictionary, "type": "torchaudio"}
+        text = "the 99 cats"
+        emission = _make_emission(100, dictionary, list(text), blank_id=0)
+        model = _make_mock_model(emission, dictionary)
+        audio = torch.randn(16000 * 5)
+        transcript = [{"text": text, "start": 0.0, "end": 5.0}]
+        result = align(
+            transcript=transcript,
+            model=model,
+            align_model_metadata=metadata,
+            audio=audio,
+            device="cpu",
+            interpolate_method="time_weighted",
+        )
+        words = result["word_segments"]
+        for w in words:
+            assert 0.0 <= w["start"] <= w["end"] <= 5.0
+        for i in range(len(words) - 1):
+            assert words[i]["end"] <= words[i + 1]["start"]
+            assert words[i]["start"] < words[i]["end"]

@@ -143,6 +143,26 @@ To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
 
+### Word-level timestamp interpolation
+
+When a word cannot be aligned by the phoneme model (e.g. digits or foreign characters), WhisperX interpolates its timestamp from neighboring aligned words. You can control this behavior with `--interpolate_method`:
+
+- `nearest` (default): copy the closest aligned word's timestamps.
+- `linear`: linearly interpolate between neighboring anchors.
+- `time_weighted`: distribute timestamps proportionally to character offsets; automatically enforces segment bounds, monotonicity, and non-overlap.
+- `ignore`: do not interpolate; unaligned words remain without timestamps.
+
+Examples:
+
+    # Use character-offset weighted interpolation
+    whisperx path/to/audio.wav --interpolate_method time_weighted
+
+    # Keep nearest interpolation, but clean up boundaries and overlaps
+    whisperx path/to/audio.wav --interpolate_method nearest --timestamp_sanitize
+
+    # Linear interpolation with sanitization
+    whisperx path/to/audio.wav --interpolate_method linear --timestamp_sanitize
+
 ### Other languages
 
 The phoneme ASR alignment model is _language-specific_, for tested languages these models are [automatically picked from torchaudio pipelines or huggingface](https://github.com/m-bain/whisperX/blob/f2da2f858e99e4211fe4f64b5f2938b007827e17/whisperx/alignment.py#L24-L58).

@@ -31,7 +31,8 @@ def cli():
 
     # alignment params
     parser.add_argument("--align_model", default=None, help="Name of phoneme-level ASR model to do alignment")
-    parser.add_argument("--interpolate_method", default="nearest", choices=["nearest", "linear", "ignore"], help="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighbouring.")
+    parser.add_argument("--interpolate_method", default="nearest", choices=["nearest", "linear", "time_weighted", "ignore"], help="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighbouring.")
+    parser.add_argument("--timestamp_sanitize", action="store_true", help="After interpolation, enforce segment bounds, monotonicity, and positive duration. Applies to any method except 'ignore'.")
     parser.add_argument("--no_align", action='store_true', help="Do not perform phoneme alignment")
     parser.add_argument("--return_char_alignments", action='store_true', help="Return character-level alignments in the output json file")
 

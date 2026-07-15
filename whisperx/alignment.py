@@ -12,7 +12,7 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
-from whisperx.utils import interpolate_nans, PUNKT_LANGUAGES
+from whisperx.utils import interpolate_nans, distribute_word_timestamps, sanitize_word_timestamps, PUNKT_LANGUAGES
 from whisperx.schema import (
     AlignedTranscriptionResult,
     SingleSegment,
@@ -121,6 +121,7 @@ def align(
     audio: Union[str, np.ndarray, torch.Tensor],
     device: str,
     interpolate_method: str = "nearest",
+    timestamp_sanitize: bool = False,
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
@@ -370,16 +371,27 @@ def align(
 
             # Interpolate timestamps for words with no alignable characters
             if sentence_words:
-                _starts = pd.Series([w.get("start", np.nan) for w in sentence_words])
-                _ends = pd.Series([w.get("end", np.nan) for w in sentence_words])
-                if _starts.isna().any() and _starts.notna().any():
-                    _starts = interpolate_nans(_starts, method=interpolate_method)
-                    _ends = interpolate_nans(_ends, method=interpolate_method)
-                    for i, w in enumerate(sentence_words):
-                        if "start" not in w and pd.notna(_starts.iloc[i]):
-                            w["start"] = _starts.iloc[i]
-                        if "end" not in w and pd.notna(_ends.iloc[i]):
-                            w["end"] = _ends.iloc[i]
+                # For languages without spaces, character-offset weighting is unreliable,
+                # so fall back to index-based linear interpolation.
+                effective_method = interpolate_method
+                if effective_method == "time_weighted" and model_lang in LANGUAGES_WITHOUT_SPACES:
+                    effective_method = "linear"
+
+                sentence_words = distribute_word_timestamps(
+                    sentence_words,
+                    segment_start=t1,
+                    segment_end=t2,
+                    method=effective_method,
+                )
+
+                if interpolate_method == "time_weighted" or timestamp_sanitize:
+                    sentence_words = sanitize_word_timestamps(sentence_words, t1, t2)
+
+            # Sentence-level fallback to parent segment bounds
+            if pd.isna(sentence_start):
+                sentence_start = t1
+            if pd.isna(sentence_end):
+                sentence_end = t2
 
             subsegment = {
                 "text": sentence_text,
