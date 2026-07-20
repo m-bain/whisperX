@@ -139,6 +139,15 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
+You can also customize the highlight color (useful for different subtitle rendering engines):
+
+    whisperx path/to/audio.wav --highlight_words True --highlight_color red
+    whisperx path/to/audio.wav --highlight_words True --highlight_color "#00ff00"
+
+Or color words by their alignment confidence score:
+
+    whisperx path/to/audio.wav --highlight_words True --highlight_score_colors "0.3:red,0.7:yellow,1.0:green"
+
 To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
