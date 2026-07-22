@@ -17,7 +17,6 @@ from whisperx.schema import (
     CharAlignmentArrays,
     SingleSegment,
     SingleAlignedSegment,
-    SingleWordSegment,
     SegmentData,
     ProgressCallback,
 )
@@ -234,6 +233,264 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 
+def _prepare_audio(audio: Union[str, np.ndarray, torch.Tensor]) -> torch.Tensor:
+    if not torch.is_tensor(audio):
+        if isinstance(audio, str):
+            audio = load_audio(audio)
+        audio = torch.from_numpy(audio)
+    if audio.ndim == 1:
+        audio = audio.unsqueeze(0)
+    return audio
+
+
+def _prepare_alignment(
+    transcript: Iterable[SingleSegment],
+    model_lang: str,
+    model_dictionary: dict,
+) -> dict[int, SegmentData]:
+    punkt_lang = PUNKT_LANGUAGES.get(model_lang, "english")
+    try:
+        sentence_splitter = nltk_load(f"tokenizers/punkt_tab/{punkt_lang}.pickle")
+    except LookupError as error:
+        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
+        if not nltk.download("punkt_tab", quiet=True):
+            raise RuntimeError(
+                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
+                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
+            ) from error
+        sentence_splitter = nltk_load(f"tokenizers/punkt_tab/{punkt_lang}.pickle")
+
+    segment_data = {}
+    for segment_index, segment in enumerate(transcript):
+        text = segment["text"]
+        num_leading = len(text) - len(text.lstrip())
+        num_trailing = len(text) - len(text.rstrip())
+        per_word = text if model_lang in LANGUAGES_WITHOUT_SPACES else text.split(" ")
+
+        clean_char, clean_cdx = [], []
+        for char_index, char in enumerate(text):
+            normalized = char.lower()
+            if model_lang not in LANGUAGES_WITHOUT_SPACES:
+                normalized = normalized.replace(" ", "|")
+            if char_index < num_leading or char_index > len(text) - num_trailing - 1:
+                continue
+            if normalized in model_dictionary or normalized not in (" ", "|"):
+                clean_char.append(normalized)
+                clean_cdx.append(char_index)
+
+        segment_data[segment_index] = {
+            "clean_char": clean_char,
+            "clean_cdx": clean_cdx,
+            "clean_wdx": list(range(len(per_word))),
+            "sentence_spans": list(sentence_splitter.span_tokenize(text)),
+        }
+    return segment_data
+
+
+def _compute_emission(
+    waveform: torch.Tensor,
+    model: torch.nn.Module,
+    model_type: str,
+    device: str,
+) -> torch.Tensor:
+    if waveform.shape[-1] < 400:
+        lengths = torch.as_tensor([waveform.shape[-1]], device=device)
+        waveform = torch.nn.functional.pad(waveform, (0, 400 - waveform.shape[-1]))
+    else:
+        lengths = None
+
+    with torch.inference_mode():
+        if model_type == "torchaudio":
+            emissions, _ = model(waveform.to(device), lengths=lengths)
+        elif model_type == "huggingface":
+            emissions = model(waveform.to(device)).logits
+        else:
+            raise NotImplementedError(f"Align model of type {model_type} not supported.")
+        return torch.log_softmax(emissions, dim=-1)[0].cpu().detach()
+
+
+def _compute_emission_batch(
+    waveforms: list[torch.Tensor],
+    model: torch.nn.Module,
+    model_type: str,
+    device: str,
+) -> list[torch.Tensor]:
+    if not waveforms:
+        return []
+
+    flattened = []
+    for waveform in waveforms:
+        if waveform.ndim == 2 and waveform.shape[0] == 1:
+            waveform = waveform.squeeze(0)
+        elif waveform.ndim != 1:
+            raise ValueError(
+                "Each waveform must have shape [time] or [1, time], "
+                f"but found {list(waveform.shape)}."
+            )
+        flattened.append(waveform)
+
+    with torch.inference_mode():
+        if model_type == "torchaudio":
+            # Padding before GroupNorm changes shorter inputs. Run the only
+            # GroupNorm convolution per item, then batch the remaining model.
+            first_block = model.feature_extractor.conv_layers[0]
+            sequences = []
+            for waveform in flattened:
+                if waveform.shape[-1] < 400:
+                    waveform = torch.nn.functional.pad(
+                        waveform, (0, 400 - waveform.shape[-1])
+                    )
+                features, _ = first_block(
+                    waveform.unsqueeze(0).unsqueeze(0).to(device), length=None
+                )
+                sequences.append(features.squeeze(0).transpose(0, 1))
+
+            output_lengths = torch.as_tensor(
+                [sequence.shape[0] for sequence in sequences],
+                dtype=torch.long,
+                device=device,
+            )
+            features = torch.nn.utils.rnn.pad_sequence(
+                sequences, batch_first=True
+            ).transpose(1, 2)
+            for conv_layer in model.feature_extractor.conv_layers[1:]:
+                features, output_lengths = conv_layer(features, output_lengths)
+            emissions = model.encoder(features.transpose(1, 2), lengths=output_lengths)
+            if model.aux is not None:
+                emissions = model.aux(emissions)
+        elif model_type == "huggingface":
+            # Only LayerNorm models are invariant to padded batch inputs.
+            if getattr(model.config, "feat_extract_norm", None) != "layer":
+                return [
+                    _compute_emission(waveform.unsqueeze(0), model, model_type, device)
+                    for waveform in flattened
+                ]
+            lengths = torch.as_tensor(
+                [waveform.shape[-1] for waveform in flattened],
+                dtype=torch.long,
+                device=device,
+            )
+            waveform_batch = torch.nn.utils.rnn.pad_sequence(
+                flattened, batch_first=True
+            )
+            if waveform_batch.shape[-1] < 400:
+                waveform_batch = torch.nn.functional.pad(
+                    waveform_batch, (0, 400 - waveform_batch.shape[-1])
+                )
+            waveform_batch = waveform_batch.to(device)
+            effective_lengths = lengths.clamp_min(400)
+            attention_mask = (
+                torch.arange(waveform_batch.shape[-1], device=device).unsqueeze(0)
+                < effective_lengths.unsqueeze(1)
+            ).long()
+            emissions = model(waveform_batch, attention_mask=attention_mask).logits
+            output_lengths = model._get_feat_extract_output_lengths(effective_lengths)
+        else:
+            raise NotImplementedError(f"Align model of type {model_type} not supported.")
+        emissions = torch.log_softmax(emissions, dim=-1).cpu().detach()
+
+    return [
+        emission[:output_length]
+        for emission, output_length in zip(
+            emissions, output_lengths.cpu().tolist(), strict=True
+        )
+    ]
+
+
+def _unaligned_segment(
+    segment: SingleSegment,
+    return_char_alignments: bool,
+) -> SingleAlignedSegment:
+    result: SingleAlignedSegment = {
+        "start": segment["start"],
+        "end": segment["end"],
+        "text": segment["text"],
+        "words": [],
+        "chars": [] if return_char_alignments else None,
+    }
+    if "avg_logprob" in segment:
+        result["avg_logprob"] = segment["avg_logprob"]
+    return result
+
+
+def _finish_alignment_segment(
+    segment: SingleSegment,
+    data: SegmentData,
+    waveform: torch.Tensor,
+    emission: torch.Tensor,
+    model_dictionary: dict,
+    model_lang: str,
+    interpolate_method: str,
+    return_char_alignments: bool,
+) -> Optional[list[SingleAlignedSegment]]:
+    text = segment["text"]
+    text_clean = "".join(data["clean_char"])
+    blank_id = next(
+        (code for char, code in model_dictionary.items() if char in ("[pad]", "<pad>")),
+        0,
+    )
+
+    has_wildcard = any(char not in model_dictionary for char in text_clean)
+    if has_wildcard:
+        non_blank_mask = torch.ones(emission.size(1), dtype=torch.bool)
+        non_blank_mask[blank_id] = False
+        wildcard = emission[:, non_blank_mask].max(dim=1).values
+        emission = torch.cat([emission, wildcard.unsqueeze(1)], dim=1)
+        tokens = [model_dictionary.get(char, emission.size(1) - 1) for char in text_clean]
+    else:
+        tokens = [model_dictionary[char] for char in text_clean]
+
+    trellis = get_trellis(emission, tokens, blank_id)
+    path = backtrack(trellis, emission, tokens, blank_id)
+    if path is None:
+        return None
+
+    char_segments = merge_repeats(path, text_clean)
+    ratio = (
+        (segment["end"] - segment["start"])
+        * waveform.size(0)
+        / (trellis.size(0) - 1)
+    )
+    chars = list(text)
+    starts = np.full(len(chars), np.nan, dtype=np.float64)
+    ends = np.full(len(chars), np.nan, dtype=np.float64)
+    scores = np.full(len(chars), np.nan, dtype=np.float64)
+    word_ids = np.empty(len(chars), dtype=np.int32)
+    for char_index, char_segment in zip(data["clean_cdx"], char_segments, strict=True):
+        starts[char_index] = round(char_segment.start * ratio + segment["start"], 3)
+        ends[char_index] = round(char_segment.end * ratio + segment["start"], 3)
+        scores[char_index] = round(char_segment.score, 3)
+
+    word_index = 0
+    for char_index in range(len(chars)):
+        word_ids[char_index] = word_index
+        if model_lang in LANGUAGES_WITHOUT_SPACES:
+            word_index += 1
+        elif char_index == len(chars) - 1 or chars[char_index + 1] == " ":
+            word_index += 1
+
+    return _get_aligned_subsegments(
+        CharAlignmentArrays(chars, starts, ends, scores, word_ids),
+        data["sentence_spans"],
+        text,
+        model_lang,
+        interpolate_method,
+        return_char_alignments,
+        segment.get("avg_logprob"),
+    )
+
+
+def _assemble_alignment_result(
+    aligned_segments: list[SingleAlignedSegment],
+) -> AlignedTranscriptionResult:
+    return {
+        "segments": aligned_segments,
+        "word_segments": [
+            word for segment in aligned_segments for word in segment["words"]
+        ],
+    }
+
+
 def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
@@ -363,105 +620,153 @@ def align(
             aligned_segments.append(aligned_seg)
             continue
 
-        text_clean = "".join(segment_data[sdx]["clean_char"])
-
         f1 = int(t1 * SAMPLE_RATE)
         f2 = int(t2 * SAMPLE_RATE)
 
-        # TODO: Probably can get some speedup gain with batched inference here
         waveform_segment = audio[:, f1:f2]
-        # Handle the minimum input length for wav2vec2 models
-        if waveform_segment.shape[-1] < 400:
-            lengths = torch.as_tensor([waveform_segment.shape[-1]]).to(device)
-            waveform_segment = torch.nn.functional.pad(
-                waveform_segment, (0, 400 - waveform_segment.shape[-1])
-            )
-        else:
-            lengths = None
-
-        with torch.inference_mode():
-            if model_type == "torchaudio":
-                emissions, _ = model(waveform_segment.to(device), lengths=lengths)
-            elif model_type == "huggingface":
-                emissions = model(waveform_segment.to(device)).logits
-            else:
-                raise NotImplementedError(f"Align model of type {model_type} not supported.")
-            emissions = torch.log_softmax(emissions, dim=-1)
-
-        emission = emissions[0].cpu().detach()
-
-        blank_id = 0
-        for char, code in model_dictionary.items():
-            if char == '[pad]' or char == '<pad>':
-                blank_id = code
-
-        # Build tokens, mapping unknown chars to a wildcard column
-        has_wildcard = any(c not in model_dictionary for c in text_clean)
-        if has_wildcard:
-            # Extend emission with a wildcard column: max non-blank score per frame
-            non_blank_mask = torch.ones(emission.size(1), dtype=torch.bool)
-            non_blank_mask[blank_id] = False
-            wildcard_col = emission[:, non_blank_mask].max(dim=1).values
-            emission = torch.cat([emission, wildcard_col.unsqueeze(1)], dim=1)
-            wildcard_id = emission.size(1) - 1
-            tokens = [model_dictionary.get(c, wildcard_id) for c in text_clean]
-        else:
-            tokens = [model_dictionary[c] for c in text_clean]
-
-        trellis = get_trellis(emission, tokens, blank_id)
-        path = backtrack(trellis, emission, tokens, blank_id)
-
-        if path is None:
-            logger.warning(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original')
-            aligned_segments.append(aligned_seg)
-            continue
-
-        char_segments = merge_repeats(path, text_clean)
-
-        duration = t2 - t1
-        ratio = duration * waveform_segment.size(0) / (trellis.size(0) - 1)
-
-        # assign timestamps to aligned characters
-        chars = list(text)
-        starts = np.full(len(chars), np.nan, dtype=np.float64)
-        ends = np.full(len(chars), np.nan, dtype=np.float64)
-        scores = np.full(len(chars), np.nan, dtype=np.float64)
-        word_ids = np.empty(len(chars), dtype=np.int32)
-
-        for cdx, char_seg in zip(segment_data[sdx]["clean_cdx"], char_segments, strict=True):
-            starts[cdx] = round(char_seg.start * ratio + t1, 3)
-            ends[cdx] = round(char_seg.end * ratio + t1, 3)
-            scores[cdx] = round(char_seg.score, 3)
-
-        word_idx = 0
-        for cdx in range(len(chars)):
-            word_ids[cdx] = word_idx
-            # increment word_idx, nltk word tokenization would probably be more robust here, but us space for now...
-            if model_lang in LANGUAGES_WITHOUT_SPACES:
-                word_idx += 1
-            elif cdx == len(chars) - 1 or chars[cdx + 1] == " ":
-                word_idx += 1
-
-        aligned_subsegments = _get_aligned_subsegments(
-            CharAlignmentArrays(chars, starts, ends, scores, word_ids),
-            segment_data[sdx]["sentence_spans"],
-            text,
+        emission = _compute_emission(waveform_segment, model, model_type, device)
+        aligned_subsegments = _finish_alignment_segment(
+            segment,
+            segment_data[sdx],
+            waveform_segment,
+            emission,
+            model_dictionary,
             model_lang,
             interpolate_method,
             return_char_alignments,
-            avg_logprob,
         )
+        if aligned_subsegments is None:
+            logger.warning(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original')
+            aligned_segments.append(aligned_seg)
+            continue
         if progress_callback is not None:
             progress_callback(((sdx + 1) / total_segments) * 100)
 
         aligned_segments += aligned_subsegments
 
-    # create word_segments list
-    word_segments: List[SingleWordSegment] = []
-    for segment in aligned_segments:
-        word_segments += segment["words"]
+    return _assemble_alignment_result(aligned_segments)
 
-    return {"segments": aligned_segments, "word_segments": word_segments}
+
+def align_batch(
+    transcripts: list[list[SingleSegment]],
+    model: torch.nn.Module,
+    align_model_metadata: dict,
+    audio: list[Union[str, np.ndarray, torch.Tensor]],
+    device: str,
+    batch_size: int,
+    interpolate_method: str = "nearest",
+    return_char_alignments: bool = False,
+    print_progress: bool = False,
+    combined_progress: bool = False,
+    progress_callback: ProgressCallback = None,
+) -> list[AlignedTranscriptionResult]:
+    """Align multiple audio inputs with duration-sorted model batches."""
+    if len(transcripts) != len(audio):
+        raise ValueError(
+            "transcripts and audio must contain the same number of items, "
+            f"but found {len(transcripts)} transcripts and {len(audio)} audio items."
+        )
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be at least 1, but found {batch_size}.")
+
+    audios = [_prepare_audio(audio_item) for audio_item in audio]
+    model_dictionary = align_model_metadata["dictionary"]
+    model_lang = align_model_metadata["language"]
+    model_type = align_model_metadata["type"]
+    segment_results: list[list[Optional[list[SingleAlignedSegment]]]] = [
+        [None] * len(transcript) for transcript in transcripts
+    ]
+    jobs = []
+    total_segments = sum(len(transcript) for transcript in transcripts)
+    processed_segments = 0
+
+    for audio_index, (transcript, audio_item) in enumerate(
+        zip(transcripts, audios, strict=True)
+    ):
+        max_duration = audio_item.shape[1] / SAMPLE_RATE
+        segment_data = _prepare_alignment(transcript, model_lang, model_dictionary)
+        for segment_index, segment in enumerate(transcript):
+            processed_segments += 1
+            if print_progress and total_segments:
+                base_progress = processed_segments / total_segments * 100
+                percent_complete = (
+                    50 + base_progress / 2 if combined_progress else base_progress
+                )
+                print(f"Progress: {percent_complete:.2f}%...")
+
+            fallback = _unaligned_segment(segment, return_char_alignments)
+            if not segment_data[segment_index]["clean_char"]:
+                logger.warning(
+                    f'Failed to align segment ("{segment["text"]}"): no characters '
+                    "in this segment found in model dictionary, resorting to original"
+                )
+                segment_results[audio_index][segment_index] = [fallback]
+                continue
+            if segment["start"] >= max_duration:
+                logger.warning(
+                    f'Failed to align segment ("{segment["text"]}"): original start '
+                    "time longer than audio duration, skipping"
+                )
+                segment_results[audio_index][segment_index] = [fallback]
+                continue
+
+            first_sample = int(segment["start"] * SAMPLE_RATE)
+            last_sample = int(segment["end"] * SAMPLE_RATE)
+            jobs.append(
+                {
+                    "audio_index": audio_index,
+                    "segment_index": segment_index,
+                    "segment": segment,
+                    "data": segment_data[segment_index],
+                    "waveform": audio_item[:, first_sample:last_sample],
+                    "fallback": fallback,
+                }
+            )
+
+    jobs.sort(key=lambda job: job["waveform"].shape[-1])
+    completed_segments = 0
+    for batch_start in range(0, len(jobs), batch_size):
+        batch = jobs[batch_start:batch_start + batch_size]
+        emissions = _compute_emission_batch(
+            [job["waveform"] for job in batch], model, model_type, device
+        )
+        if len(emissions) != len(batch):
+            raise RuntimeError(
+                "Alignment model returned an unexpected number of emissions: "
+                f"expected {len(batch)}, found {len(emissions)}."
+            )
+        for job, emission in zip(batch, emissions, strict=True):
+            aligned = _finish_alignment_segment(
+                job["segment"],
+                job["data"],
+                job["waveform"],
+                emission,
+                model_dictionary,
+                model_lang,
+                interpolate_method,
+                return_char_alignments,
+            )
+            if aligned is None:
+                logger.warning(
+                    f'Failed to align segment ("{job["segment"]["text"]}"): '
+                    "backtrack failed, resorting to original"
+                )
+                aligned = [job["fallback"]]
+            segment_results[job["audio_index"]][job["segment_index"]] = aligned
+            completed_segments += 1
+            if progress_callback is not None and total_segments:
+                progress_callback(completed_segments / total_segments * 100)
+
+    results = []
+    for audio_results in segment_results:
+        aligned_segments = []
+        for aligned in audio_results:
+            if aligned is None:
+                raise RuntimeError("Internal error: alignment segment was not processed.")
+            aligned_segments.extend(aligned)
+        results.append(_assemble_alignment_result(aligned_segments))
+    return results
+
 
 """
 source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
