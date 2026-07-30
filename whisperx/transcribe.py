@@ -50,7 +50,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     return_char_alignments: bool = args.pop("return_char_alignments")
 
-    hf_token: str = args.pop("hf_token")
+    hf_token: str = args.pop("hf_token") or os.environ.get("HF_TOKEN")
     vad_method: str = args.pop("vad_method")
     vad_onset: float = args.pop("vad_onset")
     vad_offset: float = args.pop("vad_offset")
@@ -209,7 +209,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     if diarize:
         if hf_token is None:
             logger.warning(
-                "No --hf_token provided, needs to be saved in environment variable, otherwise will throw error loading diarization model"
+                "No Hugging Face token provided: pass --hf_token or set the HF_TOKEN environment variable, otherwise will throw error loading diarization model"
             )
         tmp_results = results
         logger.info("Performing diarization...")
