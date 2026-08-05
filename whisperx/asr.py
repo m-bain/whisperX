@@ -15,6 +15,7 @@ from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogr
 from whisperx.schema import SingleSegment, TranscriptionResult, ProgressCallback
 from whisperx.vads import Vad, Silero, Pyannote
 from whisperx.log_utils import get_logger
+from whisperx.utils import format_timestamp
 
 logger = get_logger(__name__)
 
@@ -277,7 +278,8 @@ class FasterWhisperPipeline(Pipeline):
                 text = text[0]
                 avg_logprob = avg_logprob[0]
             if verbose:
-                print(f"Transcript: [{round(vad_segments[idx]['start'], 3)} --> {round(vad_segments[idx]['end'], 3)}] {text}")
+                print(f"Transcript: [{format_timestamp(vad_segments[idx]['start'], True)} --> {format_timestamp(vad_segments[idx]['end'], True)}] {text}")
+
             segments.append(
                 {
                     "text": text,
