@@ -468,6 +468,8 @@ def get_writer(
     return writers[output_format](output_dir)
 
 def interpolate_nans(x, method='nearest'):
+    if method == "ignore":
+        return x
     if x.notnull().sum() > 1:
         return x.interpolate(method=method).ffill().bfill()
     else:

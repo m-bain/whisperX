@@ -4,18 +4,25 @@ on:
   release:
     types: [published]
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          version: "0.5.14"
+          version: "0.11.6"
           python-version: "3.10"
+          enable-cache: false
 
       - name: Check if lockfile is up to date
         run: uv lock --check
@@ -24,9 +31,10 @@ jobs:
         run: uv build
 
       - name: Release to Github
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.whl
+        run: gh release upload "$RELEASE_TAG" dist/*.whl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
 
       - name: Publish package to PyPi
         run: uv publish
