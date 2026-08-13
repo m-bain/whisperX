@@ -12,7 +12,7 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
-from whisperx.utils import interpolate_nans, PUNKT_LANGUAGES
+from whisperx.utils import interpolate_nans, CJKSentenceSplitter, PUNKT_LANGUAGES
 from whisperx.schema import (
     AlignedTranscriptionResult,
     SingleSegment,
@@ -114,6 +114,21 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 
+def _load_punkt(model_lang: str):
+    """Punkt sentence tokenizer for a language, falling back to English."""
+    punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
+    try:
+        return nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+    except LookupError as e:
+        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
+        if not nltk.download('punkt_tab', quiet=True):
+            raise RuntimeError(
+                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
+                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
+            ) from e
+        return nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+
+
 def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
@@ -143,18 +158,12 @@ def align(
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
 
-    # Use language-specific Punkt model if available otherwise we fallback to English.
-    punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
-    try:
-        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
-    except LookupError as e:
-        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
-        if not nltk.download('punkt_tab', quiet=True):
-            raise RuntimeError(
-                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
-                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
-            ) from e
-        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+    # Punkt cannot segment languages that are written without spaces, and the
+    # English fallback returns the whole segment as one sentence for them.
+    if model_lang in LANGUAGES_WITHOUT_SPACES:
+        sentence_splitter = CJKSentenceSplitter()
+    else:
+        sentence_splitter = _load_punkt(model_lang)
 
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
@@ -333,9 +342,14 @@ def align(
         aligned_subsegments = []
         # assign sentence_idx to each character index
         char_segments_arr["sentence-idx"] = None
-        for sdx2, (sstart, send) in enumerate(segment_data[sdx]["sentence_spans"]):
-            curr_chars = char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send)]
-            char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send), "sentence-idx"] = sdx2
+        sentence_spans = segment_data[sdx]["sentence_spans"]
+        for sdx2, (sstart, send) in enumerate(sentence_spans):
+            # `send` is exclusive, as it is in the spans punkt returns. Including
+            # it only ever picked up the space between two sentences, until CJK
+            # spans arrived: those are adjacent, so it took the next sentence's
+            # first character along with its timing.
+            curr_chars = char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index < send)]
+            char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index < send), "sentence-idx"] = sdx2
 
             sentence_text = text[sstart:send]
             sentence_start = curr_chars["start"].min()
@@ -392,11 +406,18 @@ def align(
             aligned_subsegments.append(subsegment)
 
             if return_char_alignments:
-                curr_chars = curr_chars[["char", "start", "end", "score"]]
-                curr_chars.fillna(-1, inplace=True)
-                curr_chars = curr_chars.to_dict("records")
-                curr_chars = [{key: val for key, val in char.items() if val != -1} for char in curr_chars]
-                aligned_subsegments[-1]["chars"] = curr_chars
+                # Timing above stops at `send`, but the characters between two
+                # spans, the whitespace punkt leaves out, belong to no sentence
+                # and would drop out of the output entirely. Run to the start of
+                # the next span so `chars` still covers the whole segment. CJK
+                # spans are adjacent, so this is the same range for them.
+                char_end = sentence_spans[sdx2 + 1][0] if sdx2 + 1 < len(sentence_spans) else len(text)
+                out_chars = char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index < char_end)]
+                out_chars = out_chars[["char", "start", "end", "score"]]
+                out_chars.fillna(-1, inplace=True)
+                out_chars = out_chars.to_dict("records")
+                out_chars = [{key: val for key, val in char.items() if val != -1} for char in out_chars]
+                aligned_subsegments[-1]["chars"] = out_chars
 
         aligned_subsegments = pd.DataFrame(aligned_subsegments)
         aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
