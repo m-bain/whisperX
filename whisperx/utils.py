@@ -126,6 +126,83 @@ TO_LANGUAGE_CODE = {
 
 LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
+# Sentence-ending punctuation for the languages in LANGUAGES_WITHOUT_SPACES.
+# 。！？ always end a sentence. The halfwidth forms and ． are ambiguous and are
+# qualified in CJKSentenceSplitter._ends_sentence below.
+CJK_TERMINATORS = "。！？．!?."
+
+# Closing brackets and quotes, which belong to the sentence they close, as in
+# 「もう終わりです。」 The ASCII " and ' are deliberately absent: the same
+# character opens and closes, so treating one as a closer would swallow the
+# opening quote of the following sentence.
+CJK_CLOSERS = "」』）］｝〉》”’)]}"
+
+CJK_DIGITS = "0123456789０１２３４５６７８９"
+
+
+class CJKSentenceSplitter:
+    """Sentence spans for languages written without spaces between words.
+
+    Punkt is trained on space-separated text with Latin punctuation, so it has
+    no basis for splitting Chinese or Japanese and returns the whole input as a
+    single span. Splitting on the CJK terminators instead gives one span per
+    sentence.
+
+    Exposes ``span_tokenize`` so it can be used wherever a punkt tokenizer is,
+    and follows punkt's conventions: ends are exclusive, and whitespace between
+    or after sentences is left out of the spans.
+
+    A terminator inside a quotation is treated as a sentence end, the same way
+    punkt treats one in English. Tracking bracket depth instead would mean an
+    unclosed quote, which speech recognition produces often, swallows every
+    later sentence in the segment, which is the bug this class exists to fix.
+    """
+
+    @staticmethod
+    def _ends_sentence(text: str, i: int) -> bool:
+        """Whether the terminator at `i` really ends a sentence."""
+        char = text[i]
+        prev = text[i - 1] if i else ""
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+        if char == ".":
+            # Halfwidth "." is a decimal point at least as often as a
+            # terminator. Punkt only breaks on it when whitespace follows, so
+            # do the same: "3.14" stays whole and "你好. 再见." still splits.
+            return nxt == "" or nxt.isspace()
+        if char == "．":
+            # Fullwidth "．" ends sentences in the 「，．」 style, where nothing
+            # follows it, but it is also the fullwidth decimal point.
+            return not (prev in CJK_DIGITS and nxt in CJK_DIGITS)
+        if char in "!?":
+            # Halfwidth "!" and "?" appear inside Latin words and URLs that
+            # are embedded in CJK text, as in Yahoo!ニュース and ?q=1.
+            return not (prev.isascii() and prev.isalnum())
+        return True
+
+    def span_tokenize(self, text: str):
+        start = i = 0
+        n = len(text)
+        while i < n:
+            if text[i] not in CJK_TERMINATORS or not self._ends_sentence(text, i):
+                i += 1
+                continue
+            end = i + 1
+            # A run of terminators ends one sentence, not several, as in ！？
+            while end < n and text[end] in CJK_TERMINATORS:
+                end += 1
+            while end < n and text[end] in CJK_CLOSERS:
+                end += 1
+            yield start, end
+            i = end
+            while i < n and text[i].isspace():
+                i += 1
+            start = i
+        # Trailing text with no terminator is still a sentence.
+        tail = text[start:].rstrip()
+        if tail:
+            yield start, start + len(tail)
+
+
 # Mapping of language codes to NLTK Punkt tokenizer model names
 PUNKT_LANGUAGES = {
     'cs': 'czech',
