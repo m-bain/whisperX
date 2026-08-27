@@ -12,7 +12,12 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
-from whisperx.utils import interpolate_nans, CJKSentenceSplitter, PUNKT_LANGUAGES
+from whisperx.utils import (
+    interpolate_nans,
+    CJKSentenceSplitter,
+    LANGUAGES_WITHOUT_SPACES,
+    PUNKT_LANGUAGES,
+)
 from whisperx.schema import (
     AlignedTranscriptionResult,
     SingleSegment,
@@ -27,7 +32,6 @@ from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
 
-LANGUAGES_WITHOUT_SPACES = ["ja", "zh"]
 
 DEFAULT_ALIGN_MODELS_TORCH = {
     "en": "WAV2VEC2_ASR_BASE_960H",
