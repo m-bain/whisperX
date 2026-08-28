@@ -187,6 +187,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                         result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
                     )
                 logger.info("Performing alignment...")
+                transcribed_language = result.get("language", align_language)
                 result: AlignedTranscriptionResult = align(
                     result["segments"],
                     align_model,
@@ -197,6 +198,9 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
                 )
+                # align() returns no language key, and the writers need one to
+                # pick the word separator for ja and zh.
+                result["language"] = transcribed_language
 
             results.append((result, audio_path))
 
@@ -234,5 +238,5 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
             results.append((result, input_audio_path))
     # >> Write
     for result, audio_path in results:
-        result["language"] = align_language
+        result.setdefault("language", align_language)
         writer(result, audio_path, writer_args)
