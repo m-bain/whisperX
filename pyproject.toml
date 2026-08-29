@@ -27,8 +27,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
-# torchaudio 仅用于 torchaudio.pipelines 加载对齐模型（可选路径）。
-# 无需 torchaudio 的平台（如昇腾/ARM aarch64，无 torchaudio wheel）默认不安装它。
+# torchaudio is only used for loading align models via torchaudio.pipelines
+# (an optional path). Platforms without torchaudio wheels (e.g. Ascend /
+# Linux aarch64) skip installing it and use the HF fallback instead.
 align-torch = ["torchaudio~=2.8.0"]
 
 [project.scripts]

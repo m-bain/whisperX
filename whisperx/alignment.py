@@ -10,8 +10,8 @@ import pandas as pd
 import torch
 try:
     import torchaudio
-except ImportError:
-    torchaudio = None
+except Exception:  # broken installs (missing native libs, ABI mismatch) should
+    torchaudio = None  # degrade to the HuggingFace path, not crash the import
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
@@ -40,9 +40,9 @@ DEFAULT_ALIGN_MODELS_TORCH = {
     "it": "VOXPOPULI_ASR_BASE_10K_IT",
 }
 
-# torchaudio.pipelines 模型在 Hugging Face 上的等价 checkpoint。
-# torchaudio 无 Linux aarch64 wheel（昇腾/鲲鹏 ARM 等平台装不上），
-# 此时可用这些 HF 模型兜底加载对齐模型，使 forced alignment 仍可用。
+# Hugging Face equivalents of the torchaudio.pipelines checkpoints.
+# torchaudio has no Linux aarch64 wheels (Ascend/Kunpeng ARM etc. cannot install
+# it), so fall back to these HF models to keep forced alignment available.
 TORCHAUDIO_PIPELINE_TO_HF = {
     "WAV2VEC2_ASR_BASE_960H": "facebook/wav2vec2-base-960h",
     "VOXPOPULI_ASR_BASE_10K_FR": "facebook/wav2vec2-base-10k-voxpopuli-fr",
@@ -111,7 +111,8 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         labels = bundle.get_labels()
         align_dictionary = {c.lower(): i for i, c in enumerate(labels)}
     else:
-        # torchaudio 不可用时，将 torchaudio.pipelines 模型名兜底到 HF 等价 checkpoint
+        # When torchaudio is unavailable, map torchaudio.pipelines model names
+        # to their equivalent HF checkpoints.
         if torchaudio is None and model_name in TORCHAUDIO_PIPELINE_TO_HF:
             model_name = TORCHAUDIO_PIPELINE_TO_HF[model_name]
         try:
