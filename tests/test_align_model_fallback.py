@@ -9,8 +9,8 @@ def test_default_torch_models_have_hf_fallback():
     """Every default torchaudio.pipelines align model should have an HF
     equivalent, so platforms without torchaudio wheels (e.g. Ascend /
     Linux aarch64) can still run forced alignment via Hugging Face."""
-    assert set(A.DEFAULT_ALIGN_MODELS_TORCH.values()) == set(
-        A.TORCHAUDIO_PIPELINE_TO_HF.keys()
+    assert set(A.DEFAULT_ALIGN_MODELS_TORCH.values()).issubset(
+        A.TORCHAUDIO_PIPELINE_TO_HF
     )
 
 
