@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 try:
     import torchaudio
-except Exception:  # broken installs (missing native libs, ABI mismatch) should
+except (ImportError, OSError):  # broken installs (missing native libs, ABI mismatch)
     torchaudio = None  # degrade to the HuggingFace path, not crash the import
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
