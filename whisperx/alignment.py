@@ -8,7 +8,10 @@ from typing import Iterable, Optional, Union, List
 import numpy as np
 import pandas as pd
 import torch
-import torchaudio
+try:
+    import torchaudio
+except Exception:  # broken installs (missing native libs, ABI mismatch) should
+    torchaudio = None  # degrade to the HuggingFace path, not crash the import
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from whisperx.audio import SAMPLE_RATE, load_audio
@@ -35,6 +38,17 @@ DEFAULT_ALIGN_MODELS_TORCH = {
     "de": "VOXPOPULI_ASR_BASE_10K_DE",
     "es": "VOXPOPULI_ASR_BASE_10K_ES",
     "it": "VOXPOPULI_ASR_BASE_10K_IT",
+}
+
+# Hugging Face equivalents of the torchaudio.pipelines checkpoints.
+# torchaudio has no Linux aarch64 wheels (Ascend/Kunpeng ARM etc. cannot install
+# it), so fall back to these HF models to keep forced alignment available.
+TORCHAUDIO_PIPELINE_TO_HF = {
+    "WAV2VEC2_ASR_BASE_960H": "facebook/wav2vec2-base-960h",
+    "VOXPOPULI_ASR_BASE_10K_FR": "facebook/wav2vec2-base-10k-voxpopuli-fr",
+    "VOXPOPULI_ASR_BASE_10K_DE": "facebook/wav2vec2-base-10k-voxpopuli-de",
+    "VOXPOPULI_ASR_BASE_10K_ES": "facebook/wav2vec2-base-10k-voxpopuli-es",
+    "VOXPOPULI_ASR_BASE_10K_IT": "facebook/wav2vec2-base-10k-voxpopuli-it",
 }
 
 DEFAULT_ALIGN_MODELS_HF = {
@@ -90,13 +104,17 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
                          f"then pass the model name via --align_model [MODEL_NAME]")
             raise ValueError(f"No default align-model for language: {language_code}")
 
-    if model_name in torchaudio.pipelines.__all__:
+    if torchaudio is not None and model_name in torchaudio.pipelines.__all__:
         pipeline_type = "torchaudio"
         bundle = torchaudio.pipelines.__dict__[model_name]
         align_model = bundle.get_model(dl_kwargs={"model_dir": model_dir}).to(device)
         labels = bundle.get_labels()
         align_dictionary = {c.lower(): i for i, c in enumerate(labels)}
     else:
+        # When torchaudio is unavailable, map torchaudio.pipelines model names
+        # to their equivalent HF checkpoints.
+        if torchaudio is None and model_name in TORCHAUDIO_PIPELINE_TO_HF:
+            model_name = TORCHAUDIO_PIPELINE_TO_HF[model_name]
         try:
             processor = Wav2Vec2Processor.from_pretrained(model_name, cache_dir=model_dir, local_files_only=model_cache_only)
             align_model = Wav2Vec2ForCTC.from_pretrained(model_name, cache_dir=model_dir, local_files_only=model_cache_only)
