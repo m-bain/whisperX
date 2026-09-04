@@ -59,6 +59,7 @@ This repository provides fast automatic speech recognition (70x realtime with la
 - v3 released, 70x speed-up open-sourced. Using batched whisper with [faster-whisper](https://github.com/guillaumekln/faster-whisper) backend!
 - v2 released, code cleanup, imports whisper library VAD filtering is now turned on by default, as in the paper.
 - Paper drop🎓👨‍🏫! Please see our [ArxiV preprint](https://arxiv.org/abs/2303.00747) for benchmarking and details of WhisperX. We also introduce more efficient batch inference resulting in large-v2 with \*60-70x REAL TIME speed.
+- Context-Aware Batching Released 2026: We have successfully re-enabled autoregressive context conditioning within fully parallelized transcription frameworks, resolving the cold-start problem and preventing hallucination loops - https://arxiv.org/pdf/2608.31170v
 
 <h2 align="left" id="setup">Setup ⚙️</h2>
 
@@ -178,7 +179,8 @@ model = whisperx.load_model("large-v2", device, compute_type=compute_type)
 # model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=model_dir)
 
 audio = whisperx.load_audio(audio_file)
-result = model.transcribe(audio, batch_size=batch_size)
+# To maintain continuous conversational context (ideal for technical language), enable --interleaved_context
+result = model.transcribe(audio, batch_size=batch_size, interleaved_context)
 print(result["segments"]) # before alignment
 
 # delete model if low on GPU resources
@@ -308,3 +310,10 @@ If you use this in your research, please cite the paper:
   year={2023}
 }
 ```
+Please also cite the paper below if you enabled interleaved context:
+@article{bain2026context,
+  title={Context-Aware Interleaved Batching for WhisperX},
+  author={Bain, Carlos and Bain, Max},
+  journal={arXiv preprint arXiv:2608.31170v1},
+  year={2026}
+}
