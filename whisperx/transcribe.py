@@ -2,6 +2,7 @@ import argparse
 import gc
 import os
 import warnings
+from typing import Optional
 
 import numpy as np
 import torch
@@ -33,6 +34,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     output_dir: str = args.pop("output_dir")
     output_format: str = args.pop("output_format")
     device: str = args.pop("device")
+    diarize_device: Optional[str] = args.pop("diarize_device")
     device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
     verbose: bool = args.pop("verbose")
@@ -215,7 +217,11 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         logger.info("Performing diarization...")
         logger.info(f"Using model: {diarize_model_name}")
         results = []
-        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=device, cache_dir=model_dir)
+        # Diarization is plain PyTorch, so it is not bound by the ASR backend's
+        # device support. On Apple Silicon in particular, CTranslate2 has no Metal
+        # backend and forces --device cpu, but pyannote runs fine on "mps" -- so
+        # allowing a separate device here is a large speedup at no cost.
+        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=diarize_device or device, cache_dir=model_dir)
         for result, input_audio_path in tmp_results:
             diarize_result = diarize_model(
                 input_audio_path, 
