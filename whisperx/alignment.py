@@ -298,8 +298,10 @@ def align(
 
         char_segments = merge_repeats(path, text_clean)
 
-        duration = t2 - t1
+        duration = waveform_segment.shape[-1]/SAMPLE_RATE 
+
         ratio = duration * waveform_segment.size(0) / (trellis.size(0) - 1)
+        ratio = round(ratio, 2)  # round down to consider partial frames
 
         # assign timestamps to aligned characters
         char_segments_arr = []
