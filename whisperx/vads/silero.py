@@ -23,11 +23,16 @@ class Silero(Vad):
 
         self.vad_onset = kwargs['vad_onset']
         self.chunk_size = kwargs['chunk_size']
+        # silero-vad calls torch.set_num_threads(1) at import time, which would
+        # leave the rest of the process (alignment, diarization) pinned to a
+        # single thread and silently ignore --threads. Restore the caller's setting.
+        num_threads = torch.get_num_threads()
         self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                                       model='silero_vad',
                                                       force_reload=False,
                                                       onnx=False,
                                                       trust_repo=True)
+        torch.set_num_threads(num_threads)
         (self.get_speech_timestamps, _, self.read_audio, _, _) = vad_utils
 
     def __call__(self, audio: AudioFile, **kwargs):
