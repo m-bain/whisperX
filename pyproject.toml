@@ -18,7 +18,6 @@ dependencies = [
     "pyannote-audio>=4.0.0",
     "huggingface-hub>=0.28.1",
     "torch~=2.8.0",
-    "torchaudio~=2.8.0",
     "torchvision~=0.23.0",
     "torchcodec>=0.6.0,<0.8.0; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin' or sys_platform == 'win32'",
     "transformers>=4.48.0",
@@ -28,6 +27,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# torchaudio is only used for loading align models via torchaudio.pipelines
+# (an optional path). Platforms without torchaudio wheels (e.g. Ascend /
+# Linux aarch64) skip installing it and use the HF fallback instead.
+align-torch = ["torchaudio~=2.8.0"]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"
