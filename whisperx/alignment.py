@@ -3,6 +3,7 @@ Forced Alignment with Whisper
 C. Max Bain
 """
 from dataclasses import dataclass
+import os
 from typing import Iterable, Optional, Union, List
 
 import numpy as np
@@ -118,7 +119,7 @@ def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
     align_model_metadata: dict,
-    audio: Union[str, np.ndarray, torch.Tensor],
+    audio: Union[str, os.PathLike, np.ndarray, torch.Tensor],
     device: str,
     interpolate_method: str = "nearest",
     return_char_alignments: bool = False,
@@ -131,7 +132,7 @@ def align(
     """
 
     if not torch.is_tensor(audio):
-        if isinstance(audio, str):
+        if isinstance(audio, (str, os.PathLike)):
             audio = load_audio(audio)
         audio = torch.from_numpy(audio)
     if len(audio.shape) == 1:
@@ -399,18 +400,21 @@ def align(
                 aligned_subsegments[-1]["chars"] = curr_chars
 
         aligned_subsegments = pd.DataFrame(aligned_subsegments)
-        aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
-        aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
-        # concatenate sentences with same timestamps
-        agg_dict = {"text": " ".join, "words": "sum"}
-        if model_lang in LANGUAGES_WITHOUT_SPACES:
-            agg_dict["text"] = "".join
-        if return_char_alignments:
-            agg_dict["chars"] = "sum"
-        if avg_logprob is not None:
-            agg_dict["avg_logprob"] = "first"
-        aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
-        aligned_subsegments = aligned_subsegments.to_dict('records')
+        if not aligned_subsegments.empty and "start" in aligned_subsegments:
+            aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
+            aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
+            # concatenate sentences with same timestamps
+            agg_dict = {"text": " ".join, "words": "sum"}
+            if model_lang in LANGUAGES_WITHOUT_SPACES:
+                agg_dict["text"] = "".join
+            if return_char_alignments:
+                agg_dict["chars"] = "sum"
+            if avg_logprob is not None:
+                agg_dict["avg_logprob"] = "first"
+            aligned_subsegments = aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
+            aligned_subsegments = aligned_subsegments.to_dict('records')
+        else:
+            aligned_subsegments = []
         if progress_callback is not None:
             progress_callback(((sdx + 1) / total_segments) * 100)
 
