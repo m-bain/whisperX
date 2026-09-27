@@ -242,6 +242,11 @@ class FasterWhisperPipeline(Pipeline):
         forward_params: dict,
         postprocess_params: dict,
     ):
+        if num_workers > 1:
+            logger.warning(
+                "Using num_workers=1 for iterable ASR inputs to avoid duplicate segments."
+            )
+            num_workers = 1
         dataset = PipelineIterator(inputs, self.preprocess, preprocess_params)
         if "TOKENIZERS_PARALLELISM" not in os.environ:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
