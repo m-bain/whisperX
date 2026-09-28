@@ -133,7 +133,7 @@ For increased timestamp accuracy, at the cost of higher gpu mem, use bigger mode
 
     whisperx path/to/audio.wav --model large-v2 --align_model WAV2VEC2_ASR_LARGE_LV60K_960H --batch_size 4
 
-To label the transcript with speaker ID's (set number of speakers if known e.g. `--min_speakers 2` `--max_speakers 2`):
+To label the transcript with speaker ID's (set the number of speakers if known e.g. `--num_speakers 2`, or bound it with `--min_speakers` / `--max_speakers` if not):
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
