@@ -58,8 +58,11 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     chunk_size: int = args.pop("chunk_size")
 
     diarize: bool = args.pop("diarize")
+    num_speakers: int = args.pop("num_speakers")
     min_speakers: int = args.pop("min_speakers")
     max_speakers: int = args.pop("max_speakers")
+    if num_speakers is not None and (min_speakers is not None or max_speakers is not None):
+        parser.error("--num_speakers cannot be combined with --min_speakers or --max_speakers")
     diarize_model_name: str = args.pop("diarize_model")
     print_progress: bool = args.pop("print_progress")
     return_speaker_embeddings: bool = args.pop("speaker_embeddings")
@@ -220,9 +223,10 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=device, cache_dir=model_dir)
         for result, input_audio_path in tmp_results:
             diarize_result = diarize_model(
-                input_audio_path, 
-                min_speakers=min_speakers, 
-                max_speakers=max_speakers, 
+                input_audio_path,
+                num_speakers=num_speakers,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
                 return_embeddings=return_speaker_embeddings
             )
 
