@@ -1,11 +1,13 @@
 """Test that align() produces word-level timestamps for unalignable characters."""
 
-import numpy as np
-import pandas as pd
-import torch
 from unittest.mock import MagicMock
 
-from whisperx.alignment import align
+import numpy as np
+import pytest
+import torch
+
+from whisperx.alignment import _get_aligned_subsegments, _get_sentence_words, align
+from whisperx.schema import CharAlignmentArrays
 from whisperx.utils import interpolate_nans
 
 
@@ -49,6 +51,47 @@ def _make_emission(num_frames, dictionary, transcript_chars, blank_id=0):
                 emission[t, blank_id] = -3.0  # suppress blank
 
     return emission
+
+
+def test_sentence_words_are_aggregated_from_character_arrays():
+    alignments = CharAlignmentArrays(
+        chars=list("hi all"),
+        starts=np.array([0.0, 0.1, np.nan, 0.3, 0.4, 0.5]),
+        ends=np.array([0.1, 0.2, np.nan, 0.4, 0.5, 0.6]),
+        scores=np.array([0.9, 0.7, np.nan, 0.6, 0.8, 1.0]),
+        word_ids=np.array([0, 0, 0, 1, 1, 1]),
+    )
+
+    assert _get_sentence_words(alignments, 0, len(alignments.chars)) == [
+        {"word": "hi", "start": 0.0, "end": 0.2, "score": 0.8},
+        {"word": "all", "start": 0.3, "end": 0.6, "score": 0.8},
+    ]
+
+
+def test_aligned_subsegments_include_optional_metadata():
+    alignments = CharAlignmentArrays(
+        chars=list("你好吗"),
+        starts=np.array([0.0, 0.5, 1.0]),
+        ends=np.array([0.5, 1.0, 1.5]),
+        scores=np.array([0.9, 0.7, 0.8]),
+        word_ids=np.array([0, 1, 2]),
+    )
+
+    segments = _get_aligned_subsegments(
+        alignments,
+        sentence_spans=[(0, 3)],
+        text="你好吗",
+        model_lang="zh",
+        interpolate_method="nearest",
+        return_char_alignments=True,
+        avg_logprob=-0.25,
+    )
+
+    assert segments[0]["text"] == "你好吗"
+    assert (segments[0]["start"], segments[0]["end"]) == (0.0, 1.5)
+    assert segments[0]["avg_logprob"] == -0.25
+    assert [word["word"] for word in segments[0]["words"]] == list("你好吗")
+    assert [char["char"] for char in segments[0]["chars"]] == list("你好吗")
 
 
 class TestAlignWithWildcards:
@@ -174,23 +217,48 @@ class TestAlignWithWildcards:
 class TestInterpolateNans:
     """Unit tests for interpolate_nans()."""
 
-    def test_ignore_preserves_nans(self):
-        x = pd.Series([1.0, np.nan, 3.0, np.nan, 5.0])
-        result = interpolate_nans(x, method="ignore")
-        assert result is x
-        assert result.isna().sum() == 2
+    @pytest.mark.parametrize(
+        ("method", "expected"),
+        [
+            ("nearest", [1.0, 1.0, 1.0, 4.0, 4.0, 4.0]),
+            ("linear", [1.0, 1.0, 2.0, 3.0, 4.0, 4.0]),
+            ("ignore", [np.nan, 1.0, np.nan, np.nan, 4.0, np.nan]),
+        ],
+    )
+    def test_interpolation_methods(self, method, expected):
+        actual = interpolate_nans([np.nan, 1.0, np.nan, np.nan, 4.0, np.nan], method)
+        np.testing.assert_equal(actual, expected)
 
-    def test_nearest_fills_nans(self):
-        x = pd.Series([1.0, np.nan, 3.0, np.nan, 5.0])
-        result = interpolate_nans(x, method="nearest")
-        assert result.notna().all()
+    @pytest.mark.parametrize(
+        ("values", "expected"),
+        [
+            ([np.nan, np.nan], [np.nan, np.nan]),
+            ([np.nan, 2.0, np.nan], [2.0, 2.0, 2.0]),
+        ],
+    )
+    def test_sparse_known_values(self, values, expected):
+        np.testing.assert_equal(interpolate_nans(values), expected)
+
+    @pytest.mark.parametrize("method", ["linear", "nearest"])
+    def test_complete_input_is_unchanged(self, method):
+        values = [1.0, 2.0, 3.0]
+        np.testing.assert_equal(interpolate_nans(values, method), values)
+
+    def test_does_not_mutate_input(self):
+        values = np.array([1.0, np.nan, 3.0])
+        interpolate_nans(values)
+        np.testing.assert_equal(values, [1.0, np.nan, 3.0])
+
+    def test_rejects_unknown_method(self):
+        with pytest.raises(ValueError, match="Invalid interpolation method"):
+            interpolate_nans([np.nan, np.nan], "cubic")
 
     def test_ignore_word_assignment_integration(self):
         """Simulate the word-timestamp assignment logic from alignment.py:365-376.
 
         With wildcard CTC, this path is rarely reached in practice, but it's
         the code that "ignore" is designed to affect. This test proves the
-        pieces fit together: interpolate_nans preserves NaN, and the pd.notna
+        pieces fit together: interpolate_nans preserves NaN, and the NaN
         guard prevents timestamp assignment to unaligned words.
         """
         sentence_words = [
@@ -198,17 +266,17 @@ class TestInterpolateNans:
             {"word": "99"},  # simulates a word with no CTC timestamps
             {"word": "cats", "start": 0.6, "end": 0.9},
         ]
-        _starts = pd.Series([0.1, np.nan, 0.6])
-        _ends = pd.Series([0.3, np.nan, 0.9])
+        _starts = np.array([0.1, np.nan, 0.6])
+        _ends = np.array([0.3, np.nan, 0.9])
 
         # With "ignore": NaNs preserved, unaligned word stays without timestamps
         _starts_ign = interpolate_nans(_starts, method="ignore")
         _ends_ign = interpolate_nans(_ends, method="ignore")
         for i, w in enumerate(sentence_words):
-            if "start" not in w and pd.notna(_starts_ign.iloc[i]):
-                w["start"] = _starts_ign.iloc[i]
-            if "end" not in w and pd.notna(_ends_ign.iloc[i]):
-                w["end"] = _ends_ign.iloc[i]
+            if "start" not in w and not np.isnan(_starts_ign[i]):
+                w["start"] = _starts_ign[i]
+            if "end" not in w and not np.isnan(_ends_ign[i]):
+                w["end"] = _ends_ign[i]
 
         assert "start" not in sentence_words[1], "'99' should not get start with ignore"
         assert "end" not in sentence_words[1], "'99' should not get end with ignore"
@@ -222,10 +290,10 @@ class TestInterpolateNans:
         _starts_nr = interpolate_nans(_starts.copy(), method="nearest")
         _ends_nr = interpolate_nans(_ends.copy(), method="nearest")
         for i, w in enumerate(sentence_words_nearest):
-            if "start" not in w and pd.notna(_starts_nr.iloc[i]):
-                w["start"] = _starts_nr.iloc[i]
-            if "end" not in w and pd.notna(_ends_nr.iloc[i]):
-                w["end"] = _ends_nr.iloc[i]
+            if "start" not in w and not np.isnan(_starts_nr[i]):
+                w["start"] = _starts_nr[i]
+            if "end" not in w and not np.isnan(_ends_nr[i]):
+                w["end"] = _ends_nr[i]
 
         assert "start" in sentence_words_nearest[1], "'99' should get start with nearest"
         assert "end" in sentence_words_nearest[1], "'99' should get end with nearest"
