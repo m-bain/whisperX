@@ -23,7 +23,7 @@ class Silero(Vad):
 
         self.vad_onset = kwargs['vad_onset']
         self.chunk_size = kwargs['chunk_size']
-        self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
+        self.vad_pipeline, vad_utils = torch.hub.load(repo_or_dir='snakers4/silero-vad:master',
                                                       model='silero_vad',
                                                       force_reload=False,
                                                       onnx=False,
