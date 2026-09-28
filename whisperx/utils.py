@@ -275,7 +275,10 @@ class SubtitlesWriter(ResultWriter):
                     else:
                         long_pause = False
                     has_room = line_len + len(timing["word"]) <= max_line_width
-                    seg_break = i == 0 and len(subtitle) > 0 and preserve_segments
+                    # never merge segments from different speakers into one subtitle
+                    seg_break = i == 0 and len(subtitle) > 0 and (
+                        preserve_segments or segment.get("speaker") != times[-1][2]
+                    )
                     if line_len > 0 and has_room and not long_pause and not seg_break:
                         # line continuation
                         line_len += len(timing["word"])
