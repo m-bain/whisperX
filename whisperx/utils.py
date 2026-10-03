@@ -251,9 +251,13 @@ class SubtitlesWriter(ResultWriter):
 
     def iterate_result(self, result: dict, options: dict):
         raw_max_line_width: Optional[int] = options["max_line_width"]
+        raw_max_segment_duration: Optional[float] = options["max_segment_duration"]
+        raw_max_short_pause_duration: Optional[float] = options["max_short_pause_duration"]
         max_line_count: Optional[int] = options["max_line_count"]
         highlight_words: bool = options["highlight_words"]
         max_line_width = 1000 if raw_max_line_width is None else raw_max_line_width
+        max_segment_duration = 60*60 if raw_max_segment_duration is None else raw_max_segment_duration
+        max_short_pause_duration = 3.0 if raw_max_short_pause_duration is None else raw_max_short_pause_duration
         preserve_segments = max_line_count is None or raw_max_line_width is None
 
         if len(result["segments"]) == 0:
@@ -265,34 +269,52 @@ class SubtitlesWriter(ResultWriter):
             # the next subtitle to yield (a list of word timings with whitespace)
             subtitle: list[dict] = []
             times: list[tuple] = []
-            last = result["segments"][0]["start"]
+            pause_begin = None
+            segment_begin = result["segments"][0]["start"]
+            word_separator = " " if not result["language"] in LANGUAGES_WITHOUT_SPACES else ""
             for segment in result["segments"]:
                 for i, original_timing in enumerate(segment["words"]):
                     timing = original_timing.copy()
-                    long_pause = not preserve_segments
-                    if "start" in timing:
-                        long_pause = long_pause and timing["start"] - last > 3.0
+                    timing["word"] = timing["word"].strip()
+                    new_line_len = 0
+                    if line_len > 0:
+                        new_line_len = line_len + len(word_separator) + len(timing["word"])
                     else:
-                        long_pause = False
-                    has_room = line_len + len(timing["word"]) <= max_line_width
+                        new_line_len = len(timing["word"])
+                    long_pause = False
+                    if pause_begin is not None and "start" in timing:
+                        pause_duration = timing["start"] - pause_begin
+                        long_pause = pause_duration >= max_short_pause_duration
+                    segment_duration = 0.0
+                    if segment_begin is not None and "end" in timing:
+                        segment_duration = timing["end"] - segment_begin
+                    segment_duration_is_ok = segment_duration <= max_segment_duration
+                    has_room = new_line_len <= max_line_width and segment_duration_is_ok
                     seg_break = i == 0 and len(subtitle) > 0 and preserve_segments
                     if line_len > 0 and has_room and not long_pause and not seg_break:
                         # line continuation
-                        line_len += len(timing["word"])
+                        line_len = new_line_len
                     else:
                         # new line
-                        timing["word"] = timing["word"].strip()
                         if (
                             len(subtitle) > 0
-                            and max_line_count is not None
-                            and (long_pause or line_count >= max_line_count)
-                            or seg_break
+                            and (
+                                (
+                                    long_pause
+                                    or (max_line_count is not None and line_count >= max_line_count)
+                                    or not segment_duration_is_ok
+                                )
+                                or seg_break
+                            )
                         ):
-                            # subtitle break
                             yield subtitle, times
+                            # new segment
                             subtitle = []
                             times = []
                             line_count = 1
+                            segment_begin = None
+                            if "start" in timing:
+                                segment_begin = timing["start"]
                         elif line_len > 0:
                             # line break
                             line_count += 1
@@ -300,8 +322,9 @@ class SubtitlesWriter(ResultWriter):
                         line_len = len(timing["word"].strip())
                     subtitle.append(timing)
                     times.append((segment["start"], segment["end"], segment.get("speaker")))
-                    if "start" in timing:
-                        last = timing["start"]
+                    pause_begin = None
+                    if "end" in timing:
+                        pause_begin = timing["end"]
             if len(subtitle) > 0:
                 yield subtitle, times
 
@@ -319,10 +342,9 @@ class SubtitlesWriter(ResultWriter):
                 else:
                     subtitle_start = self.format_timestamp(times[0][0])
                     subtitle_end = self.format_timestamp(times[0][1])
-                if result["language"] in LANGUAGES_WITHOUT_SPACES:
-                    subtitle_text = "".join([word["word"] for word in subtitle])
-                else:
-                    subtitle_text = " ".join([word["word"] for word in subtitle])
+                word_separator = " " if not result["language"] in LANGUAGES_WITHOUT_SPACES else ""
+                subtitle_text = word_separator.join([word["word"] for word in subtitle]).replace(' \n', '\n')
+
                 has_timing = any(["start" in word for word in subtitle])
 
                 # add [$SPEAKER_ID]: to each subtitle if speaker is available

@@ -69,8 +69,9 @@ def cli():
 
     parser.add_argument("--max_line_width", type=optional_int, default=None, help="(not possible with --no_align) the maximum number of characters in a line before breaking the line")
     parser.add_argument("--max_line_count", type=optional_int, default=None, help="(not possible with --no_align) the maximum number of lines in a segment")
+    parser.add_argument("--max_segment_duration", type=optional_float, default=None, help="(not possible with --no_align) the maximum duration of a segment")
+    parser.add_argument("--max_short_pause_duration", type=optional_float, default=None, help="(not possible with --no_align) if there is a pause (silence) of this duration, start a new segment")
     parser.add_argument("--highlight_words", type=str2bool, default=False, help="(not possible with --no_align) underline each word as it is spoken in srt and vtt")
-    parser.add_argument("--segment_resolution", type=str, default="sentence", choices=["sentence", "chunk"], help="(not possible with --no_align) the maximum number of characters in a line before breaking the line")
 
     parser.add_argument("--threads", type=optional_int, default=0, help="number of threads used by torch for CPU inference; supercedes MKL_NUM_THREADS/OMP_NUM_THREADS")
 
