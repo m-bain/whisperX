@@ -267,7 +267,12 @@ class SubtitlesWriter(ResultWriter):
             times: list[tuple] = []
             last = result["segments"][0]["start"]
             for segment in result["segments"]:
-                for i, original_timing in enumerate(segment["words"]):
+                words = segment["words"]
+                if len(words) == 0 and segment["text"].strip():
+                    # align() could not align this segment and kept the original
+                    # text and times; write it as one cue instead of dropping it
+                    words = [{"word": segment["text"].strip(), "start": segment["start"], "end": segment["end"]}]
+                for i, original_timing in enumerate(words):
                     timing = original_timing.copy()
                     long_pause = not preserve_segments
                     if "start" in timing:
