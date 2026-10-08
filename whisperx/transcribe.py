@@ -49,6 +49,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         no_align = True
 
     return_char_alignments: bool = args.pop("return_char_alignments")
+    align_normalize_input: bool = args.pop("align_normalize_input")
 
     hf_token: str = args.pop("hf_token")
     vad_method: str = args.pop("vad_method")
@@ -198,6 +199,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     interpolate_method=interpolate_method,
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
+                    normalize_input=align_normalize_input,
                 )
 
             results.append((result, audio_path))
