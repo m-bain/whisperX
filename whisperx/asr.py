@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import List, Optional, Union
 from dataclasses import replace
 
@@ -40,28 +41,46 @@ class WhisperModel(faster_whisper.WhisperModel):
         tokenizer: Tokenizer,
         options: TranscriptionOptions,
         encoder_output=None,
+        previous_batch_context_tokens: List[List[int]] = None,
     ):
         batch_size = features.shape[0]
-        all_tokens = []
-        prompt_reset_since = 0
+        if previous_batch_context_tokens is None:
+            previous_batch_context_tokens = [[] for _ in range(batch_size)]
+
+        initial_prompt_tokens = []
         if options.initial_prompt is not None:
             initial_prompt = " " + options.initial_prompt.strip()
             initial_prompt_tokens = tokenizer.encode(initial_prompt)
-            all_tokens.extend(initial_prompt_tokens)
-        previous_tokens = all_tokens[prompt_reset_since:]
-        prompt = self.get_prompt(
-            tokenizer,
-            previous_tokens,
-            without_timestamps=options.without_timestamps,
-            prefix=options.prefix,
-            hotwords=options.hotwords
-        )
+
+        batch_tokens = []
+        for i in range(batch_size):
+            all_tokens = list(initial_prompt_tokens)
+            if i < len(previous_batch_context_tokens):
+                ctx = previous_batch_context_tokens[i]
+                if ctx:
+                    available = 224 - len(all_tokens)
+                    if available > 0:
+                        ctx_trimmed = ctx[-available:] if len(ctx) > available else ctx
+                        all_tokens.extend(ctx_trimmed)
+            batch_tokens.append(all_tokens)
+
+        max_batch_tokens = max([len(t) for t in batch_tokens] + [0])
+
+        prompts = [
+            self.get_prompt(
+                tokenizer,
+                [tokenizer.eot] * (max_batch_tokens - len(t)) + t,
+                without_timestamps=options.without_timestamps,
+                prefix=options.prefix,
+                hotwords=options.hotwords
+            ) for t in batch_tokens
+        ]
 
         encoder_output = self.encode(features)
-        
+
         result = self.model.generate(
                 encoder_output,
-                [prompt] * batch_size,
+                prompts,
                 beam_size=options.beam_size,
                 patience=options.patience,
                 length_penalty=options.length_penalty,
@@ -72,7 +91,7 @@ class WhisperModel(faster_whisper.WhisperModel):
                 repetition_penalty=options.repetition_penalty,
                 return_scores=True,
             )
-
+        
         tokens_batch = [x.sequences_ids[0] for x in result]
 
         avg_logprobs = []
@@ -85,12 +104,19 @@ class WhisperModel(faster_whisper.WhisperModel):
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
-            # text_tokens = [token for token in tokens if token < self.eot]
             return tokenizer.tokenizer.decode_batch(res)
 
         text = decode_batch(tokens_batch)
 
-        return {'text': text, 'avg_logprob': avg_logprobs}
+        filtered_tokens = [[t for t in tk if t < tokenizer.eot] for tk in tokens_batch]
+        context_tokens_len = [len(t) for t in batch_tokens]
+
+        return {
+            'text': text,
+            'avg_logprob': avg_logprobs,
+            'tokens': filtered_tokens,
+            'context_tokens_len': context_tokens_len,
+        }
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
@@ -149,6 +175,12 @@ class FasterWhisperPipeline(Pipeline):
         super(Pipeline, self).__init__()
         self.vad_model = vad
         self._vad_params = vad_params
+        self.previous_batch_context_tokens = []
+        self.last_segment_tokens_per_stream = []
+        self.stream_segment_indices = []
+        self.segment_output_tokens = {}  # Track output tokens per stream:segment for verification
+        self.batch_counter = 0  # Track batch boundaries
+        self._use_interleaved_context = False  # Internal flag: set True by transcribe() when interleaved context is active
 
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
@@ -167,7 +199,35 @@ class FasterWhisperPipeline(Pipeline):
         return {'inputs': features}
 
     def _forward(self, model_inputs):
-        outputs = self.model.generate_segment_batched(model_inputs['inputs'], self.tokenizer, self.options)
+        current_batch_size = model_inputs['inputs'].shape[0]
+        valid_contexts = self.previous_batch_context_tokens[:current_batch_size]
+
+        self.batch_counter += 1
+
+        outputs = self.model.generate_segment_batched(
+            model_inputs['inputs'],
+            self.tokenizer,
+            self.options,
+            previous_batch_context_tokens=valid_contexts,
+        )
+
+        # Rolling context update: accumulate output tokens per stream (only when interleaved context is active)
+        if self._use_interleaved_context:
+            initial_prompt_length = 0
+            if self.options.initial_prompt is not None:
+                initial_prompt = " " + self.options.initial_prompt.strip()
+                initial_prompt_length = len(self.tokenizer.encode(initial_prompt))
+
+            max_context_window = max(0, 224 - initial_prompt_length)
+
+            for i in range(current_batch_size):
+                if i < len(self.previous_batch_context_tokens):
+                    tokens = outputs['tokens'][i]
+                    self.last_segment_tokens_per_stream[i] = tokens
+                    self.previous_batch_context_tokens[i].extend(tokens)
+                    self.previous_batch_context_tokens[i] = self.previous_batch_context_tokens[i][-max_context_window:]
+                    self.stream_segment_indices[i] += 1
+
         return outputs
 
     def postprocess(self, model_outputs):
@@ -206,9 +266,24 @@ class FasterWhisperPipeline(Pipeline):
         combined_progress=False,
         verbose=False,
         progress_callback: ProgressCallback = None,
+        interleaved_context: bool = False,
     ) -> TranscriptionResult:
+
         if isinstance(audio, str):
             audio = load_audio(audio)
+        
+        batch_size = batch_size or self._batch_size
+        # Initialize context for each stream. 
+        # We have 'batch_size' concurrent streams.
+        if batch_size is None or batch_size < 1:
+            batch_size = 1
+
+        # Gate all interleaved-context machinery on the interleaved_context flag
+        self._use_interleaved_context = interleaved_context and batch_size > 1
+
+        self.previous_batch_context_tokens = [[] for _ in range(batch_size)]
+        self.last_segment_tokens_per_stream = [[] for _ in range(batch_size)]
+        self.stream_segment_indices = [0 for _ in range(batch_size)]
 
         def data(audio, segments):
             for seg in segments:
@@ -262,8 +337,46 @@ class FasterWhisperPipeline(Pipeline):
             self.options = replace(self.options, suppress_tokens=new_suppressed_tokens)
 
         segments: List[SingleSegment] = []
-        batch_size = batch_size or self._batch_size
         total_segments = len(vad_segments)
+
+        # Warn if batch_size is large relative to the number of VAD chunks
+        if batch_size >= total_segments:
+            warnings.warn(
+                f"batch_size ({batch_size}) is >= total VAD chunks ({total_segments}). "
+                "Each stream will receive ≤1 segment so rolling context has no effect. "
+                "Consider reducing --batch_size.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif batch_size >= total_segments // 2:
+            warnings.warn(
+                f"batch_size ({batch_size}) is more than half the total VAD chunks ({total_segments}). "
+                "Streams will have very few segments; consider reducing --batch_size for better context.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        if self._use_interleaved_context:
+            num_streams = batch_size
+            # Distribute segments into streams
+            k, m = divmod(len(vad_segments), num_streams)
+            stream_segments = []
+            start_idx = 0
+            for i in range(num_streams):
+                part_len = k + 1 if i < m else k
+                stream_segments.append(vad_segments[start_idx : start_idx + part_len])
+                start_idx += part_len
+
+            # Interleave streams so each batch contains one segment per stream
+            interleaved_segments = []
+            max_len = max(len(s) for s in stream_segments)
+            for i in range(max_len):
+                for stream in stream_segments:
+                    if i < len(stream):
+                        interleaved_segments.append(stream[i])
+
+            vad_segments = interleaved_segments
+
         for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
@@ -271,21 +384,55 @@ class FasterWhisperPipeline(Pipeline):
                 print(f"Progress: {percent_complete:.2f}%...")
             if progress_callback is not None:
                 progress_callback(((idx + 1) / total_segments) * 100)
+
             text = out['text']
             avg_logprob = out['avg_logprob']
-            if batch_size in [0, 1, None]:
+            if isinstance(text, list):
                 text = text[0]
+            if isinstance(avg_logprob, list):
                 avg_logprob = avg_logprob[0]
+            
             if verbose:
                 print(f"Transcript: [{round(vad_segments[idx]['start'], 3)} --> {round(vad_segments[idx]['end'], 3)}] {text}")
             segments.append(
                 {
-                    "text": text,
-                    "start": round(vad_segments[idx]['start'], 3),
-                    "end": round(vad_segments[idx]['end'], 3),
-                    "avg_logprob": avg_logprob,
+                "text": text,
+                "start": round(vad_segments[idx]['start'], 3),
+                "end": round(vad_segments[idx]['end'], 3),
+                "avg_logprob": avg_logprob,
                 }
             )
+
+
+        if interleaved_context and batch_size > 1:
+            # After first pass, self.previous_batch_context_tokens contains accumulated context
+            # from multiple segments of each stream. Use this for proper wrap-around.
+            accumulated_context = [list(t) for t in self.previous_batch_context_tokens[:batch_size]]
+            # Prepare context for the wrap-around re-run:
+            # Stream 0 stays empty (very start of audio)
+            # Stream i gets context from Stream i-1's accumulated context
+            new_rerun_context = [[] for _ in range(batch_size)]
+            for i in range(1, batch_size):
+                new_rerun_context[i] = accumulated_context[i - 1]
+            # Temporarily overwrite previous_batch_context_tokens for the re-run
+            self.previous_batch_context_tokens = new_rerun_context
+            first_batch_segments = vad_segments[:batch_size]
+
+            # Reset last_segment_tokens_per_stream and segment index counter for interleaved context pass
+            self.last_segment_tokens_per_stream = [[] for _ in range(batch_size)]
+            self.stream_segment_indices = [0 for _ in range(batch_size)]
+
+            # Runs the model again just on 'first_batch_segments'
+            for i, out in enumerate(self.__call__(data(audio, first_batch_segments), batch_size=batch_size, num_workers=num_workers)):
+                text = out['text']
+                # Overwrite the existing text with the new wrap-around text
+                if isinstance(text, list):
+                    text = text[0]
+                if verbose:
+                    logger.info(f"[INTERLEAVED] Segment {i} context redo:     {text[:80]}...")
+                segments[i]['text'] = text
+        # Sort segments by start time to restore original order
+        segments.sort(key=lambda x: x['start'])
 
         # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
