@@ -28,6 +28,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+fast = ["numba>=0.68.0"]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"

@@ -109,6 +109,17 @@ uv sync --all-extras --dev
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
+### Accelerated Forced Alignment (Optional)
+
+WhisperX uses dynamic programming for phoneme alignment. For long audio files or batch pipelines on GPU, you can accelerate alignment by up to 30×–100× by installing Numba:
+
+```bash
+pip install "whisperx[fast]"
+# or: pip install numba
+```
+
+If Numba is installed, WhisperX will automatically use JIT-compiled alignment loops. If Numba is not installed, it seamlessly falls back to native PyTorch with zero configuration required.
+
 ### Speaker Diarization
 
 To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model.
