@@ -94,6 +94,13 @@ DEFAULT_ALIGN_MODELS_HF = {
 }
 
 
+def normalize_waveform(waveform: torch.Tensor) -> torch.Tensor:
+    """Zero mean and unit variance along time, as Wav2Vec2FeatureExtractor does with do_normalize."""
+    mean = waveform.mean(dim=-1, keepdim=True)
+    var = waveform.var(dim=-1, unbiased=False, keepdim=True)
+    return (waveform - mean) / torch.sqrt(var + 1e-7)
+
+
 def load_align_model(language_code: str, device: str, model_name: Optional[str] = None, model_dir=None, model_cache_only: bool = False):
     if model_name is None:
         # use default model
@@ -107,6 +114,7 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
                          f"then pass the model name via --align_model [MODEL_NAME]")
             raise ValueError(f"No default align-model for language: {language_code}")
 
+    do_normalize = False
     if model_name in torchaudio.pipelines.__all__:
         pipeline_type = "torchaudio"
         bundle = torchaudio.pipelines.__dict__[model_name]
@@ -125,8 +133,15 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
         align_model = align_model.to(device)
         labels = processor.tokenizer.get_vocab()
         align_dictionary = {char.lower(): code for char,code in processor.tokenizer.get_vocab().items()}
+        # whether the model's feature extractor normalizes its input
+        do_normalize = bool(getattr(processor.feature_extractor, "do_normalize", False))
 
-    align_metadata = {"language": language_code, "dictionary": align_dictionary, "type": pipeline_type}
+    align_metadata = {
+        "language": language_code,
+        "dictionary": align_dictionary,
+        "type": pipeline_type,
+        "do_normalize": do_normalize,
+    }
 
     return align_model, align_metadata
 
@@ -142,9 +157,14 @@ def align(
     print_progress: bool = False,
     combined_progress: bool = False,
     progress_callback: ProgressCallback = None,
+    normalize_input: bool = False,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
+
+    normalize_input: normalize each segment to zero mean and unit variance before passing
+    it to a Hugging Face model whose feature extractor sets do_normalize (see
+    load_align_model). Off by default, so timestamps match earlier versions.
     """
 
     if not torch.is_tensor(audio):
@@ -267,6 +287,13 @@ def align(
 
         # TODO: Probably can get some speedup gain with batched inference here
         waveform_segment = audio[:, f1:f2]
+        if (
+            normalize_input
+            and model_type == "huggingface"
+            and align_model_metadata.get("do_normalize", False)
+            and waveform_segment.shape[-1] > 0
+        ):
+            waveform_segment = normalize_waveform(waveform_segment)
         # Handle the minimum input length for wav2vec2 models
         if waveform_segment.shape[-1] < 400:
             lengths = torch.as_tensor([waveform_segment.shape[-1]]).to(device)
