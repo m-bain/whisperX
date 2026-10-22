@@ -292,6 +292,13 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
+        def run_pipeline(segments):
+            # With no speech there is nothing to transcribe, and transformers 5.0 to 5.13
+            # raise IndexError when a pipeline is called with an empty input
+            if not segments:
+                return []
+            return self.__call__(data(audio, segments), batch_size=batch_size, num_workers=num_workers)
+
         # Pre-process audio and merge chunks as defined by the respective VAD child class 
         # In case vad_model is manually assigned (see 'load_model') follow the functionality of pyannote toolkit
         if issubclass(type(self.vad_model), Vad):
@@ -377,7 +384,7 @@ class FasterWhisperPipeline(Pipeline):
 
             vad_segments = interleaved_segments
 
-        for idx, out in enumerate(self.__call__(data(audio, vad_segments), batch_size=batch_size, num_workers=num_workers)):
+        for idx, out in enumerate(run_pipeline(vad_segments)):
             if print_progress:
                 base_progress = ((idx + 1) / total_segments) * 100
                 percent_complete = base_progress / 2 if combined_progress else base_progress
@@ -423,7 +430,7 @@ class FasterWhisperPipeline(Pipeline):
             self.stream_segment_indices = [0 for _ in range(batch_size)]
 
             # Runs the model again just on 'first_batch_segments'
-            for i, out in enumerate(self.__call__(data(audio, first_batch_segments), batch_size=batch_size, num_workers=num_workers)):
+            for i, out in enumerate(run_pipeline(first_batch_segments)):
                 text = out['text']
                 # Overwrite the existing text with the new wrap-around text
                 if isinstance(text, list):
