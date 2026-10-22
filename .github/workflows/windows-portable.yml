@@ -1,0 +1,80 @@
+name: Windows Portable (CUDA 12.8)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'portable-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build portable runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          uv python install 3.11
+          $exe = (uv python find --managed-python 3.11).Trim()
+          if (-not (Test-Path $exe)) { throw "Managed Python not found: $exe" }
+          $root = Split-Path $exe -Parent
+          New-Item -ItemType Directory -Force release/WhisperX/python | Out-Null
+          Copy-Item "$root/*" release/WhisperX/python/ -Recurse -Force
+          $py = (Resolve-Path release/WhisperX/python/python.exe).Path
+          uv pip install --python $py --index-url https://download.pytorch.org/whl/cu128 torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0
+          uv pip install --python $py .
+          & $py -c "import torch, whisperx, ctranslate2, pyannote.audio; print('PyTorch:', torch.__version__); print('CUDA available on runner:', torch.cuda.is_available())"
+          if ($LASTEXITCODE -ne 0) { throw 'Portable import check failed' }
+          Copy-Item portable/run.bat release/WhisperX/run.bat
+          Copy-Item portable/README.txt release/WhisperX/README.txt
+          New-Item -ItemType Directory -Force release/WhisperX/bin,release/WhisperX/models,release/WhisperX/output | Out-Null
+      - name: Bundle FFmpeg
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install ffmpeg -y --no-progress
+          $ffmpeg = (Get-Command ffmpeg.exe -ErrorAction Stop).Source
+          $ffprobe = (Get-Command ffprobe.exe -ErrorAction Stop).Source
+          Copy-Item $ffmpeg release/WhisperX/bin/ffmpeg.exe
+          Copy-Item $ffprobe release/WhisperX/bin/ffprobe.exe
+      - name: Smoke test CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & release/WhisperX/python/python.exe -m whisperx --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
+      - name: Create distribution archives
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $seven = 'C:\Program Files\7-Zip\7z.exe'
+          if (-not (Test-Path $seven)) { throw '7-Zip not found on runner' }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & $seven a -t7z -mx=3 -v1800m artifacts/WhisperX-Windows-CUDA128-Portable.7z release/WhisperX | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'Archive creation failed' }
+          Get-ChildItem artifacts/* | Select-Object Name,Length | Format-Table | Out-Host
+      - name: Upload CI artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhisperX-Windows-CUDA128-Portable
+          path: artifacts/*
+          retention-days: 7
+          compression-level: 0
+      - name: Attach to GitHub Release (tag pushes)
+        if: startsWith(github.ref, 'refs/tags/portable-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            Windows x64 WhisperX portable distribution (Python, dependencies and FFmpeg included).
+            Download ALL `.7z.00*` parts into one folder and extract the first with 7-Zip.
+            Run `WhisperX/run.bat`; models download on first use.
+            NVIDIA GPU requires compatible drivers. GPU inference is not verified on GitHub-hosted runners.
