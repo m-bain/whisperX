@@ -110,7 +110,9 @@ class DiarizationPipeline:
         max_speakers: Optional[int] = None,
         return_embeddings: bool = False,
         progress_callback: ProgressCallback = None,
-    ) -> Union[tuple[pd.DataFrame, Optional[dict[str, list[float]]]], pd.DataFrame]:
+        return_overlaps: bool = False,
+        return_exclusive: bool = False,
+    ) -> Union[pd.DataFrame, tuple[object, ...]]:
         """
         Perform speaker diarization on audio.
 
@@ -121,12 +123,14 @@ class DiarizationPipeline:
             max_speakers: Maximum number of speakers to detect
             return_embeddings: Whether to return speaker embeddings
             progress_callback: Optional callable receiving a float (0-100) with progress percentage
+            return_overlaps: Whether to return overlapping speech intervals
+            return_exclusive: Whether to return exclusive speaker diarization
 
         Returns:
-            If return_embeddings is True:
-                Tuple of (diarization dataframe, speaker embeddings dictionary)
-            Otherwise:
-                Just the diarization dataframe
+            Diarization dataframe by default. When any optional return is requested,
+            returns a tuple where values are ordered as:
+            (diarization dataframe, speaker embeddings, overlap dataframe, exclusive diarization dataframe).
+            Optional values are included only when their corresponding return_* flag is True.
         """
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -167,19 +171,43 @@ class DiarizationPipeline:
         diarization = output.speaker_diarization
         embeddings = output.speaker_embeddings if return_embeddings else None
 
+        diarize_df = self._diarization_to_dataframe(diarization)
+
+        overlap_df = None
+        if return_overlaps:
+            overlap_timeline = diarization.get_overlap()
+            overlap_df = pd.DataFrame(
+                [{"start": segment.start, "end": segment.end} for segment in overlap_timeline],
+                columns=["start", "end"],
+            )
+
+        exclusive_diarize_df = None
+        if return_exclusive:
+            exclusive_diarize_df = self._diarization_to_dataframe(output.exclusive_speaker_diarization)
+
+        speaker_embeddings = None
+        if return_embeddings and embeddings is not None:
+            speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
+
+        # For backwards compatibility
+        if not return_embeddings and not return_overlaps and not return_exclusive:
+            return diarize_df
+
+        result: list[object] = [diarize_df]
+        if return_embeddings:
+            result.append(speaker_embeddings)
+        if return_overlaps:
+            result.append(overlap_df)
+        if return_exclusive:
+            result.append(exclusive_diarize_df)
+        return tuple(result)
+
+    @staticmethod
+    def _diarization_to_dataframe(diarization) -> pd.DataFrame:
         diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)
         diarize_df['end'] = diarize_df['segment'].apply(lambda x: x.end)
-
-        if return_embeddings and embeddings is not None:
-            speaker_embeddings = {speaker: embeddings[s].tolist() for s, speaker in enumerate(diarization.labels())}
-            return diarize_df, speaker_embeddings
-        
-        # For backwards compatibility
-        if return_embeddings:
-            return diarize_df, None
-        else:
-            return diarize_df
+        return diarize_df
 
 
 def assign_word_speakers(
