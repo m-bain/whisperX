@@ -318,9 +318,12 @@ class FasterWhisperPipeline(Pipeline):
                 language=language,
             )
         else:
-            language = language or self.tokenizer.language_code
-            task = task or self.tokenizer.task
-            if task != self.tokenizer.task or language != self.tokenizer.language_code:
+            # no language given: use the one passed to load_model(), not the previous call's
+            language = language or self.preset_language or self.tokenizer.language_code
+            # Tokenizer.task is the token id of the task, not its name
+            current_task = "translate" if self.tokenizer.task == self.tokenizer.translate else "transcribe"
+            task = task or current_task
+            if task != current_task or language != self.tokenizer.language_code:
                 self.tokenizer = Tokenizer(
                     self.model.hf_tokenizer,
                     self.model.model.is_multilingual,
