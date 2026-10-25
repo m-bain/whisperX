@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tempfile
 from functools import lru_cache
 from typing import Optional, Union
 
@@ -22,7 +23,7 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
+def load_audio(file: str, sr: int = SAMPLE_RATE, use_tmp_file: bool = False) -> np.ndarray:
     """
     Open an audio file and read as mono waveform, resampling as necessary
 
@@ -34,35 +35,58 @@ def load_audio(file: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     sr: int
         The sample rate to resample the audio if necessary
 
+    use_tmp_file: bool
+        If True, decode to a temporary file on disk instead of buffering the whole
+        output in memory. This keeps peak memory low for very long audio files.
+
     Returns
     -------
     A NumPy array containing the audio waveform, in float32 dtype.
     """
-    try:
-        # Launches a subprocess to decode audio while down-mixing and resampling as necessary.
-        # Requires the ffmpeg CLI to be installed.
-        cmd = [
-            "ffmpeg",
-            "-nostdin",
-            "-threads",
-            "0",
-            "-i",
-            file,
-            "-f",
-            "s16le",
-            "-ac",
-            "1",
-            "-acodec",
-            "pcm_s16le",
-            "-ar",
-            str(sr),
-            "-",
-        ]
-        out = subprocess.run(cmd, capture_output=True, check=True).stdout
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+    # Launches a subprocess to decode audio while down-mixing and resampling as necessary.
+    # Requires the ffmpeg CLI to be installed. The output target ("-" for stdout, or a file
+    # path) is appended below depending on use_tmp_file.
+    cmd = [
+        "ffmpeg",
+        "-nostdin",
+        "-threads",
+        "0",
+        "-i",
+        file,
+        "-f",
+        "s16le",
+        "-ac",
+        "1",
+        "-acodec",
+        "pcm_s16le",
+        "-ar",
+        str(sr),
+    ]
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    if use_tmp_file:
+        # Write the decoded audio to a temp file on disk so the full waveform never has to
+        # sit in memory at once. Read it back with np.fromfile, then always clean up.
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".s16le", delete=False)
+        tmp_file.close()
+        try:
+            # -y overwrites the just-created temp file without prompting; otherwise ffmpeg
+            # blocks on a "File already exists, overwrite?" prompt it cannot answer under -nostdin.
+            cmd.extend(["-y", tmp_file.name])
+            subprocess.run(cmd, capture_output=True, check=True)
+            audio = np.fromfile(tmp_file.name, np.int16)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+        finally:
+            os.remove(tmp_file.name)
+    else:
+        cmd.append("-")
+        try:
+            out = subprocess.run(cmd, capture_output=True, check=True).stdout
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+        audio = np.frombuffer(out, np.int16)
+
+    return audio.flatten().astype(np.float32) / 32768.0
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
