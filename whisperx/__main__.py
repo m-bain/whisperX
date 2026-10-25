@@ -46,6 +46,7 @@ def cli():
     parser.add_argument("--min_speakers", default=None, type=int, help="Minimum number of speakers to in audio file")
     parser.add_argument("--max_speakers", default=None, type=int, help="Maximum number of speakers to in audio file")
     parser.add_argument("--diarize_model", default="pyannote/speaker-diarization-community-1", type=str, help="Name of the speaker diarization model to use")
+    parser.add_argument("--diarize_device", default=None, type=str, help="Device to use for diarization, overriding --device (e.g. 'mps' on Apple Silicon). Useful because ctranslate2 (transcription) does not support MPS but pyannote (diarization) does. Defaults to --device if not specified.")
     parser.add_argument("--speaker_embeddings", action="store_true", help="Include speaker embeddings in JSON output (only works with --diarize)")
 
     parser.add_argument("--temperature", type=float, default=0, help="temperature to use for sampling")
