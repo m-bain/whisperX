@@ -99,21 +99,27 @@ class SubtitlesProcessor:
     def determine_advanced_split_points(self, segment, next_segment_start_time=None):
         split_points = []
         last_split_point = 0
-        char_count = 0
 
         words = segment.get('words', segment['text'].split())
         add_space = 0 if self.lang in ['zh', 'ja'] else 1
 
-        total_char_count = sum(len(word['word']) if isinstance(word, dict) else len(word) + add_space for word in words)
-        char_count_after = total_char_count
+        def word_text_at(index):
+            item = words[index]
+            return item['word'] if isinstance(item, dict) else item
+
+        def joined_length(start, end):
+            # The subtitle text joins words with a single space and has no
+            # trailing space, so a space counts only between words.
+            count = 0
+            for index in range(start, end):
+                count += len(word_text_at(index)) + (add_space if count else 0)
+            return count
 
         for i, word in enumerate(words):
-            word_text = word['word'] if isinstance(word, dict) else word
-            word_length = len(word_text) + add_space
-            char_count += word_length
-            char_count_after -= word_length
-
-            char_count_before = char_count - word_length
+            word_text = word_text_at(i)
+            char_count = joined_length(last_split_point, i + 1)
+            char_count_before = joined_length(last_split_point, i)
+            char_count_after = joined_length(i + 1, len(words))
 
             if isinstance(word, dict) and ('start' not in word or 'end' not in word):
                 self.estimate_timestamp_for_word(words, i, next_segment_start_time)
@@ -123,17 +129,14 @@ class SubtitlesProcessor:
                 if char_count_before >= self.min_char_length_splitter:
                     split_points.append(midpoint)
                     last_split_point = midpoint + 1
-                    char_count = sum(len(words[j]['word']) if isinstance(words[j], dict) else len(words[j]) + add_space for j in range(last_split_point, i + 1))
 
             elif word_text.endswith(self.comma) and char_count_before >= self.min_char_length_splitter and char_count_after >= self.min_char_length_splitter:
                 split_points.append(i)
                 last_split_point = i + 1
-                char_count = 0
 
             elif word_text.lower() in self.conjunctions and char_count_before >= self.min_char_length_splitter and char_count_after >= self.min_char_length_splitter:
                 split_points.append(i - 1)
                 last_split_point = i
-                char_count = word_length
 
         return split_points
 
