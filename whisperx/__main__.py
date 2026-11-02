@@ -11,14 +11,15 @@ from whisperx.log_utils import setup_logging
 
 def cli():
     # fmt: off
+    # Options with default=argparse.SUPPRESS are left out when not given, so the mps (MLX) engine only reacts to options the user passed
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("audio", nargs="+", type=str, help="audio file(s) to transcribe")
     parser.add_argument("--model", default="small", help="name of the Whisper model to use")
     parser.add_argument("--model_cache_only", type=str2bool, default=False, help="If True, will not attempt to download models, instead using cached models from --model_dir")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device type to use for PyTorch inference (e.g. cpu, cuda)")
-    parser.add_argument("--device_index", default=0, type=int, help="device index to use for FasterWhisper inference")
-    parser.add_argument("--batch_size", default=8, type=int, help="the preferred batch size for inference")
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device type to use for PyTorch inference (e.g. cpu, cuda, mps); mps transcribes with MLX (needs whisperx[mlx])")
+    parser.add_argument("--device_index", default=argparse.SUPPRESS, type=int, help="device index to use for FasterWhisper inference (default: 0)")
+    parser.add_argument("--batch_size", default=argparse.SUPPRESS, type=int, help="the preferred batch size for inference (default: 8)")
     parser.add_argument("--compute_type", default="default", type=str, choices=["default", "float16", "float32", "int8"], help="compute type for computation; 'default' uses float16 on GPU, float32 on CPU")
 
     parser.add_argument("--output_dir", "-o", type=str, default=".", help="directory to save the outputs")
@@ -50,8 +51,8 @@ def cli():
 
     parser.add_argument("--temperature", type=float, default=0, help="temperature to use for sampling")
     parser.add_argument("--best_of", type=optional_int, default=5, help="number of candidates when sampling with non-zero temperature")
-    parser.add_argument("--beam_size", type=optional_int, default=5, help="number of beams in beam search, only applicable when temperature is zero")
-    parser.add_argument("--patience", type=float, default=1.0, help="optional patience value to use in beam decoding, as in https://arxiv.org/abs/2204.05424, the default (1.0) is equivalent to conventional beam search")
+    parser.add_argument("--beam_size", type=optional_int, default=argparse.SUPPRESS, help="number of beams in beam search, only applicable when temperature is zero (default: 5)")
+    parser.add_argument("--patience", type=float, default=argparse.SUPPRESS, help="optional patience value to use in beam decoding, as in https://arxiv.org/abs/2204.05424, the default (1.0) is equivalent to conventional beam search (default: 1.0)")
     parser.add_argument("--length_penalty", type=float, default=1.0, help="optional token length penalty coefficient (alpha) as in https://arxiv.org/abs/1609.08144, uses simple length normalization by default")
 
     parser.add_argument("--suppress_tokens", type=str, default="-1", help="comma-separated list of token ids to suppress during sampling; '-1' will suppress most special characters except common punctuations")

@@ -156,6 +156,12 @@ To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
 
+On an Apple Silicon Mac, `--device mps` runs every stage on the Apple GPU. CTranslate2 (faster-whisper) has no Apple GPU support, so transcription then uses [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) instead, which needs the `mlx` extra (`pip install "whisperx[mlx]"`):
+
+    whisperx path/to/audio.wav --model large-v3-turbo --device mps
+
+MLX supports the standard model names (`tiny` to `large-v3`, `large-v3-turbo`/`turbo`), `mlx-community/` repos and local MLX model directories, and the decoding options except beam search and hotwords: passing `--beam_size` above 1, `--patience` or `--hotwords` with `--device mps` is an error. `--batch_size`, `--compute_type int8`, `--threads` and `--device_index` do not apply to MLX and are ignored with a warning.
+
 For conditioning on previous context (This allows context to be passed from the previous segment, leading to better results on long audio):
 
     whisperx path/to/audio.wav --model large-v2 --interleaved_context

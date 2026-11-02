@@ -2,12 +2,14 @@ import argparse
 import gc
 import os
 import warnings
+from typing import Optional
 
 import numpy as np
 import torch
 
 from whisperx.alignment import align, load_align_model
 from whisperx.asr import load_model
+from whisperx.asr_mlx import MlxWhisperPipeline
 from whisperx.audio import load_audio
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
@@ -27,13 +29,13 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # fmt: off
 
     model_name: str = args.pop("model")
-    batch_size: int = args.pop("batch_size")
+    batch_size: Optional[int] = args.pop("batch_size", None)
     model_dir: str = args.pop("model_dir")
     model_cache_only: bool = args.pop("model_cache_only")
     output_dir: str = args.pop("output_dir")
     output_format: str = args.pop("output_format")
     device: str = args.pop("device")
-    device_index: int = args.pop("device_index")
+    device_index: Optional[int] = args.pop("device_index", None)
     compute_type: str = args.pop("compute_type")
     verbose: bool = args.pop("verbose")
 
@@ -92,14 +94,12 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     else:
         temperature = [temperature]
 
-    faster_whisper_threads = 4
+    faster_whisper_threads = None
     if (threads := args.pop("threads")) > 0:
         torch.set_num_threads(threads)
         faster_whisper_threads = threads
 
     asr_options = {
-        "beam_size": args.pop("beam_size"),
-        "patience": args.pop("patience"),
         "length_penalty": args.pop("length_penalty"),
         "temperatures": temperature,
         "compression_ratio_threshold": args.pop("compression_ratio_threshold"),
@@ -111,6 +111,10 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         "suppress_tokens": [int(x) for x in args.pop("suppress_tokens").split(",")],
         "suppress_numerals": args.pop("suppress_numerals"),
     }
+    # Only pass the beam search options the user set; load_model fills in the defaults
+    for option in ("beam_size", "patience"):
+        if (value := args.pop(option, None)) is not None:
+            asr_options[option] = value
 
     writer = get_writer(output_format, output_dir)
     word_options = ["highlight_words", "max_line_count", "max_line_width"]
@@ -144,6 +148,9 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         threads=faster_whisper_threads,
         use_auth_token=hf_token,
     )
+
+    if batch_size is None and not isinstance(model, MlxWhisperPipeline):
+        batch_size = 8
 
     for audio_path in args.pop("audio"):
         audio = load_audio(audio_path)
