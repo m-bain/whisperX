@@ -148,9 +148,15 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
-To run on CPU instead of GPU (and for running on Mac OS X):
+To run on CPU instead of GPU:
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
+
+`--device` defaults to `auto`, which picks the first available of `cuda`, `npu` (Ascend), the Apple GPU (`mps`) and `cpu`. A stage whose backend cannot use that device runs on CPU with a warning: on an Apple Silicon Mac, VAD, alignment and diarization run on the Apple GPU, and transcription runs on CPU because CTranslate2 has no Metal backend. Asking for a device the machine does not have (`cuda` on a Mac, `mps` elsewhere, `cuda:1` on a single-GPU machine) is an error; other torch device types are passed through unchanged.
+
+Each stage can also get its own device with `--vad_device`, `--asr_device`, `--align_device` and `--diarize_device`; a stage without one uses `--device`. A device set for a stage that the stage cannot use (e.g. `--asr_device mps` with faster-whisper) is an error, while one inherited from `--device` falls back to CPU for that stage. For example, to keep everything on CPU except diarization:
+
+    whisperx path/to/audio.wav --device cpu --diarize_device mps --diarize
 
 For conditioning on previous context (This allows context to be passed from the previous segment, leading to better results on long audio):
 
@@ -179,7 +185,7 @@ import whisperx
 import gc
 from whisperx.diarize import DiarizationPipeline
 
-device = "cuda"
+device = "cuda" # or "mps" on Apple Silicon, or "auto"
 audio_file = "audio.mp3"
 batch_size = 16 # reduce if low on GPU mem
 compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
