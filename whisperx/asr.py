@@ -29,6 +29,25 @@ def find_numeral_symbol_tokens(tokenizer):
             numeral_symbol_tokens.append(i)
     return numeral_symbol_tokens
 
+def get_vad_segments(vad_model, vad_params: dict, audio: np.ndarray, chunk_size: int) -> List[dict]:
+    # Pre-process audio and merge chunks as defined by the respective VAD child class
+    # In case vad_model is manually assigned (see 'load_model') follow the functionality of pyannote toolkit
+    if issubclass(type(vad_model), Vad):
+        waveform = vad_model.preprocess_audio(audio)
+        merge_chunks = vad_model.merge_chunks
+    else:
+        waveform = Pyannote.preprocess_audio(audio)
+        merge_chunks = Pyannote.merge_chunks
+
+    vad_segments = vad_model({"waveform": waveform, "sample_rate": SAMPLE_RATE})
+    return merge_chunks(
+        vad_segments,
+        chunk_size,
+        onset=vad_params["vad_onset"],
+        offset=vad_params["vad_offset"],
+    )
+
+
 class WhisperModel(faster_whisper.WhisperModel):
     '''
     FasterWhisperModel provides batched inference for faster-whisper.
@@ -292,22 +311,7 @@ class FasterWhisperPipeline(Pipeline):
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
 
-        # Pre-process audio and merge chunks as defined by the respective VAD child class 
-        # In case vad_model is manually assigned (see 'load_model') follow the functionality of pyannote toolkit
-        if issubclass(type(self.vad_model), Vad):
-            waveform = self.vad_model.preprocess_audio(audio)
-            merge_chunks =  self.vad_model.merge_chunks
-        else:
-            waveform = Pyannote.preprocess_audio(audio)
-            merge_chunks = Pyannote.merge_chunks
-
-        vad_segments = self.vad_model({"waveform": waveform, "sample_rate": SAMPLE_RATE})
-        vad_segments = merge_chunks(
-            vad_segments,
-            chunk_size,
-            onset=self._vad_params["vad_onset"],
-            offset=self._vad_params["vad_offset"],
-        )
+        vad_segments = get_vad_segments(self.vad_model, self._vad_params, audio, chunk_size)
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
@@ -459,10 +463,45 @@ class FasterWhisperPipeline(Pipeline):
         return language
 
 
+def load_vad(
+    vad_model: Optional[Vad],
+    vad_method: Optional[str],
+    vad_options: Optional[dict],
+    device: str,
+    device_index: int,
+):
+    default_vad_options = {
+        "chunk_size": 30, # needed by silero since binarization happens before merge_chunks
+        "vad_onset": 0.500,
+        "vad_offset": 0.363
+    }
+
+    if vad_options is not None:
+        default_vad_options.update(vad_options)
+
+    # Note: manually assigned vad_model has higher priority than vad_method!
+    if vad_model is not None:
+        print("Use manually assigned vad_model. vad_method is ignored.")
+        vad_model = vad_model
+    else:
+        if vad_method == "silero":
+            vad_model = Silero(**default_vad_options)
+        elif vad_method == "pyannote":
+            if device == 'cuda':
+                device_vad = f'cuda:{device_index}'
+            else:
+                device_vad = device
+            vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
+        else:
+            raise ValueError(f"Invalid vad_method: {vad_method}")
+
+    return vad_model, default_vad_options
+
+
 def load_model(
     whisper_arch: str,
     device: str,
-    device_index=0,
+    device_index: Optional[int] = None,
     compute_type="default",
     asr_options: Optional[dict] = None,
     language: Optional[str] = None,
@@ -473,13 +512,16 @@ def load_model(
     task="transcribe",
     download_root: Optional[str] = None,
     local_files_only=False,
-    threads=4,
+    threads: Optional[int] = None,
     use_auth_token: Optional[Union[str, bool]] = None,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
         whisper_arch - The name of the Whisper model to load.
-        device - The device to load the model on.
+        device - The device to load the model on. "mps" (Apple GPU) transcribes with MLX instead of
+            faster-whisper, whose CTranslate2 engine has no Apple GPU support; it needs whisperx[mlx].
+            asr_options that MLX cannot honor (beam_size > 1, patience, hotwords) raise ValueError on mps.
+        device_index - The GPU index for faster-whisper and VAD (default 0); MLX ignores it.
         compute_type - The compute type to use for the model.
             Use "default" to automatically select based on device (float16 for GPU, float32 for CPU).
         vad_model - The vad model to manually assign.
@@ -489,10 +531,37 @@ def load_model(
         model - The WhisperModel instance to use.
         download_root - The root directory to download the model to.
         local_files_only - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
-        threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
+        threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers (default 4);
+            MLX ignores it.
     Returns:
         A Whisper pipeline.
     """
+
+    if device == "mps":
+        from whisperx.asr_mlx import load_mlx_model, mlx_unsupported_options
+
+        if unsupported := mlx_unsupported_options(asr_options):
+            raise ValueError(
+                f"Transcribing on mps uses MLX, which does not support {', '.join(unsupported)}. "
+                f"Omit {'it' if len(unsupported) == 1 else 'them'} or use another --device"
+            )
+        return load_mlx_model(
+            whisper_arch,
+            vad_model=vad_model,
+            vad_method=vad_method,
+            vad_options=vad_options,
+            vad_device=device,
+            device_index=device_index,
+            asr_options=asr_options,
+            language=language,
+            task=task,
+            compute_type=compute_type,
+            threads=threads,
+            download_root=download_root,
+            local_files_only=local_files_only,
+        )
+    device_index = device_index or 0
+    threads = threads or 4
 
     if compute_type == "default":
         compute_type = "float16" if device == "cuda" else "float32"
@@ -553,30 +622,7 @@ def load_model(
 
     default_asr_options = TranscriptionOptions(**default_asr_options)
 
-    default_vad_options = {
-        "chunk_size": 30, # needed by silero since binarization happens before merge_chunks
-        "vad_onset": 0.500,
-        "vad_offset": 0.363
-    }
-
-    if vad_options is not None:
-        default_vad_options.update(vad_options)
-
-    # Note: manually assigned vad_model has higher priority than vad_method!
-    if vad_model is not None:
-        print("Use manually assigned vad_model. vad_method is ignored.")
-        vad_model = vad_model
-    else:
-        if vad_method == "silero":
-            vad_model = Silero(**default_vad_options)
-        elif vad_method == "pyannote":
-            if device == 'cuda':
-                device_vad = f'cuda:{device_index}'
-            else:
-                device_vad = device
-            vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
-        else:
-            raise ValueError(f"Invalid vad_method: {vad_method}")
+    vad_model, default_vad_options = load_vad(vad_model, vad_method, vad_options, device, device_index)
 
     return FasterWhisperPipeline(
         model=model,
