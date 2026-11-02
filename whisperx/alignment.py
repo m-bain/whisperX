@@ -32,6 +32,7 @@ def _safe_njit(**kwargs):
     return decorator
 
 from whisperx.audio import SAMPLE_RATE, load_audio
+from whisperx.device import resolve_device
 from whisperx.utils import interpolate_nans, PUNKT_LANGUAGES
 from whisperx.schema import (
     AlignedTranscriptionResult,
@@ -121,6 +122,9 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
                          f"then pass the model name via --align_model [MODEL_NAME]")
             raise ValueError(f"No default align-model for language: {language_code}")
 
+    device = resolve_device(device)
+    logger.info(f"Alignment device: {device}")
+
     if torchaudio is not None and model_name in torchaudio.pipelines.__all__:
         pipeline_type = "torchaudio"
         bundle = torchaudio.pipelines.__dict__[model_name]
@@ -164,6 +168,7 @@ def align(
     """
     Align phoneme recognition predictions to known transcription.
     """
+    device = resolve_device(device)
 
     if not torch.is_tensor(audio):
         if isinstance(audio, str):

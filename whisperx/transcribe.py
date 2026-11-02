@@ -9,6 +9,7 @@ import torch
 from whisperx.alignment import align, load_align_model
 from whisperx.asr import load_model
 from whisperx.audio import load_audio
+from whisperx.device import resolve_device
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
@@ -32,7 +33,12 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     model_cache_only: bool = args.pop("model_cache_only")
     output_dir: str = args.pop("output_dir")
     output_format: str = args.pop("output_format")
-    device: str = args.pop("device")
+    # A stage without its own device inherits --device; omitting --device means auto
+    device: str = args.pop("device") or "auto"
+    vad_device: str = args.pop("vad_device")
+    asr_device: str = args.pop("asr_device")
+    align_device: str = resolve_device(args.pop("align_device") or device)
+    diarize_device: str = resolve_device(args.pop("diarize_device") or device)
     device_index: int = args.pop("device_index")
     compute_type: str = args.pop("compute_type")
     verbose: bool = args.pop("verbose")
@@ -143,6 +149,8 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         local_files_only=model_cache_only,
         threads=faster_whisper_threads,
         use_auth_token=hf_token,
+        vad_device=vad_device,
+        asr_device=asr_device,
     )
 
     for audio_path in args.pop("audio"):
@@ -169,7 +177,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         tmp_results = results
         results = []
         align_model, align_metadata = load_align_model(
-            align_language, device, model_name=align_model, model_dir=model_dir, model_cache_only=model_cache_only
+            align_language, align_device, model_name=align_model, model_dir=model_dir, model_cache_only=model_cache_only
         )
         for result, audio_path in tmp_results:
             # >> Align
@@ -186,7 +194,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                         f"New language found ({result['language']})! Previous was ({align_metadata['language']}), loading new alignment model for new language..."
                     )
                     align_model, align_metadata = load_align_model(
-                        result["language"], device, model_dir=model_dir, model_cache_only=model_cache_only
+                        result["language"], align_device, model_dir=model_dir, model_cache_only=model_cache_only
                     )
                 logger.info("Performing alignment...")
                 result: AlignedTranscriptionResult = align(
@@ -194,7 +202,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
                     align_model,
                     align_metadata,
                     input_audio,
-                    device,
+                    align_device,
                     interpolate_method=interpolate_method,
                     return_char_alignments=return_char_alignments,
                     print_progress=print_progress,
@@ -217,7 +225,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         logger.info("Performing diarization...")
         logger.info(f"Using model: {diarize_model_name}")
         results = []
-        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=device, cache_dir=model_dir)
+        diarize_model = DiarizationPipeline(model_name=diarize_model_name, token=hf_token, device=diarize_device, cache_dir=model_dir)
         for result, input_audio_path in tmp_results:
             diarize_result = diarize_model(
                 input_audio_path, 
