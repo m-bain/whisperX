@@ -2,8 +2,6 @@ import argparse
 import importlib.metadata
 import platform
 
-import torch
-
 from whisperx.utils import (LANGUAGES, TO_LANGUAGE_CODE, optional_float,
                             optional_int, str2bool)
 from whisperx.log_utils import setup_logging
@@ -16,7 +14,11 @@ def cli():
     parser.add_argument("--model", default="small", help="name of the Whisper model to use")
     parser.add_argument("--model_cache_only", type=str2bool, default=False, help="If True, will not attempt to download models, instead using cached models from --model_dir")
     parser.add_argument("--model_dir", type=str, default=None, help="the path to save model files; uses ~/.cache/whisper by default")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="device type to use for PyTorch inference (e.g. cpu, cuda)")
+    parser.add_argument("--device", default=None, help="Device to use (e.g. cpu, cuda, cuda:1, mps); default: auto (mps on macOS, cuda elsewhere, else cpu)")
+    parser.add_argument("--vad_device", default=None, help="Device to use for VAD (e.g. cpu, cuda, mps); default: --device")
+    parser.add_argument("--asr_device", default=None, help="Device to use for transcription (e.g. cpu, cuda, mps); default: --device")
+    parser.add_argument("--align_device", default=None, help="Device to use for alignment (e.g. cpu, cuda, mps); default: --device")
+    parser.add_argument("--diarize_device", default=None, help="Device to use for diarization (e.g. cuda, mps, ...); default: --device")
     parser.add_argument("--device_index", default=0, type=int, help="device index to use for FasterWhisper inference")
     parser.add_argument("--batch_size", default=8, type=int, help="the preferred batch size for inference")
     parser.add_argument("--compute_type", default="default", type=str, choices=["default", "float16", "float32", "int8"], help="compute type for computation; 'default' uses float16 on GPU, float32 on CPU")
@@ -94,9 +96,13 @@ def cli():
     else:
         setup_logging(level="warning")
 
+    from whisperx.device import DeviceError
     from whisperx.transcribe import transcribe_task
 
-    transcribe_task(args, parser)
+    try:
+        transcribe_task(args, parser)
+    except DeviceError as e:
+        parser.error(str(e))
 
 
 if __name__ == "__main__":

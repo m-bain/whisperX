@@ -5,6 +5,7 @@ from typing import Optional, Union, List, Tuple
 import torch
 
 from whisperx.audio import load_audio, SAMPLE_RATE
+from whisperx.device import resolve_device
 from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult, ProgressCallback
 from whisperx.log_utils import get_logger
 
@@ -97,7 +98,8 @@ class DiarizationPipeline:
         cache_dir=None,
     ):
         if isinstance(device, str):
-            device = torch.device(device)
+            device = torch.device(resolve_device(device))
+        logger.info(f"Diarization device: {device}")
         model_config = model_name or "pyannote/speaker-diarization-community-1"
         logger.info(f"Loading diarization model: {model_config}")
         self.model = Pipeline.from_pretrained(model_config, token=token, cache_dir=cache_dir).to(device)
