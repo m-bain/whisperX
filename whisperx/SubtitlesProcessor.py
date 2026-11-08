@@ -216,11 +216,10 @@ class SubtitlesProcessor:
             if self.is_vtt:
                 file.write("WEBVTT\n\n")
             
-            if advanced_splitting:
-                for idx, subtitle in enumerate(subtitles, 1):
-                    start_time = format_timestamp(subtitle['start'], self.is_vtt)
-                    end_time = format_timestamp(subtitle['end'], self.is_vtt)
-                    text = subtitle['text'].strip()
-                    write_subtitle(file, idx, start_time, end_time, text)
+            for idx, subtitle in enumerate(subtitles, 1):
+                start_time = format_timestamp(subtitle['start'], self.is_vtt)
+                end_time = format_timestamp(subtitle['end'], self.is_vtt)
+                text = subtitle['text'].strip()
+                write_subtitle(file, idx, start_time, end_time, text)
 
         return len(subtitles)
