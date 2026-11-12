@@ -224,6 +224,17 @@ print(diarize_segments)
 print(result["segments"]) # segments are now assigned speaker IDs
 ```
 
+To get the most likely languages with their probabilities when the language is detected (no `language` passed to `load_model` or `transcribe`), set `language_top_k`:
+
+```python
+result = model.transcribe(audio, batch_size=batch_size, language_top_k=3)
+print(result["language"])        # e.g. "en"
+print(result["language_probs"])  # e.g. {"en": 0.97, "de": 0.01, "nl": 0.005}
+
+# or run language detection on its own (first 30s of audio)
+print(model.detect_language_probabilities(audio, top_k=3))
+```
+
 ## Demos 🚀
 
 [![Replicate (large-v3](https://img.shields.io/static/v1?label=Replicate+WhisperX+large-v3&message=Demo+%26+Cloud+API&color=blue)](https://replicate.com/victor-upmeet/whisperx)
