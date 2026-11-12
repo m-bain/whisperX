@@ -15,6 +15,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from whisperx.schema import SingleSegment, TranscriptionResult, ProgressCallback
 from whisperx.vads import Vad, Silero, Pyannote
+from whisperx.device_utils import get_default_device, get_device_type
 from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
@@ -121,7 +122,7 @@ class WhisperModel(faster_whisper.WhisperModel):
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:
         # When the model is running on multiple GPUs, the encoder output should be moved
         # to the CPU since we don't know which GPU will handle the next job.
-        to_cpu = self.model.device == "cuda" and len(self.model.device_index) > 1
+        to_cpu = get_device_type(self.model.device) == "cuda" and len(self.model.device_index) > 1
         # unsqueeze if batch size = 1
         if len(features.shape) == 2:
             features = np.expand_dims(features, 0)
@@ -168,7 +169,10 @@ class FasterWhisperPipeline(Pipeline):
             elif device < 0:
                 self.device = torch.device("cpu")
             else:
-                self.device = torch.device(f"cuda:{device}")
+                # Preserve the user's accelerator type when only an int is supplied.
+                # Use the best available accelerator when no explicit type is given.
+                default_accel = get_default_device()
+                self.device = torch.device(f"{default_accel}:{device}")
         else:
             self.device = device
 
@@ -459,6 +463,14 @@ class FasterWhisperPipeline(Pipeline):
         return language
 
 
+def _ctranslate2_supports(device: str) -> bool:
+    """Whether the installed CTranslate2 build can run on `device` (e.g. most builds lack npu/mps)."""
+    try:
+        return bool(ctranslate2.get_supported_compute_types(get_device_type(device)))
+    except (ValueError, RuntimeError):
+        return False
+
+
 def load_model(
     whisper_arch: str,
     device: str,
@@ -494,16 +506,25 @@ def load_model(
         A Whisper pipeline.
     """
 
+    # VAD, alignment and diarization use `device`; Whisper falls back to CPU if CTranslate2 can't
+    asr_device, asr_device_index = device, device_index
+    if model is None and get_device_type(device) not in ("cpu", "cuda") and not _ctranslate2_supports(device):
+        logger.warning(f"CTranslate2 does not support device '{device}', running Whisper ASR on cpu")
+        asr_device, asr_device_index = "cpu", 0
+        if compute_type == "float16":
+            compute_type = "float32"
+
     if compute_type == "default":
-        compute_type = "float16" if device == "cuda" else "float32"
-        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {device}")
+        accelerator = get_device_type(asr_device)
+        compute_type = "float16" if accelerator in ("cuda", "npu") else "float32"
+        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {asr_device}")
 
     if whisper_arch.endswith(".en"):
         language = "en"
 
     model = model or WhisperModel(whisper_arch,
-                         device=device,
-                         device_index=device_index,
+                         device=asr_device,
+                         device_index=asr_device_index,
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
@@ -570,8 +591,8 @@ def load_model(
         if vad_method == "silero":
             vad_model = Silero(**default_vad_options)
         elif vad_method == "pyannote":
-            if device == 'cuda':
-                device_vad = f'cuda:{device_index}'
+            if get_device_type(device) in ("cuda", "npu"):
+                device_vad = f'{get_device_type(device)}:{device_index}'
             else:
                 device_vad = device
             vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
