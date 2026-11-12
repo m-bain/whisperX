@@ -4,16 +4,15 @@ import torch
 def get_default_device() -> str:
     """Return the name of the default accelerator available to PyTorch.
 
-    The preference order is: cuda > npu > mps > cpu.  This allows WhisperX to
+    The preference order is: cuda > npu > cpu.  This allows WhisperX to
     automatically use non-CUDA accelerators such as Ascend NPU without falling
-    back to CPU.
+    back to CPU.  mps is not auto-selected because CTranslate2 has no Apple GPU
+    backend; pass --device mps explicitly to use it for the PyTorch models.
     """
     if torch.cuda.is_available():
         return "cuda"
     if hasattr(torch, "npu") and torch.npu.is_available():
         return "npu"
-    if torch.backends.mps.is_available():
-        return "mps"
     return "cpu"
 
 

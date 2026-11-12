@@ -463,6 +463,14 @@ class FasterWhisperPipeline(Pipeline):
         return language
 
 
+def _ctranslate2_supports(device: str) -> bool:
+    """Whether the installed CTranslate2 build can run on `device` (e.g. most builds lack npu/mps)."""
+    try:
+        return bool(ctranslate2.get_supported_compute_types(get_device_type(device)))
+    except (ValueError, RuntimeError):
+        return False
+
+
 def load_model(
     whisper_arch: str,
     device: str,
@@ -498,17 +506,25 @@ def load_model(
         A Whisper pipeline.
     """
 
+    # VAD, alignment and diarization use `device`; Whisper falls back to CPU if CTranslate2 can't
+    asr_device, asr_device_index = device, device_index
+    if model is None and get_device_type(device) not in ("cpu", "cuda") and not _ctranslate2_supports(device):
+        logger.warning(f"CTranslate2 does not support device '{device}', running Whisper ASR on cpu")
+        asr_device, asr_device_index = "cpu", 0
+        if compute_type == "float16":
+            compute_type = "float32"
+
     if compute_type == "default":
-        accelerator = get_device_type(device)
+        accelerator = get_device_type(asr_device)
         compute_type = "float16" if accelerator in ("cuda", "npu") else "float32"
-        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {device}")
+        logger.info(f"Compute type not specified, defaulting to {compute_type} for device {asr_device}")
 
     if whisper_arch.endswith(".en"):
         language = "en"
 
     model = model or WhisperModel(whisper_arch,
-                         device=device,
-                         device_index=device_index,
+                         device=asr_device,
+                         device_index=asr_device_index,
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
