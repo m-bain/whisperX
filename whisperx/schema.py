@@ -1,4 +1,4 @@
-from typing import Callable, TypedDict, Optional, List, Tuple
+from typing import Callable, Dict, TypedDict, Optional, List, Tuple
 
 ProgressCallback = Optional[Callable[[float], None]]
 
@@ -68,6 +68,7 @@ class TranscriptionResult(TypedDict):
     """
     segments: List[SingleSegment]
     language: str
+    language_probs: NotRequired[Dict[str, float]]
 
 
 class AlignedTranscriptionResult(TypedDict):
