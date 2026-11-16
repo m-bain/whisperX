@@ -3,7 +3,9 @@ import os
 import re
 import sys
 import zlib
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional, Sequence, TextIO
+
+import numpy as np
 
 LANGUAGES = {
     "en": "english",
@@ -467,10 +469,34 @@ def get_writer(
         return optional_writers[output_format](output_dir)
     return writers[output_format](output_dir)
 
-def interpolate_nans(x, method='nearest'):
+
+def interpolate_nans(
+    values: Sequence[float] | np.ndarray,
+    method: str = "nearest",
+) -> np.ndarray:
+    """Interpolate missing values in a one-dimensional array."""
+    if method not in {"ignore", "linear", "nearest"}:
+        raise ValueError(f"Invalid interpolation method: {method}")
+
+    result = np.array(values, dtype=np.float64, copy=True)
     if method == "ignore":
-        return x
-    if x.notnull().sum() > 1:
-        return x.interpolate(method=method).ffill().bfill()
-    else:
-        return x.ffill().bfill()
+        return result
+
+    known = np.flatnonzero(~np.isnan(result))
+    if known.size == 0:
+        return result
+    if known.size == 1:
+        result.fill(result[known[0]])
+        return result
+
+    missing = np.flatnonzero(np.isnan(result))
+    if method == "linear":
+        result[missing] = np.interp(missing, known, result[known])
+    elif method == "nearest":
+        right_positions = np.searchsorted(known, missing).clip(max=known.size - 1)
+        left_positions = (right_positions - 1).clip(min=0)
+        left = known[left_positions]
+        right = known[right_positions]
+        nearest = np.where(missing - left <= right - missing, left, right)
+        result[missing] = result[nearest]
+    return result

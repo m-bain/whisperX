@@ -16,6 +16,11 @@ def align(*args, **kwargs):
     return alignment.align(*args, **kwargs)
 
 
+def align_batch(*args, **kwargs):
+    alignment = _lazy_import("alignment")
+    return alignment.align_batch(*args, **kwargs)
+
+
 def load_model(*args, **kwargs):
     asr = _lazy_import("asr")
     return asr.load_model(*args, **kwargs)
