@@ -266,7 +266,10 @@ def test_mps_transcribes_real_speech_with_mlx(tmp_path):
     from whisperx.audio import SAMPLE_RATE, load_audio
 
     path = tmp_path / "speech.aiff"
-    subprocess.run(["say", "-o", str(path), "The quick brown fox jumps over the lazy dog."], check=True)
+    try:
+        subprocess.run(["say", "-o", str(path), "The quick brown fox jumps over the lazy dog."], check=True, timeout=30)
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        pytest.skip("macOS `say` did not finish within 30s")
     speech = load_audio(str(path))
     model = load_model("tiny.en", device="mps", language="en")
     result = model.transcribe(speech, batch_size=4)
