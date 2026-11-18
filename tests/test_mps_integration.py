@@ -25,7 +25,10 @@ def speech(tmp_path_factory) -> np.ndarray:
     if shutil.which("say") is None:
         pytest.skip("needs macOS `say` to synthesize speech")
     path = tmp_path_factory.mktemp("speech") / "speech.aiff"
-    subprocess.run(["say", "-o", str(path), SENTENCE], check=True)
+    try:
+        subprocess.run(["say", "-o", str(path), SENTENCE], check=True, timeout=30)
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        pytest.skip("macOS `say` did not finish within 30s")
     return load_audio(str(path))
 
 
