@@ -93,3 +93,12 @@ def test_cli_explicit_stage_device_the_stage_cannot_use_exits_with_hint(tmp_path
     err = capsys.readouterr().err
     assert "ASR cannot run on mps" in err
     assert "CTranslate2" in err
+
+
+def test_help_shows_each_device_flag_real_default(capsys):
+    with mock.patch.object(sys, "argv", ["whisperx", "--help"]), pytest.raises(SystemExit):
+        cli()
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "(default: auto)" in help_text
+    assert "(default: None)" not in help_text.split("--device_index")[0]
+    assert help_text.count("default: --device") == 4
