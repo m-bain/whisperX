@@ -32,6 +32,8 @@ fast = ["numba>=0.68.0"]
 # (an optional path). Platforms without torchaudio wheels (e.g. Ascend /
 # Linux aarch64) skip installing it and use the HF fallback instead.
 align-torch = ["torchaudio~=2.8.0"]
+# Whisper on the Apple GPU (--device mps); MLX only runs on Apple Silicon Macs.
+mlx = ["mlx-whisper>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [project.scripts]
 whisperx = "whisperx.__main__:cli"
