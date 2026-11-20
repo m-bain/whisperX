@@ -122,7 +122,22 @@ If Numba is installed, WhisperX will automatically use JIT-compiled alignment lo
 
 ### Speaker Diarization
 
-To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model.
+To **enable Speaker Diarization**, generate a Hugging Face access token (read) [Here](https://huggingface.co/settings/tokens) and accept the user agreement for the [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) model. Then provide the token in one of these ways:
+
+- **`HF_TOKEN` environment variable** (recommended)
+- **`--hf_token_file <path>`**: a file containing only the token
+- **A token saved with `hf auth login`**: used automatically when no other token is given
+- **`--hf_token <token>`**: avoid on shared machines, since command-line arguments are visible to other users (for example in `ps` output)
+
+`--hf_token` and `--hf_token_file` cannot be used together. Either of them takes precedence over `HF_TOKEN`, which takes precedence over a saved login.
+
+    export HF_TOKEN=hf_...
+    whisperx path/to/audio.wav --diarize
+
+    # or, with a token file only you can read
+    touch ~/.hf_token && chmod 600 ~/.hf_token
+    echo "hf_..." > ~/.hf_token
+    whisperx path/to/audio.wav --diarize --hf_token_file ~/.hf_token
 
 <h2 align="left" id="example">Usage 💬 (command line)</h2>
 
