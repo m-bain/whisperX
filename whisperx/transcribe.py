@@ -2,6 +2,7 @@ import argparse
 import gc
 import os
 import warnings
+from typing import Optional
 
 import numpy as np
 import torch
@@ -13,6 +14,7 @@ from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 from whisperx.schema import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
 from whisperx.log_utils import get_logger
+from whisperx.token_utils import HFTokenError, resolve_hf_token
 
 logger = get_logger(__name__)
 
@@ -50,7 +52,13 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     return_char_alignments: bool = args.pop("return_char_alignments")
 
-    hf_token: str = args.pop("hf_token")
+    try:
+        hf_token: Optional[str] = resolve_hf_token(
+            hf_token=args.pop("hf_token"),
+            hf_token_file=args.pop("hf_token_file"),
+        )
+    except HFTokenError as e:
+        parser.error(str(e))
     vad_method: str = args.pop("vad_method")
     vad_onset: float = args.pop("vad_onset")
     vad_offset: float = args.pop("vad_offset")
@@ -210,8 +218,9 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     # >> Diarize
     if diarize:
         if hf_token is None:
-            logger.warning(
-                "No --hf_token provided, needs to be saved in environment variable, otherwise will throw error loading diarization model"
+            logger.info(
+                "No Hugging Face token given via --hf_token, --hf_token_file or HF_TOKEN; "
+                "using a token saved with `hf auth login`, if there is one"
             )
         tmp_results = results
         logger.info("Performing diarization...")
