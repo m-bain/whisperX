@@ -148,10 +148,6 @@ To label the transcript with speaker ID's (set number of speakers if known e.g. 
 
     whisperx path/to/audio.wav --model large-v2 --diarize --highlight_words True
 
-To maintain continuous context (ideal for technical language / punctuation), set interleaved_context=True:
-
-    whisperx path/to/audio.wav --model large-v2 --interleaved_context
-
 To run on CPU instead of GPU (and for running on Mac OS X):
 
     whisperx path/to/audio.wav --compute_type int8 --device cpu
