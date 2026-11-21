@@ -224,6 +224,23 @@ print(diarize_segments)
 print(result["segments"]) # segments are now assigned speaker IDs
 ```
 
+Type checkers can read the model loader's signature from `whisperx`. For a return
+annotation, import the pipeline class under `TYPE_CHECKING`. This loads the
+speech recognition backend only when your application calls `load_model`.
+
+```python
+from typing import TYPE_CHECKING
+
+from whisperx import load_model
+
+if TYPE_CHECKING:
+    from whisperx.asr import FasterWhisperPipeline
+
+
+def make_pipeline() -> "FasterWhisperPipeline":
+    return load_model("large-v2", device="cpu", compute_type="int8")
+```
+
 ## Demos 🚀
 
 [![Replicate (large-v3](https://img.shields.io/static/v1?label=Replicate+WhisperX+large-v3&message=Demo+%26+Cloud+API&color=blue)](https://replicate.com/victor-upmeet/whisperx)
