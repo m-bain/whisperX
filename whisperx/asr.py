@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import replace
 
 import ctranslate2
@@ -271,7 +271,18 @@ class FasterWhisperPipeline(Pipeline):
         verbose=False,
         progress_callback: ProgressCallback = None,
         interleaved_context: bool = False,
+        language_top_k: Optional[int] = None,
     ) -> TranscriptionResult:
+        """
+        Transcribe audio.
+
+        If ``language_top_k`` is set and the language is detected (i.e. no language
+        was passed here or to ``load_model``), the result also contains
+        ``language_probs``: the ``language_top_k`` most likely languages mapped to
+        their probabilities, highest first.
+        """
+        if language_top_k is not None and language_top_k < 1:
+            raise ValueError(f"language_top_k must be a positive integer, got {language_top_k}")
 
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -312,8 +323,11 @@ class FasterWhisperPipeline(Pipeline):
             onset=self._vad_params["vad_onset"],
             offset=self._vad_params["vad_offset"],
         )
+        language_probs: Optional[List[Tuple[str, float]]] = None
         if self.tokenizer is None:
-            language = language or self.detect_language(audio)
+            if language is None:
+                language_probs = self._detect_language_probabilities(audio)
+                language = language_probs[0][0]
             task = task or "transcribe"
             self.tokenizer = Tokenizer(
                 self.model.hf_tokenizer,
@@ -446,9 +460,27 @@ class FasterWhisperPipeline(Pipeline):
         if self.suppress_numerals:
             self.options = replace(self.options, suppress_tokens=previous_suppress_tokens)
 
-        return {"segments": segments, "language": language}
+        result: TranscriptionResult = {"segments": segments, "language": language}
+        if language_top_k is not None and language_probs is not None:
+            result["language_probs"] = dict(language_probs[:language_top_k])
+        return result
 
     def detect_language(self, audio: np.ndarray) -> str:
+        return self._detect_language_probabilities(audio)[0][0]
+
+    def detect_language_probabilities(self, audio: np.ndarray, top_k: Optional[int] = None) -> Dict[str, float]:
+        """
+        Detect the language spoken in the first 30 seconds of ``audio``.
+
+        Returns a dict mapping language codes to probabilities, ordered from the most
+        to the least likely language. If ``top_k`` is given, only the ``top_k`` most
+        likely languages are returned.
+        """
+        if top_k is not None and top_k < 1:
+            raise ValueError(f"top_k must be a positive integer, got {top_k}")
+        return dict(self._detect_language_probabilities(audio)[:top_k])
+
+    def _detect_language_probabilities(self, audio: np.ndarray) -> List[Tuple[str, float]]:
         if audio.shape[0] < N_SAMPLES:
             logger.warning("Audio is shorter than 30s, language detection may be inaccurate")
         model_n_mels = self.model.feat_kwargs.get("feature_size")
@@ -457,10 +489,11 @@ class FasterWhisperPipeline(Pipeline):
                                       padding=0 if audio.shape[0] >= N_SAMPLES else N_SAMPLES - audio.shape[0])
         encoder_output = self.model.encode(segment)
         results = self.model.model.detect_language(encoder_output)
-        language_token, language_probability = results[0][0]
-        language = language_token[2:-2]
+        # Pairs of (language token, probability), sorted from most to least likely.
+        language_probs = [(token[2:-2], probability) for token, probability in results[0]]
+        language, language_probability = language_probs[0]
         logger.info(f"Detected language: {language} ({language_probability:.2f}) in first 30s of audio")
-        return language
+        return language_probs
 
 
 def _ctranslate2_supports(device: str) -> bool:
