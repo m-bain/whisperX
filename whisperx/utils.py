@@ -319,10 +319,8 @@ class SubtitlesWriter(ResultWriter):
                 else:
                     subtitle_start = self.format_timestamp(times[0][0])
                     subtitle_end = self.format_timestamp(times[0][1])
-                if result["language"] in LANGUAGES_WITHOUT_SPACES:
-                    subtitle_text = "".join([word["word"] for word in subtitle])
-                else:
-                    subtitle_text = " ".join([word["word"] for word in subtitle])
+                sep = "" if result["language"] in LANGUAGES_WITHOUT_SPACES else " "
+                subtitle_text = sep.join([word["word"] for word in subtitle])
                 has_timing = any(["start" in word for word in subtitle])
 
                 # add [$SPEAKER_ID]: to each subtitle if speaker is available
@@ -340,7 +338,7 @@ class SubtitlesWriter(ResultWriter):
                             if last != start:
                                 yield last, start, prefix + subtitle_text
 
-                            yield start, end, prefix + " ".join(
+                            yield start, end, prefix + sep.join(
                                 [
                                     re.sub(r"^(\s*)(.*)$", r"\1<u>\2</u>", word)
                                     if j == i
