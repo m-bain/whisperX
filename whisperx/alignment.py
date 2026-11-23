@@ -149,6 +149,58 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 
+# Audio seconds per batch of the alignment model; keeps the memory of a batch close to that of a few long segments.
+ALIGN_BATCH_MAX_SECONDS = 60
+
+
+def _batched_emissions(model, model_type, audio, spans, device, batch_size):
+    """Emissions of many segments in padded batches. Returns {segment index: (frames, vocab) CPU tensor}.
+
+    Only for Hugging Face models with layer-normalised feature encoders (e.g. wav2vec2-xlsr): padding plus an
+    attention mask does not change their output, unlike group-normalised models (torchaudio base models), which
+    keep the one-segment-at-a-time path. Returns {} when batching does not apply. A batch holds at most
+    ``batch_size`` segments and ``ALIGN_BATCH_MAX_SECONDS`` of audio, and is split in two when the GPU runs out of memory.
+    """
+    if batch_size <= 1 or model_type != "huggingface" or getattr(model.config, "feat_extract_norm", None) != "layer":
+        return {}
+    emissions = {}
+
+    def run(batch):
+        lengths = [max(f2 - f1, 400) for _, f1, f2 in batch]  # wav2vec2 needs at least 400 samples
+        waveforms = torch.zeros(len(batch), lengths[0])
+        mask = torch.zeros(len(batch), lengths[0], dtype=torch.long)
+        for row, ((_, f1, f2), length) in enumerate(zip(batch, lengths)):
+            waveforms[row, :f2 - f1] = audio[0, f1:f2]
+            mask[row, :length] = 1
+        try:
+            with torch.inference_mode():
+                logits = model(waveforms.to(device), attention_mask=mask.to(device)).logits
+                batch_emissions = torch.log_softmax(logits, dim=-1).cpu()
+        except torch.cuda.OutOfMemoryError:
+            if len(batch) == 1:
+                raise
+            torch.cuda.empty_cache()
+            half = len(batch) // 2
+            run(batch[:half])
+            run(batch[half:])
+            return
+        frames = model._get_feat_extract_output_lengths(torch.tensor(lengths)).tolist()
+        for row, (sdx, _, _) in enumerate(batch):
+            emissions[sdx] = batch_emissions[row, :frames[row]].detach()
+
+    spans = sorted(spans, key=lambda span: span[2] - span[1], reverse=True)  # similar lengths share a batch
+    max_samples = ALIGN_BATCH_MAX_SECONDS * SAMPLE_RATE
+    batch = []
+    for span in spans:
+        if batch and (len(batch) >= batch_size or (len(batch) + 1) * max(batch[0][2] - batch[0][1], 400) > max_samples):
+            run(batch)
+            batch = []
+        batch.append(span)
+    if batch:
+        run(batch)
+    return emissions
+
+
 def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
@@ -160,9 +212,13 @@ def align(
     print_progress: bool = False,
     combined_progress: bool = False,
     progress_callback: ProgressCallback = None,
+    batch_size: int = 8,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
+
+    ``batch_size`` is the number of segments run through the alignment model together; it applies to Hugging Face
+    models with layer-normalised feature encoders only (1 = one segment at a time).
     """
 
     if not torch.is_tensor(audio):
@@ -245,6 +301,17 @@ def align(
 
     aligned_segments: List[SingleAlignedSegment] = []
 
+    # Emissions of all alignable segments, in batches where the model allows it
+    batched = _batched_emissions(
+        model, model_type, audio,
+        [
+            (sdx, int(segment["start"] * SAMPLE_RATE), int(segment["end"] * SAMPLE_RATE))
+            for sdx, segment in enumerate(transcript)
+            if len(segment_data[sdx]["clean_char"]) > 0 and segment["start"] < MAX_DURATION
+        ],
+        device, batch_size,
+    )
+
     # 2. Get prediction matrix from alignment model & align
     for sdx, segment in enumerate(transcript):
 
@@ -283,7 +350,6 @@ def align(
         f1 = int(t1 * SAMPLE_RATE)
         f2 = int(t2 * SAMPLE_RATE)
 
-        # TODO: Probably can get some speedup gain with batched inference here
         waveform_segment = audio[:, f1:f2]
         # Handle the minimum input length for wav2vec2 models
         if waveform_segment.shape[-1] < 400:
@@ -294,16 +360,19 @@ def align(
         else:
             lengths = None
 
-        with torch.inference_mode():
-            if model_type == "torchaudio":
-                emissions, _ = model(waveform_segment.to(device), lengths=lengths)
-            elif model_type == "huggingface":
-                emissions = model(waveform_segment.to(device)).logits
-            else:
-                raise NotImplementedError(f"Align model of type {model_type} not supported.")
-            emissions = torch.log_softmax(emissions, dim=-1)
+        if sdx in batched:
+            emission = batched[sdx]
+        else:
+            with torch.inference_mode():
+                if model_type == "torchaudio":
+                    emissions, _ = model(waveform_segment.to(device), lengths=lengths)
+                elif model_type == "huggingface":
+                    emissions = model(waveform_segment.to(device)).logits
+                else:
+                    raise NotImplementedError(f"Align model of type {model_type} not supported.")
+                emissions = torch.log_softmax(emissions, dim=-1)
 
-        emission = emissions[0].cpu().detach()
+            emission = emissions[0].cpu().detach()
 
         blank_id = 0
         for char, code in model_dictionary.items():
