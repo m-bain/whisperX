@@ -149,6 +149,231 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 
+def _assemble_segment_pandas(text, char_segments, clean_cdx_index, t1, ratio, sentence_spans, model_lang,
+                             avg_logprob, return_char_alignments, interpolate_method):
+    """Words and sentences of one segment from its aligned characters (reference implementation, pandas)."""
+    # assign timestamps to aligned characters
+    char_segments_arr = []
+    word_idx = 0
+    for cdx, char in enumerate(text):
+        start, end, score = None, None, None
+        if cdx in clean_cdx_index:
+            char_seg = char_segments[clean_cdx_index[cdx]]
+            start = round(char_seg.start * ratio + t1, 3)
+            end = round(char_seg.end * ratio + t1, 3)
+            score = round(char_seg.score, 3)
+
+        char_segments_arr.append(
+            {
+                "char": char,
+                "start": start,
+                "end": end,
+                "score": score,
+                "word-idx": word_idx,
+            }
+        )
+
+        # increment word_idx, nltk word tokenization would probably be more robust here, but us space for now...
+        if model_lang in LANGUAGES_WITHOUT_SPACES:
+            word_idx += 1
+        elif cdx == len(text) - 1 or text[cdx+1] == " ":
+            word_idx += 1
+
+    char_segments_arr = pd.DataFrame(char_segments_arr)
+
+    aligned_subsegments = []
+    # assign sentence_idx to each character index
+    char_segments_arr["sentence-idx"] = None
+    for sdx2, (sstart, send) in enumerate(sentence_spans):
+        curr_chars = char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send)]
+        char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send), "sentence-idx"] = sdx2
+
+        sentence_text = text[sstart:send]
+        sentence_start = curr_chars["start"].min()
+        end_chars = curr_chars[curr_chars["char"] != ' ']
+        sentence_end = end_chars["end"].max()
+        sentence_words = []
+
+        for word_idx in curr_chars["word-idx"].unique():
+            word_chars = curr_chars.loc[curr_chars["word-idx"] == word_idx]
+            word_text = "".join(word_chars["char"].tolist()).strip()
+            if len(word_text) == 0:
+                continue
+
+            # dont use space character for alignment
+            word_chars = word_chars[word_chars["char"] != " "]
+
+            word_start = word_chars["start"].min()
+            word_end = word_chars["end"].max()
+            word_score = round(word_chars["score"].mean(), 3)
+
+            # -1 indicates unalignable
+            word_segment = {"word": word_text}
+
+            if not np.isnan(word_start):
+                word_segment["start"] = word_start
+            if not np.isnan(word_end):
+                word_segment["end"] = word_end
+            if not np.isnan(word_score):
+                word_segment["score"] = word_score
+
+            sentence_words.append(word_segment)
+
+        # Interpolate timestamps for words with no alignable characters
+        if sentence_words:
+            _starts = pd.Series([w.get("start", np.nan) for w in sentence_words])
+            _ends = pd.Series([w.get("end", np.nan) for w in sentence_words])
+            if _starts.isna().any() and _starts.notna().any():
+                _starts = interpolate_nans(_starts, method=interpolate_method)
+                _ends = interpolate_nans(_ends, method=interpolate_method)
+                for i, w in enumerate(sentence_words):
+                    if "start" not in w and pd.notna(_starts.iloc[i]):
+                        w["start"] = _starts.iloc[i]
+                    if "end" not in w and pd.notna(_ends.iloc[i]):
+                        w["end"] = _ends.iloc[i]
+
+        subsegment = {
+            "text": sentence_text,
+            "start": sentence_start,
+            "end": sentence_end,
+            "words": sentence_words,
+        }
+        if avg_logprob is not None:
+            subsegment["avg_logprob"] = avg_logprob
+        aligned_subsegments.append(subsegment)
+
+        if return_char_alignments:
+            curr_chars = curr_chars[["char", "start", "end", "score"]]
+            curr_chars.fillna(-1, inplace=True)
+            curr_chars = curr_chars.to_dict("records")
+            curr_chars = [{key: val for key, val in char.items() if val != -1} for char in curr_chars]
+            aligned_subsegments[-1]["chars"] = curr_chars
+
+    aligned_subsegments = pd.DataFrame(aligned_subsegments)
+    aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
+    aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
+    # concatenate sentences with same timestamps
+    agg_dict = {"text": " ".join, "words": "sum"}
+    if model_lang in LANGUAGES_WITHOUT_SPACES:
+        agg_dict["text"] = "".join
+    if return_char_alignments:
+        agg_dict["chars"] = "sum"
+    if avg_logprob is not None:
+        agg_dict["avg_logprob"] = "first"
+    aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
+    aligned_subsegments = aligned_subsegments.to_dict('records')
+    return aligned_subsegments
+
+
+def _mean(values):
+    """Mean of the non-NaN values, computed like pandas (zero-filled sum over the count) so results are identical."""
+    values = np.asarray(values, dtype=np.float64)
+    valid = ~np.isnan(values)
+    if not valid.any():
+        return np.float64("nan")
+    return np.where(valid, values, 0.0).sum() / valid.sum()
+
+
+def _assemble_segment_fast(text, char_segments, clean_cdx_index, t1, ratio, sentence_spans, model_lang,
+                           avg_logprob, return_char_alignments):
+    """Same result as ``_assemble_segment_pandas`` without pandas, for the common case.
+
+    Returns None when a case needing interpolation shows up (sentences or words without any aligned character), in
+    which case the caller uses the pandas version.
+    """
+    n = len(text)
+    nan = np.float64("nan")
+    starts = np.full(n, np.nan)
+    ends = np.full(n, np.nan)
+    scores = np.full(n, np.nan)
+    word_ids = [0] * n
+    word_idx = 0
+    no_spaces = model_lang in LANGUAGES_WITHOUT_SPACES
+    for cdx in range(n):
+        i = clean_cdx_index.get(cdx)
+        if i is not None:
+            char_seg = char_segments[i]
+            starts[cdx] = round(char_seg.start * ratio + t1, 3)
+            ends[cdx] = round(char_seg.end * ratio + t1, 3)
+            scores[cdx] = round(char_seg.score, 3)
+        word_ids[cdx] = word_idx
+        if no_spaces:
+            word_idx += 1
+        elif cdx == n - 1 or text[cdx + 1] == " ":
+            word_idx += 1
+
+    subsegments = []
+    for sstart, send in sentence_spans:
+        lo, hi = max(sstart, 0), min(send, n - 1)  # the end index is inclusive
+        if lo > hi or np.isnan(starts[lo:hi + 1]).all():
+            return None
+        sentence_start = np.nanmin(starts[lo:hi + 1])
+        non_space = [i for i in range(lo, hi + 1) if text[i] != " "]
+        if not non_space or np.isnan(ends[non_space]).all():
+            return None
+        sentence_end = np.nanmax(ends[non_space])
+
+        words = []
+        i = lo
+        while i <= hi:
+            j = i
+            while j <= hi and word_ids[j] == word_ids[i]:
+                j += 1
+            word_text = text[i:j].strip()
+            if word_text:
+                chars = [k for k in range(i, j) if text[k] != " "]
+                word_start = np.nanmin(starts[chars]) if chars and not np.isnan(starts[chars]).all() else nan
+                word_end = np.nanmax(ends[chars]) if chars and not np.isnan(ends[chars]).all() else nan
+                word_score = round(_mean(scores[chars]), 3) if chars else nan
+                if np.isnan(word_start) or np.isnan(word_end):
+                    return None
+                word = {"word": word_text, "start": word_start, "end": word_end}
+                if not np.isnan(word_score):
+                    word["score"] = word_score
+                words.append(word)
+            i = j
+
+        subsegment = {"text": text[sstart:send], "start": sentence_start, "end": sentence_end, "words": words}
+        if avg_logprob is not None:
+            subsegment["avg_logprob"] = avg_logprob
+        if return_char_alignments:
+            chars_out = []
+            for k in range(lo, hi + 1):
+                char = {"char": text[k]}
+                for key, values in (("start", starts), ("end", ends), ("score", scores)):
+                    if not np.isnan(values[k]):
+                        char[key] = float(values[k])
+                chars_out.append(char)
+            subsegment["chars"] = chars_out
+        subsegments.append(subsegment)
+
+    # concatenate sentences with the same timestamps, ordered by (start, end)
+    merged = {}
+    for subsegment in subsegments:
+        merged.setdefault((subsegment["start"], subsegment["end"]), []).append(subsegment)
+    separator = "" if no_spaces else " "
+    records = []
+    for (start, end), group in sorted(merged.items()):
+        record = {"start": float(start), "end": float(end), "text": separator.join(g["text"] for g in group),
+                  "words": [w for g in group for w in g["words"]]}
+        if return_char_alignments:
+            record["chars"] = [c for g in group for c in g["chars"]]
+        if avg_logprob is not None:
+            record["avg_logprob"] = group[0]["avg_logprob"]
+        records.append(record)
+    return records
+
+
+def _assemble_segment(text, char_segments, clean_cdx_index, t1, ratio, sentence_spans, model_lang, avg_logprob,
+                      return_char_alignments, interpolate_method):
+    records = _assemble_segment_fast(text, char_segments, clean_cdx_index, t1, ratio, sentence_spans, model_lang,
+                                     avg_logprob, return_char_alignments)
+    if records is None:
+        records = _assemble_segment_pandas(text, char_segments, clean_cdx_index, t1, ratio, sentence_spans,
+                                           model_lang, avg_logprob, return_char_alignments, interpolate_method)
+    return records
+
+
 def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
@@ -336,116 +561,11 @@ def align(
         duration = t2 - t1
         ratio = duration * waveform_segment.size(0) / (trellis.size(0) - 1)
 
-        # assign timestamps to aligned characters
-        char_segments_arr = []
-        word_idx = 0
-        for cdx, char in enumerate(text):
-            start, end, score = None, None, None
-            if cdx in segment_data[sdx]["clean_cdx"]:
-                char_seg = char_segments[segment_data[sdx]["clean_cdx"].index(cdx)]
-                start = round(char_seg.start * ratio + t1, 3)
-                end = round(char_seg.end * ratio + t1, 3)
-                score = round(char_seg.score, 3)
-
-            char_segments_arr.append(
-                {
-                    "char": char,
-                    "start": start,
-                    "end": end,
-                    "score": score,
-                    "word-idx": word_idx,
-                }
-            )
-
-            # increment word_idx, nltk word tokenization would probably be more robust here, but us space for now...
-            if model_lang in LANGUAGES_WITHOUT_SPACES:
-                word_idx += 1
-            elif cdx == len(text) - 1 or text[cdx+1] == " ":
-                word_idx += 1
-
-        char_segments_arr = pd.DataFrame(char_segments_arr)
-
-        aligned_subsegments = []
-        # assign sentence_idx to each character index
-        char_segments_arr["sentence-idx"] = None
-        for sdx2, (sstart, send) in enumerate(segment_data[sdx]["sentence_spans"]):
-            curr_chars = char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send)]
-            char_segments_arr.loc[(char_segments_arr.index >= sstart) & (char_segments_arr.index <= send), "sentence-idx"] = sdx2
-
-            sentence_text = text[sstart:send]
-            sentence_start = curr_chars["start"].min()
-            end_chars = curr_chars[curr_chars["char"] != ' ']
-            sentence_end = end_chars["end"].max()
-            sentence_words = []
-
-            for word_idx in curr_chars["word-idx"].unique():
-                word_chars = curr_chars.loc[curr_chars["word-idx"] == word_idx]
-                word_text = "".join(word_chars["char"].tolist()).strip()
-                if len(word_text) == 0:
-                    continue
-
-                # dont use space character for alignment
-                word_chars = word_chars[word_chars["char"] != " "]
-
-                word_start = word_chars["start"].min()
-                word_end = word_chars["end"].max()
-                word_score = round(word_chars["score"].mean(), 3)
-
-                # -1 indicates unalignable
-                word_segment = {"word": word_text}
-
-                if not np.isnan(word_start):
-                    word_segment["start"] = word_start
-                if not np.isnan(word_end):
-                    word_segment["end"] = word_end
-                if not np.isnan(word_score):
-                    word_segment["score"] = word_score
-
-                sentence_words.append(word_segment)
-
-            # Interpolate timestamps for words with no alignable characters
-            if sentence_words:
-                _starts = pd.Series([w.get("start", np.nan) for w in sentence_words])
-                _ends = pd.Series([w.get("end", np.nan) for w in sentence_words])
-                if _starts.isna().any() and _starts.notna().any():
-                    _starts = interpolate_nans(_starts, method=interpolate_method)
-                    _ends = interpolate_nans(_ends, method=interpolate_method)
-                    for i, w in enumerate(sentence_words):
-                        if "start" not in w and pd.notna(_starts.iloc[i]):
-                            w["start"] = _starts.iloc[i]
-                        if "end" not in w and pd.notna(_ends.iloc[i]):
-                            w["end"] = _ends.iloc[i]
-
-            subsegment = {
-                "text": sentence_text,
-                "start": sentence_start,
-                "end": sentence_end,
-                "words": sentence_words,
-            }
-            if avg_logprob is not None:
-                subsegment["avg_logprob"] = avg_logprob
-            aligned_subsegments.append(subsegment)
-
-            if return_char_alignments:
-                curr_chars = curr_chars[["char", "start", "end", "score"]]
-                curr_chars.fillna(-1, inplace=True)
-                curr_chars = curr_chars.to_dict("records")
-                curr_chars = [{key: val for key, val in char.items() if val != -1} for char in curr_chars]
-                aligned_subsegments[-1]["chars"] = curr_chars
-
-        aligned_subsegments = pd.DataFrame(aligned_subsegments)
-        aligned_subsegments["start"] = interpolate_nans(aligned_subsegments["start"], method=interpolate_method)
-        aligned_subsegments["end"] = interpolate_nans(aligned_subsegments["end"], method=interpolate_method)
-        # concatenate sentences with same timestamps
-        agg_dict = {"text": " ".join, "words": "sum"}
-        if model_lang in LANGUAGES_WITHOUT_SPACES:
-            agg_dict["text"] = "".join
-        if return_char_alignments:
-            agg_dict["chars"] = "sum"
-        if avg_logprob is not None:
-            agg_dict["avg_logprob"] = "first"
-        aligned_subsegments= aligned_subsegments.groupby(["start", "end"], as_index=False).agg(agg_dict)
-        aligned_subsegments = aligned_subsegments.to_dict('records')
+        clean_cdx_index = {cdx: i for i, cdx in enumerate(segment_data[sdx]["clean_cdx"])}
+        aligned_subsegments = _assemble_segment(
+            text, char_segments, clean_cdx_index, t1, ratio, segment_data[sdx]["sentence_spans"],
+            model_lang, avg_logprob, return_char_alignments, interpolate_method,
+        )
         if progress_callback is not None:
             progress_callback(((sdx + 1) / total_segments) * 100)
 
