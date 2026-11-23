@@ -2,6 +2,7 @@
 Forced Alignment with Whisper
 C. Max Bain
 """
+import functools
 from dataclasses import dataclass
 from typing import Iterable, Optional, Union, List
 
@@ -149,6 +150,21 @@ def load_align_model(language_code: str, device: str, model_name: Optional[str] 
     return align_model, align_metadata
 
 
+@functools.lru_cache(maxsize=None)
+def _load_sentence_splitter(punkt_lang: str):
+    """Load (once per language) the NLTK Punkt sentence splitter; reading it from disk takes ~0.2-0.6 s."""
+    try:
+        return nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+    except LookupError as e:
+        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
+        if not nltk.download('punkt_tab', quiet=True):
+            raise RuntimeError(
+                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
+                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
+            ) from e
+        return nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+
+
 def align(
     transcript: Iterable[SingleSegment],
     model: torch.nn.Module,
@@ -179,17 +195,7 @@ def align(
     model_type = align_model_metadata["type"]
 
     # Use language-specific Punkt model if available otherwise we fallback to English.
-    punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
-    try:
-        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
-    except LookupError as e:
-        logger.info("Downloading NLTK punkt_tab data for sentence splitting...")
-        if not nltk.download('punkt_tab', quiet=True):
-            raise RuntimeError(
-                "Failed to download NLTK 'punkt_tab' data, which is required for sentence splitting. "
-                "Check your network connection, or install it manually with: python -m nltk.downloader punkt_tab"
-            ) from e
-        sentence_splitter = nltk_load(f'tokenizers/punkt_tab/{punkt_lang}.pickle')
+    sentence_splitter = _load_sentence_splitter(PUNKT_LANGUAGES.get(model_lang, 'english'))
 
     # 1. Preprocess to keep only characters in dictionary
     total_segments = len(transcript)
