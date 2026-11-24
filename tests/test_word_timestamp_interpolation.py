@@ -138,6 +138,30 @@ class TestAlignWithWildcards:
                 f"Timestamps not ordered: {starts}"
             )
 
+    def test_separator_frames_do_not_start_repeated_word_early(self):
+        dictionary = {**self.DICTIONARY, "y": len(self.DICTIONARY)}
+        frames = ["<pad>", "h", "e", "y", "|", "|", "|", "<pad>", "h", "e", "y", "<pad>"]
+        emission = torch.full((len(frames), len(dictionary)), -6.0)
+        for index, token in enumerate(frames):
+            emission[index, dictionary[token]] = 6.0
+        # The last separator frame has a weak H score, while the real H
+        # shares its frame with a high blank score.
+        emission[6, dictionary["h"]] = 3.0
+        emission[8, dictionary["<pad>"]] = 5.9
+        model = _make_mock_model(emission, dictionary)
+        duration = 1.2
+
+        words = align(
+            transcript=[{"text": "Hey! Hey", "start": 0.0, "end": duration}],
+            model=model,
+            align_model_metadata={**self.METADATA, "dictionary": dictionary},
+            audio=torch.zeros(int(duration * 16000)),
+            device="cpu",
+        )["word_segments"]
+
+        assert [word["word"] for word in words] == ["Hey!", "Hey"]
+        assert words[1]["start"] == 0.8
+
     def test_issue_1372_digits_comma_no_timestamps(self):
         """Regression: '4,9' (digits+comma) must get timestamps.
 
