@@ -15,7 +15,7 @@ from transformers.pipelines.pt_utils import PipelineIterator
 from whisperx.audio import N_SAMPLES, SAMPLE_RATE, load_audio, log_mel_spectrogram
 from whisperx.schema import SingleSegment, TranscriptionResult, ProgressCallback
 from whisperx.vads import Vad, Silero, Pyannote
-from whisperx.device_utils import get_default_device, get_device_type
+from whisperx.device_utils import get_default_device, get_device_type, resolve_device, stage_device
 from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
@@ -487,11 +487,16 @@ def load_model(
     local_files_only=False,
     threads=4,
     use_auth_token: Optional[Union[str, bool]] = None,
+    vad_device: Optional[str] = None,
+    asr_device: Optional[str] = None,
 ) -> FasterWhisperPipeline:
     """Load a Whisper model for inference.
     Args:
         whisper_arch - The name of the Whisper model to load.
-        device - The device to load the model on.
+        device - The device for VAD and ASR: "cpu", "cuda", "cuda:N", "npu", "mps" or "auto" (cuda > npu > mps > cpu);
+            other torch device types pass through.
+            A device that does not exist on this machine raises DeviceError; a stage that cannot use it
+            (e.g. faster-whisper ASR on a device CTranslate2 does not support, such as mps) runs on cpu with a warning.
         compute_type - The compute type to use for the model.
             Use "default" to automatically select based on device (float16 for GPU, float32 for CPU).
         vad_model - The vad model to manually assign.
@@ -502,29 +507,49 @@ def load_model(
         download_root - The root directory to download the model to.
         local_files_only - If `True`, avoid downloading the file and return the path to the local cached file if it exists.
         threads - The number of cpu threads to use per worker, e.g. will be multiplied by num workers.
+        vad_device - The device for VAD, overriding `device`; None inherits `device`.
+            A device the VAD cannot use raises DeviceError instead of falling back to cpu.
+        asr_device - The device for ASR, overriding `device`; None inherits `device`.
+            A device the ASR backend cannot use raises DeviceError instead of falling back to cpu.
     Returns:
         A Whisper pipeline.
     """
 
-    # VAD, alignment and diarization use `device`; Whisper falls back to CPU if CTranslate2 can't
-    asr_device, asr_device_index = device, device_index
-    if model is None and get_device_type(device) not in ("cpu", "cuda") and not _ctranslate2_supports(device):
-        logger.warning(f"CTranslate2 does not support device '{device}', running Whisper ASR on cpu")
-        asr_device, asr_device_index = "cpu", 0
-        if compute_type == "float16":
-            compute_type = "float32"
+    # Resolve both stage devices before loading anything, so a bad device fails fast
+    if vad_model is None and vad_method == "pyannote":
+        vad_device = stage_device("VAD", vad_device, device, None, "cpu", "")
+    elif vad_model is None and vad_method == "silero":
+        vad_device = stage_device(
+            "VAD", vad_device, device, lambda d: get_device_type(d) == "cpu", "cpu", " (Silero VAD runs on cpu only)"
+        )
+    requested_asr_device = asr_device if asr_device is not None else device
+    asr_device = stage_device(
+        "ASR",
+        asr_device,
+        device,
+        # A passed-in model is used as is; otherwise CTranslate2 must support the device
+        lambda d: model is not None or get_device_type(d) in ("cpu", "cuda") or _ctranslate2_supports(d),
+        "cpu",
+        " (CTranslate2 does not support this device)",
+    )
+    logger.info(f"ASR device: {asr_device}")
+    if compute_type == "float16" and get_device_type(asr_device) != get_device_type(resolve_device(requested_asr_device)):
+        compute_type = "float32"
+    # CTranslate2 takes the device type and index separately
+    # (parsed as a string: torch only knows a device type like npu once its backend package is imported)
+    ct2_device = get_device_type(asr_device)
+    ct2_index = int(asr_device.split(":")[1]) if ":" in asr_device else device_index
 
     if compute_type == "default":
-        accelerator = get_device_type(asr_device)
-        compute_type = "float16" if accelerator in ("cuda", "npu") else "float32"
+        compute_type = "float16" if ct2_device in ("cuda", "npu", "mps") else "float32"
         logger.info(f"Compute type not specified, defaulting to {compute_type} for device {asr_device}")
 
     if whisper_arch.endswith(".en"):
         language = "en"
 
     model = model or WhisperModel(whisper_arch,
-                         device=asr_device,
-                         device_index=asr_device_index,
+                         device=ct2_device,
+                         device_index=ct2_index,
                          compute_type=compute_type,
                          download_root=download_root,
                          local_files_only=local_files_only,
@@ -588,13 +613,14 @@ def load_model(
         print("Use manually assigned vad_model. vad_method is ignored.")
         vad_model = vad_model
     else:
+        logger.info(f"VAD device: {vad_device}")
         if vad_method == "silero":
             vad_model = Silero(**default_vad_options)
         elif vad_method == "pyannote":
-            if get_device_type(device) in ("cuda", "npu"):
-                device_vad = f'{get_device_type(device)}:{device_index}'
+            if vad_device in ("cuda", "npu"):
+                device_vad = f'{vad_device}:{device_index}'
             else:
-                device_vad = device
+                device_vad = vad_device
             vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
