@@ -488,7 +488,10 @@ if _HAS_NUMBA:
         # The extra dim for time axis is for simplification of the code.
         trellis = np.empty((num_frame + 1, num_tokens + 1), dtype=np.float32)
         trellis[0, 0] = 0.0
-        trellis[1:, 0] = np.cumsum(emission[:, blank_id])
+        prefix_scores = emission[:, blank_id]
+        if separator_id >= 0:
+            prefix_scores = np.maximum(prefix_scores, emission[:, separator_id])
+        trellis[1:, 0] = np.cumsum(prefix_scores)
         trellis[0, -num_tokens:] = -np.inf
         trellis[-num_tokens:, 0] = np.inf
 
@@ -553,6 +556,8 @@ if _HAS_NUMBA:
 
 def get_trellis(emission, tokens, blank_id=0, *, separator_id=-1):
     """Score alignment paths, allowing the word separator to span multiple frames."""
+    if separator_id >= 0 and separator_id not in tokens:
+        separator_id = -1
     if _HAS_NUMBA:
         emission_np = emission.detach().cpu().numpy().astype(np.float32)
         tokens_np = np.asarray(tokens, dtype=np.int64)
@@ -564,14 +569,17 @@ def get_trellis(emission, tokens, blank_id=0, *, separator_id=-1):
     num_tokens = len(tokens)
     trellis = torch.empty((num_frame + 1, num_tokens + 1))
     trellis[0, 0] = 0
-    trellis[1:, 0] = torch.cumsum(emission[:, blank_id], 0)
-    trellis[0, -num_tokens:] = -float("inf")
-    trellis[-num_tokens:, 0] = float("inf")
-
     token_indices = torch.as_tensor(tokens, dtype=torch.long)
     separator_positions = token_indices == separator_id
     blank_scores = emission[:, blank_id]
     separator_scores = blank_scores.maximum(emission[:, separator_id]) if separator_id >= 0 else None
+
+    # Let the prefix consume separators too. Otherwise a path can gain by
+    # matching the first word early just to reach the first separator.
+    prefix_scores = blank_scores if separator_scores is None else separator_scores
+    trellis[1:, 0] = torch.cumsum(prefix_scores, 0)
+    trellis[0, -num_tokens:] = -float("inf")
+    trellis[-num_tokens:, 0] = float("inf")
 
     for t in range(num_frame):
         stay_emission = blank_scores[t]
