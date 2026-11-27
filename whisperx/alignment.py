@@ -177,6 +177,7 @@ def align(
     model_dictionary = align_model_metadata["dictionary"]
     model_lang = align_model_metadata["language"]
     model_type = align_model_metadata["type"]
+    separator_id = -1 if model_lang in LANGUAGES_WITHOUT_SPACES else model_dictionary.get("|", -1)
 
     # Use language-specific Punkt model if available otherwise we fallback to English.
     punkt_lang = PUNKT_LANGUAGES.get(model_lang, 'english')
@@ -323,8 +324,8 @@ def align(
         else:
             tokens = [model_dictionary[c] for c in text_clean]
 
-        trellis = get_trellis(emission, tokens, blank_id)
-        path = backtrack(trellis, emission, tokens, blank_id)
+        trellis = get_trellis(emission, tokens, blank_id, separator_id=separator_id)
+        path = backtrack(trellis, emission, tokens, blank_id, separator_id=separator_id)
 
         if path is None:
             logger.warning(f'Failed to align segment ("{segment["text"]}"): backtrack failed, resorting to original')
@@ -478,7 +479,7 @@ class Point:
 # output against the original pure-Python version across 37 real segments, ~140x faster.
 if _HAS_NUMBA:
     @_safe_njit()
-    def _get_trellis_core(emission, tokens, blank_id):
+    def _get_trellis_core(emission, tokens, blank_id, separator_id):
         num_frame = emission.shape[0]
         num_tokens = tokens.shape[0]
 
@@ -487,21 +488,27 @@ if _HAS_NUMBA:
         # The extra dim for time axis is for simplification of the code.
         trellis = np.empty((num_frame + 1, num_tokens + 1), dtype=np.float32)
         trellis[0, 0] = 0.0
-        trellis[1:, 0] = np.cumsum(emission[:, blank_id])
+        prefix_scores = emission[:, blank_id]
+        if separator_id >= 0:
+            prefix_scores = np.maximum(prefix_scores, emission[:, separator_id])
+        trellis[1:, 0] = np.cumsum(prefix_scores)
         trellis[0, -num_tokens:] = -np.inf
         trellis[-num_tokens:, 0] = np.inf
 
         for t in range(num_frame):
             for j in range(1, num_tokens + 1):
                 # Score for staying at the same token
-                stay = trellis[t, j] + emission[t, blank_id]
+                stay_emission = emission[t, blank_id]
+                if tokens[j - 1] == separator_id:
+                    stay_emission = max(stay_emission, emission[t, separator_id])
+                stay = trellis[t, j] + stay_emission
                 # Score for changing to the next token
                 change = trellis[t, j - 1] + emission[t, tokens[j - 1]]
                 trellis[t + 1, j] = stay if stay > change else change
         return trellis
 
     @_safe_njit()
-    def _backtrack_core(trellis, emission, tokens, blank_id):
+    def _backtrack_core(trellis, emission, tokens, blank_id, separator_id):
         # Note:
         # j and t are indices for trellis, which has extra dimensions
         # for time and tokens at the beginning.
@@ -521,15 +528,17 @@ if _HAS_NUMBA:
         while t > 0:
             # 1. Figure out if the current position was stay or change
             # Score for token staying the same from time frame J-1 to T.
-            stayed = trellis[t - 1, j] + emission[t - 1, blank_id]
+            stay_emission = emission[t - 1, blank_id]
+            if tokens[j - 1] == separator_id:
+                stay_emission = max(stay_emission, emission[t - 1, separator_id])
+            stayed = trellis[t - 1, j] + stay_emission
             # Score for token changing from C-1 at T-1 to J at T.
             changed = trellis[t - 1, j - 1] + emission[t - 1, tokens[j - 1]]
             if changed > stayed:
-                lbl = tokens[j - 1]
+                prob = np.exp(emission[t - 1, tokens[j - 1]])
             else:
-                lbl = blank_id
+                prob = np.exp(stay_emission)
             # 2. Store the path with frame-wise probability.
-            prob = np.exp(emission[t - 1, lbl])
             # Return token index and time index in non-trellis coordinate.
             path_tok[n] = j - 1
             path_time[n] = t - 1
@@ -545,11 +554,14 @@ if _HAS_NUMBA:
         return path_tok[:n][::-1].copy(), path_time[:n][::-1].copy(), path_score[:n][::-1].copy(), ok
 
 
-def get_trellis(emission, tokens, blank_id=0):
+def get_trellis(emission, tokens, blank_id=0, *, separator_id=-1):
+    """Score alignment paths, allowing the word separator to span multiple frames."""
+    if separator_id >= 0 and separator_id not in tokens:
+        separator_id = -1
     if _HAS_NUMBA:
         emission_np = emission.detach().cpu().numpy().astype(np.float32)
         tokens_np = np.asarray(tokens, dtype=np.int64)
-        trellis_np = _get_trellis_core(emission_np, tokens_np, blank_id)
+        trellis_np = _get_trellis_core(emission_np, tokens_np, blank_id, separator_id)
         return torch.from_numpy(trellis_np)
 
     # Fallback: Native PyTorch (when Numba is not installed)
@@ -557,21 +569,35 @@ def get_trellis(emission, tokens, blank_id=0):
     num_tokens = len(tokens)
     trellis = torch.empty((num_frame + 1, num_tokens + 1))
     trellis[0, 0] = 0
-    trellis[1:, 0] = torch.cumsum(emission[:, blank_id], 0)
+    token_indices = torch.as_tensor(tokens, dtype=torch.long)
+    separator_positions = token_indices == separator_id
+    blank_scores = emission[:, blank_id]
+    separator_scores = blank_scores.maximum(emission[:, separator_id]) if separator_id >= 0 else None
+
+    # Let the prefix consume separators too. Otherwise a path can gain by
+    # matching the first word early just to reach the first separator.
+    prefix_scores = blank_scores if separator_scores is None else separator_scores
+    trellis[1:, 0] = torch.cumsum(prefix_scores, 0)
     trellis[0, -num_tokens:] = -float("inf")
     trellis[-num_tokens:, 0] = float("inf")
 
     for t in range(num_frame):
+        stay_emission = blank_scores[t]
+        if separator_scores is not None:
+            # Several separator frames can occur between words. Consume them at
+            # the boundary so the next word does not have to start in the gap.
+            stay_emission = torch.where(separator_positions, separator_scores[t], stay_emission)
         trellis[t + 1, 1:] = torch.maximum(
             # Score for staying at the same token
-            trellis[t, 1:] + emission[t, blank_id],
+            trellis[t, 1:] + stay_emission,
             # Score for changing to the next token
-            trellis[t, :-1] + emission[t, tokens],
+            trellis[t, :-1] + emission[t, token_indices],
         )
     return trellis
 
 
-def backtrack(trellis, emission, tokens, blank_id=0):
+def backtrack(trellis, emission, tokens, blank_id=0, *, separator_id=-1):
+    """Recover the best path using the same separator scores as the trellis."""
     if _HAS_NUMBA:
         trellis_np = trellis.numpy() if torch.is_tensor(trellis) else trellis
         emission_np = (
@@ -581,7 +607,7 @@ def backtrack(trellis, emission, tokens, blank_id=0):
         )
         tokens_np = np.asarray(tokens, dtype=np.int64)
         path_tok, path_time, path_score, ok = _backtrack_core(
-            trellis_np, emission_np, tokens_np, blank_id
+            trellis_np, emission_np, tokens_np, blank_id, separator_id
         )
         if not ok:
             return None
@@ -593,9 +619,14 @@ def backtrack(trellis, emission, tokens, blank_id=0):
 
     path = []
     for t in range(t_start, 0, -1):
-        stayed = trellis[t - 1, j] + emission[t - 1, blank_id]
-        changed = trellis[t - 1, j - 1] + emission[t - 1, tokens[j - 1]]
-        prob = emission[t - 1, tokens[j - 1] if changed > stayed else blank_id].exp().item()
+        token = tokens[j - 1]
+        stay_emission = emission[t - 1, blank_id]
+        if token == separator_id:
+            stay_emission = stay_emission.maximum(emission[t - 1, token])
+        change_emission = emission[t - 1, token]
+        stayed = trellis[t - 1, j] + stay_emission
+        changed = trellis[t - 1, j - 1] + change_emission
+        prob = (change_emission if changed > stayed else stay_emission).exp().item()
         path.append(Point(j - 1, t - 1, prob))
         if changed > stayed:
             j -= 1

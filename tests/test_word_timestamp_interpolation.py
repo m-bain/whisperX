@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from unittest.mock import MagicMock
 
@@ -137,6 +138,76 @@ class TestAlignWithWildcards:
             assert starts[i] >= starts[i - 1], (
                 f"Timestamps not ordered: {starts}"
             )
+
+    def test_separator_frames_do_not_start_repeated_word_early(self):
+        dictionary = {**self.DICTIONARY, "y": len(self.DICTIONARY)}
+        frames = ["<pad>", "h", "e", "y", "|", "|", "|", "<pad>", "h", "e", "y", "<pad>"]
+        emission = torch.full((len(frames), len(dictionary)), -6.0)
+        for index, token in enumerate(frames):
+            emission[index, dictionary[token]] = 6.0
+        # The last separator frame has a weak H score, while the real H
+        # shares its frame with a high blank score.
+        emission[6, dictionary["h"]] = 3.0
+        emission[8, dictionary["<pad>"]] = 5.9
+        model = _make_mock_model(emission, dictionary)
+        duration = 1.2
+
+        words = align(
+            transcript=[{"text": "Hey! Hey", "start": 0.0, "end": duration}],
+            model=model,
+            align_model_metadata={**self.METADATA, "dictionary": dictionary},
+            audio=torch.zeros(int(duration * 16000)),
+            device="cpu",
+        )["word_segments"]
+
+        assert [word["word"] for word in words] == ["Hey!", "Hey"]
+        assert words[1]["start"] == 0.8
+
+    @pytest.mark.parametrize(("previous_word", "first_word_blank_score"), [("c", 4.0), ("a", 0.0)])
+    def test_separator_frames_do_not_pull_start_into_previous_segment(
+        self, previous_word, first_word_blank_score
+    ):
+        dictionary = self.DICTIONARY
+        blank = dictionary["<pad>"]
+        preceding_frames = ["<pad>", "<pad>", previous_word, previous_word, "c", "<pad>"]
+        preceding_emission = torch.full((len(preceding_frames), len(dictionary)), -6.0)
+        for index, token in enumerate(preceding_frames):
+            preceding_emission[index, dictionary[token]] = 6.0
+
+        # The second window contains the previous utterance and its trailing
+        # separator frames. Those frames can be skipped before the first token.
+        frames = [
+            "<pad>", previous_word, previous_word, "|", "|", "|", "<pad>",
+            "a", "c", "|", "|", "<pad>", "b", "<pad>", "<pad>",
+        ]
+        emission = torch.full((len(frames), len(dictionary)), -6.0)
+        for index, token in enumerate(frames):
+            emission[index, dictionary[token]] = 6.0
+        emission[1, dictionary["a"]] = 5.0 if previous_word == "c" else 6.0
+        emission[1, blank] = 5.0
+        emission[[2, 8], blank] = 5.5
+        emission[3:6, dictionary["|"]] = 4.0
+        emission[3:6, blank] = 3.0
+        emission[7, blank] = first_word_blank_score
+        emission[9:11, blank] = 3.0
+        model = MagicMock(side_effect=[
+            (preceding_emission.unsqueeze(0), None),
+            (emission.unsqueeze(0), None),
+        ])
+
+        words = align(
+            transcript=[
+                {"text": previous_word, "start": 0.0, "end": 0.6},
+                {"text": "a! b", "start": 0.1, "end": 1.6},
+            ],
+            model=model,
+            align_model_metadata=self.METADATA,
+            audio=torch.zeros(int(1.6 * 16000)),
+            device="cpu",
+        )["word_segments"]
+
+        assert [word["word"] for word in words] == [previous_word, "a!", "b"]
+        assert [word["start"] for word in words] == [0.2, 0.8, 1.3]
 
     def test_issue_1372_digits_comma_no_timestamps(self):
         """Regression: '4,9' (digits+comma) must get timestamps.
